@@ -12,6 +12,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@components/ui/HoverCard";
+import { VoteDisplay } from "@components/ui/VoteDisplay";
 
 import { proposalSchema } from "@config/schema";
 import { states } from "@data/table/data";
@@ -119,6 +120,17 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: "votes",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Votes" />
+    ),
+    cell: ({ row }) => {
+      // @ts-ignore: votes may be undefined
+      const votes = row.original.votes || null;
+      return <VoteDisplay votes={votes as any} />;
     },
   },
   {

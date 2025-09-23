@@ -7,12 +7,12 @@ export function useFormattedProposals(
   networkId: string
 ): ParsedProposal[] {
   return useMemo(() => {
-    const formattedProposals = proposals.map((proposal) => ({
+    const formattedProposals = proposals.map((proposal: any) => ({
       id: proposal.id,
       contractAddress: proposal.contractAddress,
       proposer: proposal.proposer,
       targets: proposal.targets,
-      values: proposal.values.map((value) => value.toString()),
+      values: proposal.values.map((value: any) => value.toString()),
       signatures: proposal.signatures,
       calldatas: proposal.calldatas,
       startBlock: proposal.startBlock.toString(),
@@ -20,6 +20,7 @@ export function useFormattedProposals(
       description: proposal.description,
       networkId: networkId,
       state: (ProposalState[proposal.state] as string).toLowerCase(),
+      votes: proposal.votes, // Pass through votes
       /*       state:
         networkId === "10"
           ? (ProposalOptimismState[proposal.state] as string).toLowerCase()

@@ -93,29 +93,75 @@ export default function ContractForm({ form, progress }: ContractFormProps) {
         )}
       />
 
+      <FormField
+        control={form.control}
+        name="networkId"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Network ID</FormLabel>
+            <FormControl>
+              <div className="relative flex items-center">
+                <Input
+                  placeholder="Eg 1, 3, 4, 5, 42, 1337, ..."
+                  autoComplete="off"
+                  {...field}
+                  className="pl-12"
+                  disabled={progress === 100 || progress > 0}
+                />
+                <div className="absolute left-0 flex items-center justify-center h-full px-3 text-black bg-gray-200/45 hover:text-violet-500 hover:bg-gray-200 rounded-l-md transition-colors duration-200 ease-in-out">
+                  <Icons.link className="w-5 h-auto" />
+                </div>
+              </div>
+            </FormControl>
+            <FormDescription>
+              The network ID of the contract you want to explore.
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="daysToSearch"
+        render={({ field }) => (
+          <FormItem className="py-4">
+            <FormLabel>Days to Search</FormLabel>
+            <FormControl>
+              <Input
+                type="number"
+                placeholder="30"
+                autoComplete="off"
+                disabled={progress === 100 || progress > 0}
+                {...field}
+                onChange={(e) => field.onChange(parseInt(e.target.value) || 30)}
+              />
+            </FormControl>
+            <FormDescription>
+              Number of days to search for proposals (default: 30)
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
       <div className="lg:grid lg:grid-cols-8 gap-4">
         <FormField
           control={form.control}
-          name="networkId"
+          name="rpcUrl"
           render={({ field }) => (
             <FormItem className="col-span-5">
-              <FormLabel>Network ID</FormLabel>
+              <FormLabel>Custom RPC URL (Optional)</FormLabel>
               <FormControl>
-                <div className="relative flex items-center">
-                  <Input
-                    placeholder="Eg 1, 3, 4, 5, 42, 1337, ..."
-                    autoComplete="off"
-                    {...field}
-                    className="pl-12"
-                    disabled={progress === 100 || progress > 0}
-                  />
-                  <div className="absolute left-0 flex items-center justify-center h-full px-3 text-black bg-gray-200/45 hover:text-violet-500 hover:bg-gray-200 rounded-l-md transition-colors duration-200 ease-in-out">
-                    <Icons.link className="w-5 h-auto" />
-                  </div>
-                </div>
+                <Input
+                  placeholder="https://arb1.arbitrum.io/rpc"
+                  autoComplete="off"
+                  disabled={progress === 100 || progress > 0}
+                  {...field}
+                />
               </FormControl>
               <FormDescription>
-                The network ID of the contract you want to explore.
+                Override the default RPC endpoint
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -124,20 +170,24 @@ export default function ContractForm({ form, progress }: ContractFormProps) {
 
         <FormField
           control={form.control}
-          name="deploymentBlock"
+          name="blockRange"
           render={({ field }) => (
-            <FormItem className="col-span-3 py-4 lg:py-0">
-              <FormLabel>Deployment block</FormLabel>
+            <FormItem className="col-span-3">
+              <FormLabel>Block Range</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="Eg 12345678"
+                  type="number"
+                  placeholder="10000"
                   autoComplete="off"
                   disabled={progress === 100 || progress > 0}
                   {...field}
+                  onChange={(e) =>
+                    field.onChange(parseInt(e.target.value) || 10000)
+                  }
                 />
               </FormControl>
               <FormDescription>
-                Hint: This is optional, but can speed up the search.
+                Blocks per query (default: 10000)
               </FormDescription>
               <FormMessage />
             </FormItem>

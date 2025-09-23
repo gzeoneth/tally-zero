@@ -18,6 +18,10 @@ export function useParseProposals(
     if (!enabled || !contractAddress) return;
 
     const parseProposals = async () => {
+      // console.log(
+      //   `[ParseProposals] Provider:`,
+      //   provider.connection?.url || "wagmi provider"
+      // );
       const governorContract = new ethers.Contract(
         contractAddress,
         OzGovernor_ABI,
@@ -26,7 +30,18 @@ export function useParseProposals(
 
       const proposalPromises = proposals.map(async (proposal) => {
         try {
-          const proposalState = await governorContract.state(proposal.id);
+          // Debug log
+          console.log(
+            `[ParseProposals] Processing proposal ${proposal.id.slice(0, 10)}...`
+          );
+
+          // Fetch state and votes in parallel
+          const [proposalState, votes, quorum] = await Promise.all([
+            governorContract.state(proposal.id),
+            governorContract.proposalVotes(proposal.id),
+            governorContract.quorum(proposal.startBlock),
+          ]);
+
           return {
             ...proposal,
             values:
@@ -37,10 +52,19 @@ export function useParseProposals(
             endBlock: proposal.endBlock.toString(),
             state: proposalState,
             contractAddress: contractAddress,
+            votes:
+              votes && votes.againstVotes !== undefined
+                ? {
+                    againstVotes: votes.againstVotes.toString(),
+                    forVotes: votes.forVotes.toString(),
+                    abstainVotes: votes.abstainVotes.toString(),
+                    quorum: quorum ? quorum.toString() : undefined,
+                  }
+                : undefined,
           };
         } catch (error) {
           console.error(
-            `Error fetching state for proposal ID ${proposal.id}:`,
+            `Error fetching data for proposal ID ${proposal.id}:`,
             error
           );
           return null;

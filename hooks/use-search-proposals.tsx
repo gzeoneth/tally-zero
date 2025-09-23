@@ -1,19 +1,46 @@
 import { Contract, ethers } from "ethers";
 import { useEffect, useState } from "react";
 
-import { Proposal, UseSearchProposals } from "@/types/proposal";
+import { Proposal } from "@/types/proposal";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
-import { CLUSTER_SIZE } from "../lib/utils";
+import { batchQueryWithRateLimit } from "../lib/rpc-utils";
 
-export const useSearchProposals: UseSearchProposals = (
+// Block times for different chains (in seconds)
+const BLOCK_TIMES: Record<number, number> = {
+  1: 12, // Ethereum
+  10: 2, // Optimism
+  137: 2, // Polygon
+  42161: 0.25, // Arbitrum
+  43114: 2, // Avalanche
+  // Add more chains as needed
+};
+
+const getBlocksPerDay = (chainId: number): number => {
+  const blockTime = BLOCK_TIMES[chainId] || 12; // Default to Ethereum block time
+  return Math.floor(86400 / blockTime);
+};
+
+export interface UseSearchProposalsOptions {
+  provider: ethers.providers.Provider | undefined;
+  contractAddress: string | undefined;
+  blockRange: number;
+  enabled: boolean;
+  daysToSearch?: number;
+  parallelQueries?: number;
+}
+
+export const useSearchProposals = ({
   provider,
   contractAddress,
   blockRange,
-  startingBlock,
-  enabled
-) => {
+  enabled,
+  daysToSearch = 30,
+  parallelQueries = 3,
+}: UseSearchProposalsOptions) => {
   const [searchProgress, setSearchProgress] = useState(0);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [error, setError] = useState<Error | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   const cancelSearch = () => {
     setSearchProgress(0);
@@ -21,19 +48,45 @@ export const useSearchProposals: UseSearchProposals = (
   };
 
   useEffect(() => {
-    if (!enabled || !provider || !contractAddress || !startingBlock) return;
+    if (!enabled || !provider || !contractAddress) return;
 
     const contract = new Contract(contractAddress, OZGovernor_ABI, provider);
 
+    let cancelled = false;
+
     const fetchProposals = async () => {
       try {
-        let proposals: Proposal[] = [];
+        setIsSearching(true);
+        setError(null);
+
         const currentBlock = await provider.getBlockNumber();
-        const proposalCreatedFilter = contract.filters.ProposalCreated();
-        const startBlock = Math.max(
-          startingBlock - blockRange * CLUSTER_SIZE,
-          0
+        const network = await provider.getNetwork();
+        const chainId = network.chainId;
+
+        // Calculate blocks to search based on days
+        const blocksPerDay = getBlocksPerDay(chainId);
+        const blocksToSearch = blocksPerDay * daysToSearch;
+
+        // Calculate start block based on time range
+        const startBlock = Math.max(currentBlock - blocksToSearch, 0);
+
+        // console.log(`[SearchProposals] Provider:`, provider.connection?.url || 'wagmi provider');
+        console.log(
+          `[SearchProposals] Searching from block ${startBlock} to ${currentBlock}`
         );
+        console.log(
+          `[SearchProposals] Time range: last ${daysToSearch} days (${blocksToSearch} blocks)`
+        );
+        console.log(
+          `[SearchProposals] Chain ID: ${chainId}, Blocks per day: ${blocksPerDay}`
+        );
+
+        const proposalCreatedFilter = contract.filters.ProposalCreated();
+
+        // Prepare queries
+        const queries: (() => Promise<ethers.Event[]>)[] = [];
+        let totalBlocks = currentBlock - startBlock;
+        let processedBlocks = 0;
 
         for (
           let fromBlock = startBlock;
@@ -41,23 +94,56 @@ export const useSearchProposals: UseSearchProposals = (
           fromBlock += blockRange
         ) {
           const toBlock = Math.min(fromBlock + blockRange - 1, currentBlock);
+          const queryFromBlock = fromBlock;
+          const queryToBlock = toBlock;
 
-          setSearchProgress(
-            ((fromBlock - startBlock) / (currentBlock - startBlock)) * 100
-          );
+          queries.push(async () => {
+            try {
+              const events = await contract.queryFilter(
+                proposalCreatedFilter,
+                queryFromBlock,
+                queryToBlock
+              );
 
-          let events: Array<ethers.Event> = [];
-          try {
-            events = await contract.queryFilter(
-              proposalCreatedFilter,
-              fromBlock,
-              toBlock
-            );
-          } catch (error) {
-            events = [];
-            console.warn("Error parsing proposals:", error);
-          }
+              // Update progress
+              if (!cancelled) {
+                processedBlocks += queryToBlock - queryFromBlock;
+                const progress = Math.min(
+                  (processedBlocks / totalBlocks) * 100,
+                  100
+                );
+                setSearchProgress(progress);
+              }
 
+              return events;
+            } catch (error) {
+              console.error(
+                `Error querying blocks ${queryFromBlock}-${queryToBlock}:`,
+                error
+              );
+              // Return empty array on error to continue processing other blocks
+              return [];
+            }
+          });
+        }
+
+        console.log(
+          `Prepared ${queries.length} queries, processing with ${parallelQueries} parallel connections`
+        );
+
+        // Execute queries with rate limiting
+        const allEvents = await batchQueryWithRateLimit(
+          queries,
+          parallelQueries,
+          1000 // 1 second delay between batches
+        );
+
+        if (cancelled) return;
+
+        // Process all events
+        const allProposals: Proposal[] = [];
+
+        for (const events of allEvents) {
           const newProposals = events.map((event) => {
             const {
               proposalId,
@@ -84,23 +170,41 @@ export const useSearchProposals: UseSearchProposals = (
               endBlock: endBlock.toString(),
               description,
               state: 0,
-            };
+            } as Proposal;
           });
-          if (newProposals.length > 0) {
-            proposals = [...proposals, ...newProposals];
-          }
+
+          allProposals.push(...newProposals);
         }
 
-        setProposals(proposals);
-        setSearchProgress(100);
-        return cancelSearch;
+        console.log(`Found ${allProposals.length} proposals`);
+
+        if (!cancelled) {
+          setProposals(allProposals);
+          setSearchProgress(100);
+          setIsSearching(false);
+        }
       } catch (error) {
-        console.warn("Error fetching proposals:", error);
+        console.error("Error fetching proposals:", error);
+        if (!cancelled) {
+          setError(error as Error);
+          setIsSearching(false);
+        }
       }
     };
 
-    fetchProposals().catch(console.warn);
-  }, [provider, contractAddress, startingBlock, enabled, blockRange]);
+    fetchProposals();
 
-  return { proposals, searchProgress };
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    provider,
+    contractAddress,
+    enabled,
+    blockRange,
+    daysToSearch,
+    parallelQueries,
+  ]);
+
+  return { proposals, searchProgress, error, isSearching };
 };

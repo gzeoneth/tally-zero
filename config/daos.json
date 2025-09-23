@@ -13,7 +13,7 @@
       "0x32e197aad52d672c1b0fc15460645bc8ef0b80d3",
       "0x8765c7171c9d367326f431810cdd755fd8fbc7e0"
     ],
-    "maxBlockRange": 100000
+    "maxBlockRange": 1000000
   },
   {
     "name": "Optimism",

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { useProvider } from "wagmi";
 
 import { useFormattedProposals } from "@/hooks/use-formatted-proposals";
-import { useDeploymentBlock } from "@hooks/use-deployment-block";
 import { useParseProposals } from "@hooks/use-parse-proposals";
 import { useSearchProposals } from "@hooks/use-search-proposals";
 
@@ -23,26 +22,54 @@ export function useGovernorContract({
 }) {
   const [overallProgress, setOverallProgress] = useState(0);
 
-  // reset provider when networkId changes
-  const provider = useProvider({
+  // Use custom RPC if provided, otherwise use wagmi provider
+  const wagmiProvider = useProvider({
     chainId: parseInt(values.networkId?.toString() as string),
   });
 
+  const [provider, setProvider] = useState<ethers.providers.Provider | undefined>();
+  const [providerReady, setProviderReady] = useState(false);
+
+  useEffect(() => {
+    const initProvider = async () => {
+      setProviderReady(false);
+      setProvider(undefined); // Clear provider while initializing
+      
+      if (values.rpcUrl && values.rpcUrl.trim()) {
+        try {
+          console.log("Using custom RPC provider:", values.rpcUrl);
+          const jsonRpcProvider = new ethers.providers.JsonRpcProvider(values.rpcUrl);
+          // Wait for provider to be ready
+          await jsonRpcProvider.ready;
+          // Test the provider with a simple call
+          await jsonRpcProvider.getBlockNumber();
+          setProvider(jsonRpcProvider);
+          setProviderReady(true);
+          console.log("Custom RPC provider ready");
+        } catch (error) {
+          console.error("Failed to create custom provider:", error);
+          // Fall back to wagmi provider
+          console.log("Falling back to wagmi provider");
+          setProvider(wagmiProvider);
+          setProviderReady(true);
+        }
+      } else {
+        console.log("Using wagmi provider for chain:", values.networkId);
+        setProvider(wagmiProvider);
+        setProviderReady(true);
+      }
+    };
+
+    initProvider();
+  }, [values.rpcUrl, values.networkId, wagmiProvider]);
+
   const dao = selectDAOByGovernorAddress(values.contractAddress);
 
-  // Search for the Deployment block of Governor
-  const { blockNumber, success, currentSearchBlock, deploymentProgress } =
-    useDeploymentBlock(
-      provider,
-      values.contractAddress,
-      values.deploymentBlock || 0
-    );
-
-  // When governor is found, create a contract instance and set it to state
+  // Create governor contract instance when provider is ready
   const governorContractRef = useRef(state.governor.contract);
 
   useEffect(() => {
-    if (!governorContractRef.current && success && blockNumber) {
+    if (!governorContractRef.current && providerReady && provider && values.contractAddress) {
       const governorContract = new ethers.Contract(
         values.contractAddress?.toString() as string,
         GovernorABI,
@@ -53,26 +80,18 @@ export function useGovernorContract({
 
       setState((prevState) => ({
         ...prevState,
-        system: {
-          ...prevState.system,
-          currentDeployBlock: currentSearchBlock
-            ? currentSearchBlock
-            : undefined,
-        },
+        system: {},
         governor: {
           ...prevState.governor,
           contract: governorContract,
-          deploymentBlock: blockNumber,
           name: undefined,
         },
       }));
     }
   }, [
     provider,
+    providerReady,
     values.contractAddress,
-    success,
-    blockNumber,
-    currentSearchBlock,
     state.governor.contract,
     values.state?.governor.contract,
     setState,
@@ -83,24 +102,28 @@ export function useGovernorContract({
     governorContractRef.current = state.governor.contract;
   }, [state.governor.contract]);
 
-  // When governor contract is found, find Proposals
-  const blockRange = getBlockRange(dao) as number;
-  const { proposals, searchProgress } = useSearchProposals(
-    provider,
-    values.contractAddress,
+  // When governor contract is ready, find Proposals
+  // Use custom block range if provided, otherwise use DAO config or default
+  const defaultBlockRange = getBlockRange(dao) as number;
+  const blockRange = values.blockRange || defaultBlockRange || 10000;
+  
+  const shouldSearch = providerReady && !!provider && !!state.governor.contract;
+  const { proposals, searchProgress, error, isSearching } = useSearchProposals({
+    provider: provider!,  // We know provider exists when shouldSearch is true
+    contractAddress: values.contractAddress,
     blockRange,
-    values.deploymentBlock === 0 && state.governor.deploymentBlock != null
-      ? state.governor.deploymentBlock
-      : values.deploymentBlock ?? null,
-    true
-  );
+    daysToSearch: values.daysToSearch || 30, // Default to 30 days
+    parallelQueries: 3, // Use 3 parallel queries for better performance
+    enabled: shouldSearch,
+  });
 
   // When Proposals, parse them into a more readable format
+  const shouldParse = providerReady && proposals.length > 0 && !!provider;
   const parsedProposals = useParseProposals(
-    provider,
+    provider!,  // We know provider exists when shouldParse is true
     values.contractAddress,
     proposals,
-    true
+    shouldParse
   );
   const formattedProposals = useFormattedProposals(
     parsedProposals,
@@ -108,12 +131,13 @@ export function useGovernorContract({
   );
 
   useEffect(() => {
-    const combinedProgress = deploymentProgress * 0.2 + searchProgress * 0.8;
-    setOverallProgress(combinedProgress);
-  }, [deploymentProgress, searchProgress]);
+    setOverallProgress(searchProgress);
+  }, [searchProgress]);
 
   return {
     overallProgress,
     formattedProposals,
+    searchError: error,
+    isSearching,
   };
 }

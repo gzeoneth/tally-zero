@@ -23,6 +23,15 @@ export type UseSearchProposals = (
 ) => {
   proposals: Proposal[];
   searchProgress: number;
+  error?: Error | null;
+  isSearching?: boolean;
+};
+
+export type ProposalVotes = {
+  againstVotes: string;
+  forVotes: string;
+  abstainVotes: string;
+  quorum: string;
 };
 
 export type ParsedProposal = {
@@ -38,6 +47,7 @@ export type ParsedProposal = {
   description: string;
   networkId: string;
   state: ProposalState | undefined;
+  votes?: ProposalVotes;
 };
 
 export type UseTotalProposalsReturn = {
