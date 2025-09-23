@@ -50,7 +50,7 @@ export default function Search() {
       networkId: "42161", // Arbitrum One
       daysToSearch: 60, // Default to 60 days
       rpcUrl: "https://arb1.arbitrum.io/rpc", // Default RPC URL
-      blockRange: 1000000, // Default block range per query
+      blockRange: 10000000, // Default block range per query
     },
   });
 

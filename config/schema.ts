@@ -8,7 +8,7 @@ export const formSchema = z.object({
   networkId: z.string(),
   daysToSearch: z.number().min(1).optional().default(30),
   rpcUrl: z.string().url().optional(),
-  blockRange: z.number().min(100).optional().default(1000000),
+  blockRange: z.number().min(100).optional().default(10000000),
 });
 
 export const voteSchema = z.object({
