@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import * as z from "zod";
 
 import { Form } from "@/components/ui/Form";
@@ -23,6 +24,10 @@ export default function Search() {
   const [formContractParams, setFormContractParams] = useState<ContractParams>(
     {}
   );
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const hasSubmittedRef = useRef(false);
+  const [providerReady, setProviderReady] = useState(false);
 
   useEffect(() => {
     if (formContractParams.contractAddress && formContractParams.networkId) {
@@ -36,26 +41,80 @@ export default function Search() {
     }
   }, [formContractParams, setState]);
 
-  const { overallProgress, formattedProposals, searchError, isSearching } =
-    useGovernorContract({
-      values: formContractParams,
-      state,
-      setState,
-    });
+  const {
+    overallProgress,
+    formattedProposals,
+    searchError,
+    isSearching,
+    isProviderReady,
+  } = useGovernorContract({
+    values: formContractParams,
+    state,
+    setState,
+  });
+
+  useEffect(() => {
+    setProviderReady(isProviderReady);
+  }, [isProviderReady]);
+
+  // Parse query params
+  const getDefaultValues = () => {
+    const address =
+      searchParams.get("address") ||
+      "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9";
+    const networkId = searchParams.get("networkId") || "42161";
+    const daysToSearch = parseInt(searchParams.get("days") || "60");
+    const rpcUrl = searchParams.get("rpc") || "https://arb1.arbitrum.io/rpc";
+    const blockRange = parseInt(searchParams.get("blockRange") || "10000000");
+    const autoRun = searchParams.get("autoRun") === "true";
+
+    return {
+      address,
+      networkId,
+      daysToSearch,
+      rpcUrl,
+      blockRange,
+      autoRun,
+    };
+  };
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      address: "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9", // Arbitrum Core Governor
-      networkId: "42161", // Arbitrum One
-      daysToSearch: 60, // Default to 60 days
-      rpcUrl: "https://arb1.arbitrum.io/rpc", // Default RPC URL
-      blockRange: 10000000, // Default block range per query
-    },
+    defaultValues: getDefaultValues(),
   });
+
+  // Update URL when form values change
+  const updateURL = (values: z.infer<typeof formSchema>) => {
+    const params = new URLSearchParams();
+    params.set("address", values.address);
+    params.set("networkId", values.networkId);
+    params.set("days", values.daysToSearch?.toString() || "30");
+    if (values.rpcUrl) params.set("rpc", values.rpcUrl);
+    params.set("blockRange", values.blockRange?.toString() || "10000");
+    params.set("autoRun", values.autoRun?.toString() || "false");
+
+    router.replace(`?${params.toString()}`);
+  };
+
+  // Handle auto-run
+  useEffect(() => {
+    const autoRun = form.getValues("autoRun");
+    if (
+      autoRun &&
+      providerReady &&
+      !hasSubmittedRef.current &&
+      !isSearching &&
+      overallProgress === 0
+    ) {
+      hasSubmittedRef.current = true;
+      form.handleSubmit(onSubmit)();
+    }
+  }, [providerReady, form, isSearching, overallProgress]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     setState(initialState);
+    updateURL(values);
+    hasSubmittedRef.current = true;
 
     setFormContractParams({
       contractAddress: `0x${values.address.slice(2)}`,
@@ -72,7 +131,11 @@ export default function Search() {
         onSubmit={form.handleSubmit(onSubmit)}
         className="flex flex-col space-y-4"
       >
-        <ContractCard form={form} progress={overallProgress} />
+        <ContractCard
+          form={form}
+          progress={overallProgress}
+          providerReady={providerReady}
+        />
 
         <section id="proposals-table">
           {overallProgress > 0 && overallProgress < 100 && (

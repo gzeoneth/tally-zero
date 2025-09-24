@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/Form";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@components/ui/Button";
+import { Checkbox } from "@components/ui/Checkbox";
 
 import { DAO, formSchema } from "@config/schema";
 import { selectDAOByGovernorAddress } from "../../lib/dao";
@@ -25,9 +26,14 @@ import { selectDAOByGovernorAddress } from "../../lib/dao";
 interface ContractFormProps {
   form: UseFormReturn<z.infer<typeof formSchema>>;
   progress: number;
+  providerReady?: boolean;
 }
 
-export default function ContractForm({ form, progress }: ContractFormProps) {
+export default function ContractForm({
+  form,
+  progress,
+  providerReady = false,
+}: ContractFormProps) {
   const [currDao, setCurrDao] = useState<DAO | undefined>();
 
   const addressWatched = form.watch("address");
@@ -195,6 +201,29 @@ export default function ContractForm({ form, progress }: ContractFormProps) {
         />
       </div>
 
+      <FormField
+        control={form.control}
+        name="autoRun"
+        render={({ field }) => (
+          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+            <FormControl>
+              <Checkbox
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                disabled={progress === 100 || progress > 0}
+              />
+            </FormControl>
+            <div className="space-y-1 leading-none">
+              <FormLabel>Auto-connect when provider is ready</FormLabel>
+              <FormDescription>
+                Automatically submit the form when the Web3 provider becomes
+                available
+              </FormDescription>
+            </div>
+          </FormItem>
+        )}
+      />
+
       {progress > 0 && progress !== 100 ? (
         <Button variant={"secondary"} disabled className="mt-6 w-full">
           <ReloadIcon className="animate-spin w-5 h-5" />
@@ -210,10 +239,12 @@ export default function ContractForm({ form, progress }: ContractFormProps) {
           <span className="ml-2">Search for another contract</span>
         </Button>
       ) : (
-        <Button type="submit" className="mt-6 w-full">
-          <Icons.search className="w-5 h-6" /> Connect to contract
+        <Button type="submit" className="mt-6 w-full" disabled={!providerReady}>
+          <Icons.search className="w-5 h-6" />
+          {providerReady ? "Connect to contract" : "Waiting for provider..."}
         </Button>
       )}
     </div>
   );
 }
+// trigger recompilation

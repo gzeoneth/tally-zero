@@ -7,8 +7,9 @@ export const formSchema = z.object({
   address: z.string().regex(ethAddressRegex, "Invalid Ethereum address"),
   networkId: z.string(),
   daysToSearch: z.number().min(1).optional().default(30),
-  rpcUrl: z.string().url().optional(),
+  rpcUrl: z.string().url().optional().or(z.literal("")),
   blockRange: z.number().min(100).optional().default(10000000),
+  autoRun: z.boolean().optional().default(false),
 });
 
 export const voteSchema = z.object({

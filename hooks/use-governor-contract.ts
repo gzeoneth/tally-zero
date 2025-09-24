@@ -27,18 +27,22 @@ export function useGovernorContract({
     chainId: parseInt(values.networkId?.toString() as string),
   });
 
-  const [provider, setProvider] = useState<ethers.providers.Provider | undefined>();
+  const [provider, setProvider] = useState<
+    ethers.providers.Provider | undefined
+  >();
   const [providerReady, setProviderReady] = useState(false);
 
   useEffect(() => {
     const initProvider = async () => {
       setProviderReady(false);
       setProvider(undefined); // Clear provider while initializing
-      
+
       if (values.rpcUrl && values.rpcUrl.trim()) {
         try {
           console.log("Using custom RPC provider:", values.rpcUrl);
-          const jsonRpcProvider = new ethers.providers.JsonRpcProvider(values.rpcUrl);
+          const jsonRpcProvider = new ethers.providers.JsonRpcProvider(
+            values.rpcUrl
+          );
           // Wait for provider to be ready
           await jsonRpcProvider.ready;
           // Test the provider with a simple call
@@ -69,7 +73,12 @@ export function useGovernorContract({
   const governorContractRef = useRef(state.governor.contract);
 
   useEffect(() => {
-    if (!governorContractRef.current && providerReady && provider && values.contractAddress) {
+    if (
+      !governorContractRef.current &&
+      providerReady &&
+      provider &&
+      values.contractAddress
+    ) {
       const governorContract = new ethers.Contract(
         values.contractAddress?.toString() as string,
         GovernorABI,
@@ -106,10 +115,10 @@ export function useGovernorContract({
   // Use custom block range if provided, otherwise use DAO config or default
   const defaultBlockRange = getBlockRange(dao) as number;
   const blockRange = values.blockRange || defaultBlockRange || 10000;
-  
+
   const shouldSearch = providerReady && !!provider && !!state.governor.contract;
   const { proposals, searchProgress, error, isSearching } = useSearchProposals({
-    provider: provider!,  // We know provider exists when shouldSearch is true
+    provider: provider!, // We know provider exists when shouldSearch is true
     contractAddress: values.contractAddress,
     blockRange,
     daysToSearch: values.daysToSearch || 30, // Default to 30 days
@@ -120,7 +129,7 @@ export function useGovernorContract({
   // When Proposals, parse them into a more readable format
   const shouldParse = providerReady && proposals.length > 0 && !!provider;
   const parsedProposals = useParseProposals(
-    provider!,  // We know provider exists when shouldParse is true
+    provider!, // We know provider exists when shouldParse is true
     values.contractAddress,
     proposals,
     shouldParse
@@ -139,5 +148,6 @@ export function useGovernorContract({
     formattedProposals,
     searchError: error,
     isSearching,
+    isProviderReady: providerReady,
   };
 }

@@ -14,9 +14,14 @@ import {
 interface ContractCardProps {
   form: UseFormReturn<z.infer<typeof formSchema>>;
   progress: number;
+  providerReady?: boolean;
 }
 
-export default function ContractCard({ form, progress }: ContractCardProps) {
+export default function ContractCard({
+  form,
+  progress,
+  providerReady,
+}: ContractCardProps) {
   return (
     <Card className="rounded-xl">
       <CardHeader>
@@ -32,7 +37,11 @@ export default function ContractCard({ form, progress }: ContractCardProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ContractForm form={form} progress={progress} />
+        <ContractForm
+          form={form}
+          progress={progress}
+          providerReady={providerReady}
+        />
       </CardContent>
     </Card>
   );
