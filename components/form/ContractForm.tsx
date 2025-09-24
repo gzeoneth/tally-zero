@@ -45,7 +45,7 @@ export default function ContractForm({
     if (dao && !form.getValues("networkId")) {
       form.setValue("networkId", String(dao.networkId));
     }
-  }, [addressWatched]);
+  }, [addressWatched, form]);
 
   return (
     <div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as z from "zod";
 
 import { Form } from "@/components/ui/Form";
@@ -84,7 +84,7 @@ export default function Search() {
   });
 
   // Update URL when form values change
-  const updateURL = (values: z.infer<typeof formSchema>) => {
+  const updateURL = useCallback((values: z.infer<typeof formSchema>) => {
     const params = new URLSearchParams();
     params.set("address", values.address);
     params.set("networkId", values.networkId);
@@ -94,7 +94,21 @@ export default function Search() {
     params.set("autoRun", values.autoRun?.toString() || "false");
 
     router.replace(`?${params.toString()}`);
-  };
+  }, [router]);
+
+  const onSubmit = useCallback((values: z.infer<typeof formSchema>) => {
+    setState(initialState);
+    updateURL(values);
+    hasSubmittedRef.current = true;
+
+    setFormContractParams({
+      contractAddress: `0x${values.address.slice(2)}`,
+      networkId: parseInt(values.networkId),
+      daysToSearch: values.daysToSearch || 30,
+      rpcUrl: values.rpcUrl || "",
+      blockRange: values.blockRange || 10000,
+    });
+  }, [setState, updateURL]);
 
   // Handle auto-run
   useEffect(() => {
@@ -109,21 +123,7 @@ export default function Search() {
       hasSubmittedRef.current = true;
       form.handleSubmit(onSubmit)();
     }
-  }, [providerReady, form, isSearching, overallProgress]);
-
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    setState(initialState);
-    updateURL(values);
-    hasSubmittedRef.current = true;
-
-    setFormContractParams({
-      contractAddress: `0x${values.address.slice(2)}`,
-      networkId: parseInt(values.networkId),
-      daysToSearch: values.daysToSearch || 30,
-      rpcUrl: values.rpcUrl || "",
-      blockRange: values.blockRange || 10000,
-    });
-  }
+  }, [providerReady, form, isSearching, overallProgress, onSubmit]);
 
   return (
     <Form {...form}>
