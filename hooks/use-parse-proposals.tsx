@@ -35,12 +35,25 @@ export function useParseProposals(
             `[ParseProposals] Processing proposal ${proposal.id.slice(0, 10)}...`
           );
 
-          // Fetch state and votes in parallel
-          const [proposalState, votes, quorum] = await Promise.all([
-            governorContract.state(proposal.id),
-            governorContract.proposalVotes(proposal.id),
-            governorContract.quorum(proposal.startBlock),
-          ]);
+          // Fetch state first
+          const proposalState = await governorContract.state(proposal.id);
+
+          // Fetch votes
+          const votes = await governorContract.proposalVotes(proposal.id);
+
+          // Only fetch quorum if proposal is not pending (state 0)
+          // For pending proposals, startBlock hasn't been reached yet and quorum() will revert
+          let quorum;
+          try {
+            if (proposalState !== 0) {
+              quorum = await governorContract.quorum(proposal.startBlock);
+            }
+          } catch (error) {
+            console.warn(
+              `Could not fetch quorum for proposal ${proposal.id.slice(0, 10)}:`,
+              error
+            );
+          }
 
           return {
             ...proposal,

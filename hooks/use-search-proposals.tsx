@@ -90,7 +90,7 @@ export const useSearchProposals = ({
 
         for (
           let fromBlock = startBlock;
-          fromBlock <= currentBlock - blockRange;
+          fromBlock <= currentBlock;
           fromBlock += blockRange
         ) {
           const toBlock = Math.min(fromBlock + blockRange - 1, currentBlock);
