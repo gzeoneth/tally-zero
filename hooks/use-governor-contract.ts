@@ -39,7 +39,6 @@ export function useGovernorContract({
 
       if (values.rpcUrl && values.rpcUrl.trim()) {
         try {
-          console.log("Using custom RPC provider:", values.rpcUrl);
           const jsonRpcProvider = new ethers.providers.JsonRpcProvider(
             values.rpcUrl
           );
@@ -49,16 +48,13 @@ export function useGovernorContract({
           await jsonRpcProvider.getBlockNumber();
           setProvider(jsonRpcProvider);
           setProviderReady(true);
-          console.log("Custom RPC provider ready");
         } catch (error) {
           console.error("Failed to create custom provider:", error);
           // Fall back to wagmi provider
-          console.log("Falling back to wagmi provider");
           setProvider(wagmiProvider);
           setProviderReady(true);
         }
       } else {
-        console.log("Using wagmi provider for chain:", values.networkId);
         setProvider(wagmiProvider);
         setProviderReady(true);
       }
