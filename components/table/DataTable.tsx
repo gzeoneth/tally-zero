@@ -47,6 +47,26 @@ export function DataTable<TData, TValue>({
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
+  // Show/hide columns based on screen size
+  React.useEffect(() => {
+    const handleResize = () => {
+      const isXLScreen = window.innerWidth >= 1280;
+      const isLargeScreen = window.innerWidth >= 1024;
+      const isMediumScreen = window.innerWidth >= 768;
+
+      setColumnVisibility((prev) => ({
+        ...prev,
+        proposer: isXLScreen,
+        votes: isLargeScreen,
+        governorName: isMediumScreen,
+      }));
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const table = useReactTable({
     data,
     columns,
@@ -70,9 +90,9 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-hidden">
       <DataTableToolbar table={table} />
-      <div className="rounded-2xl border bg-white dark:bg-zinc-950 dark:border-zinc-800">
+      <div className="rounded-2xl border bg-white dark:bg-zinc-950 dark:border-zinc-800 overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -115,7 +135,7 @@ export function DataTable<TData, TValue>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  Contract not currently deployed
+                  No proposals found
                 </TableCell>
               </TableRow>
             )}

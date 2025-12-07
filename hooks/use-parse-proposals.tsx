@@ -30,11 +30,6 @@ export function useParseProposals(
 
       const proposalPromises = proposals.map(async (proposal) => {
         try {
-          // Debug log
-          console.log(
-            `[ParseProposals] Processing proposal ${proposal.id.slice(0, 10)}...`
-          );
-
           // Fetch state first
           const proposalState = await governorContract.state(proposal.id);
 
@@ -48,11 +43,8 @@ export function useParseProposals(
             if (proposalState !== 0) {
               quorum = await governorContract.quorum(proposal.startBlock);
             }
-          } catch (error) {
-            console.warn(
-              `Could not fetch quorum for proposal ${proposal.id.slice(0, 10)}:`,
-              error
-            );
+          } catch {
+            // Quorum fetch can fail for some proposal states
           }
 
           return {

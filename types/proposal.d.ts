@@ -48,6 +48,7 @@ export type ParsedProposal = {
   networkId: string;
   state: ProposalState | undefined;
   votes?: ProposalVotes;
+  governorName?: string;
 };
 
 export type UseTotalProposalsReturn = {

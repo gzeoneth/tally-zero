@@ -25,15 +25,9 @@ export default function ContractCard({
   return (
     <Card className="rounded-xl">
       <CardHeader>
-        <CardTitle>
-          <div className="flex items-center justify-between">
-            <span>Search for a contract</span>
-          </div>
-        </CardTitle>
+        <CardTitle>Arbitrum Governance</CardTitle>
         <CardDescription>
-          Tally Zero is a simplified, open-source, zero-dependency governance
-          front end served via IPFS. Vote on Governor proposals directly onchain
-          without the possiblity of censorship or downtime.
+          Vote on Arbitrum DAO proposals directly onchain.
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -49,7 +49,7 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
       <DataTableColumnHeader column={column} title="Proposer" />
     ),
     cell: ({ row }) => (
-      <div className="flex space-x-2 min-w-[250px]">
+      <div className="flex space-x-2">
         <ProposerCell proposer={row.getValue("proposer")} />
       </div>
     ),
@@ -68,22 +68,28 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
     },
   },
   {
-    accessorKey: "blockRange",
+    accessorKey: "governorName",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Block Range" />
+      <DataTableColumnHeader column={column} title="Governor" />
     ),
-    cell: ({ row }) => {
+    cell: ({ row }: { row: Record<string, any> }) => {
+      const governorName = row.original.governorName || "Unknown";
+      const isCore = governorName.toLowerCase().includes("core");
       return (
-        <div className="flex space-x-2">
-          <span className="max-w-[250px] truncate font-mono">
-            {/*// @ts-ignore: startBlock and endBlock are always present */}
-            {"[" + row.original.startBlock + ", " + row.original.endBlock + "]"}
-          </span>
-        </div>
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-xs font-medium",
+            isCore
+              ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
+              : "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300"
+          )}
+        >
+          {isCore ? "Core" : "Treasury"}
+        </Badge>
       );
     },
   },
-
   {
     accessorKey: "state",
     header: ({ column }) => (
@@ -127,10 +133,8 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Votes" />
     ),
-    cell: ({ row }) => {
-      // @ts-ignore: votes may be undefined
-      const votes = row.original.votes || null;
-      return <VoteDisplay votes={votes as any} />;
+    cell: ({ row }: { row: Record<string, any> }) => {
+      return <VoteDisplay votes={row.original.votes} />;
     },
   },
   {

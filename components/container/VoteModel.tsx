@@ -1,4 +1,5 @@
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import { z } from "zod";
 
 import VoteForm from "@components/form/VoteForm";
@@ -30,10 +31,10 @@ export default function VoteModel({
 }) {
   if (isDesktop) {
     return (
-      <DialogContent className="sm:max-w-[700px] max-w-sm">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[800px] max-w-sm max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>
-            <div className="flex items-center justify-between pb-4">
+            <div className="flex items-center justify-between pb-2">
               <span>Proposal</span>
               <Badge
                 className={cn(
@@ -49,26 +50,32 @@ export default function VoteModel({
               </Badge>
             </div>
           </DialogTitle>
-          <DialogDescription className="max-h-[400px] max-w-[650px] overflow-x-auto overflow-y-auto text-left bg-slate-50 dark:bg-slate-900 rounded-lg">
-            <h3 className="text-sm font-semibold">Description</h3>
-            <div className="text-sm px-[2px] break-words">
-              <ReactMarkdown className="w-screen sm:w-full ">
-                {proposal.description}
-              </ReactMarkdown>
+          <DialogDescription asChild>
+            <div className="max-h-[50vh] overflow-y-auto text-left bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
+              <h3 className="text-sm font-semibold mb-2 text-foreground">
+                Description
+              </h3>
+              <div className="text-sm break-words prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-strong:text-foreground prose-ul:text-muted-foreground prose-ol:text-muted-foreground prose-li:text-muted-foreground">
+                <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                  {proposal.description}
+                </ReactMarkdown>
+              </div>
             </div>
           </DialogDescription>
         </DialogHeader>
-        <VoteForm proposal={proposal} />
+        <div className="flex-shrink-0 pt-4 border-t">
+          <VoteForm proposal={proposal} />
+        </div>
       </DialogContent>
     );
   }
 
   return (
     <>
-      <DrawerContent className="sm:max-w-[700px] px-2 py-4">
-        <DrawerHeader>
+      <DrawerContent className="sm:max-w-[700px] px-4 py-4 max-h-[85vh]">
+        <DrawerHeader className="flex-shrink-0">
           <DrawerTitle>
-            <div className="flex items-center justify-between py-4">
+            <div className="flex items-center justify-between py-2">
               <span>Proposal</span>
               <Badge
                 className={cn(
@@ -84,16 +91,22 @@ export default function VoteModel({
               </Badge>
             </div>
           </DrawerTitle>
-          <DrawerDescription className="max-h-[400px] overflow-y-auto text-left">
-            <h3 className="text-sm font-semibold">Description</h3>
-            <div className="text-sm px-[2px] break-words">
-              <ReactMarkdown className="w-screen sm:w-full">
-                {proposal.description}
-              </ReactMarkdown>
+          <DrawerDescription asChild>
+            <div className="max-h-[40vh] overflow-y-auto text-left bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
+              <h3 className="text-sm font-semibold mb-2 text-foreground">
+                Description
+              </h3>
+              <div className="text-sm break-words prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-strong:text-foreground">
+                <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                  {proposal.description}
+                </ReactMarkdown>
+              </div>
             </div>
           </DrawerDescription>
         </DrawerHeader>
-        <VoteForm proposal={proposal} />
+        <div className="flex-shrink-0 pt-4 border-t">
+          <VoteForm proposal={proposal} />
+        </div>
       </DrawerContent>
     </>
   );

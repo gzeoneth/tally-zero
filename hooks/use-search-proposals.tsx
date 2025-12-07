@@ -70,17 +70,6 @@ export const useSearchProposals = ({
         // Calculate start block based on time range
         const startBlock = Math.max(currentBlock - blocksToSearch, 0);
 
-        // console.log(`[SearchProposals] Provider:`, provider.connection?.url || 'wagmi provider');
-        console.log(
-          `[SearchProposals] Searching from block ${startBlock} to ${currentBlock}`
-        );
-        console.log(
-          `[SearchProposals] Time range: last ${daysToSearch} days (${blocksToSearch} blocks)`
-        );
-        console.log(
-          `[SearchProposals] Chain ID: ${chainId}, Blocks per day: ${blocksPerDay}`
-        );
-
         const proposalCreatedFilter = contract.filters.ProposalCreated();
 
         // Prepare queries
@@ -127,10 +116,6 @@ export const useSearchProposals = ({
           });
         }
 
-        console.log(
-          `Prepared ${queries.length} queries, processing with ${parallelQueries} parallel connections`
-        );
-
         // Execute queries with rate limiting
         const allEvents = await batchQueryWithRateLimit(
           queries,
@@ -175,8 +160,6 @@ export const useSearchProposals = ({
 
           allProposals.push(...newProposals);
         }
-
-        console.log(`Found ${allProposals.length} proposals`);
 
         if (!cancelled) {
           setProposals(allProposals);

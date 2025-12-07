@@ -55,8 +55,8 @@ export default function VoteForm({
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
       write?.();
-    } catch (error) {
-      console.log(error);
+    } catch {
+      // Vote submission error handled by wagmi
     }
   }
 
