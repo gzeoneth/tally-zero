@@ -388,6 +388,8 @@ export default function ProposalStages({
     stages,
     currentStageIndex,
     isLoading,
+    isQueued,
+    queuePosition,
     isComplete,
     error,
     result,
@@ -427,6 +429,22 @@ export default function ProposalStages({
           <ReloadIcon className="mr-2 h-4 w-4" />
           Retry
         </Button>
+      </div>
+    );
+  }
+
+  if (isQueued) {
+    return (
+      <div className="p-4 text-center">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <ReloadIcon className="h-4 w-4 text-yellow-500 animate-spin" />
+          <span className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+            Waiting in queue (position #{queuePosition})
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Max 2 proposals tracked concurrently. Will start automatically.
+        </p>
       </div>
     );
   }

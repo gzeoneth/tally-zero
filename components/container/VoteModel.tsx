@@ -36,10 +36,12 @@ export default function VoteModel({
   proposal,
   stateValue,
   isDesktop,
+  defaultTab = "description",
 }: {
   proposal: z.infer<typeof proposalSchema>;
   stateValue: any;
   isDesktop: boolean;
+  defaultTab?: "description" | "stages" | "vote";
 }) {
   const showStagesTab = isArbitrumGovernor(proposal.contractAddress);
 
@@ -67,7 +69,7 @@ export default function VoteModel({
         </DialogHeader>
 
         <Tabs
-          defaultValue="description"
+          defaultValue={defaultTab}
           className="flex-1 flex flex-col min-h-0"
         >
           <TabsList className="flex-shrink-0 w-full justify-start">
@@ -161,7 +163,7 @@ export default function VoteModel({
           </DrawerTitle>
         </DrawerHeader>
 
-        <Tabs defaultValue="description" className="flex-1 flex flex-col">
+        <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col">
           <TabsList className="flex-shrink-0 w-full justify-start">
             <TabsTrigger value="description">Description</TabsTrigger>
             {showStagesTab && (

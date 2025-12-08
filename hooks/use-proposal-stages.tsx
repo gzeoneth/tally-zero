@@ -95,6 +95,8 @@ interface UseProposalStagesResult {
   stages: ProposalStage[];
   currentStageIndex: number;
   isLoading: boolean;
+  isQueued: boolean;
+  queuePosition: number | null;
   isComplete: boolean;
   error: string | null;
   result: ProposalTrackingResult | null;
@@ -131,6 +133,8 @@ export function useProposalStages({
   const [refreshingFromIndex, setRefreshingFromIndex] = useState<number | null>(
     null
   );
+  const [isQueued, setIsQueued] = useState(false);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
 
   const isMounted = useRef(true);
 
@@ -140,6 +144,8 @@ export function useProposalStages({
     setStages(session.stages);
     setCurrentStageIndex(session.currentStageIndex);
     setIsLoading(session.status === "loading");
+    setIsQueued(session.status === "queued");
+    setQueuePosition(session.queuePosition);
     setIsComplete(session.status === "complete");
     setError(session.error);
     setResult(session.result);
@@ -150,12 +156,6 @@ export function useProposalStages({
   const startTracking = useCallback(
     async (startFromStage?: number, existingStages?: ProposalStage[]) => {
       if (!proposalId || !creationTxHash || !governorAddress) return;
-
-      // Check if already tracking
-      if (trackerManager.isTracking(proposalId, governorAddress)) {
-        console.log("[useProposalStages] Already tracking, skipping start");
-        return;
-      }
 
       const abortController = new AbortController();
 
@@ -187,7 +187,7 @@ export function useProposalStages({
               effectiveL1RpcUrl
             );
 
-        const onProgress: StageProgressCallback = (stage, index, isLast) => {
+        const onProgress: StageProgressCallback = (stage, index, _isLast) => {
           if (abortController.signal.aborted) return;
 
           const session = trackerManager.getSession(
@@ -203,12 +203,6 @@ export function useProposalStages({
             stages: newStages,
             currentStageIndex: index,
           });
-
-          if (isLast) {
-            trackerManager.updateSession(proposalId, governorAddress, {
-              status: "complete",
-            });
-          }
         };
 
         const trackingResult = await tracker.trackProposal(
@@ -221,6 +215,8 @@ export function useProposalStages({
 
         if (abortController.signal.aborted) return;
 
+        trackerManager.trackingFinished(proposalId, governorAddress);
+
         trackerManager.updateSession(proposalId, governorAddress, {
           result: trackingResult,
           stages: trackingResult.stages,
@@ -232,6 +228,8 @@ export function useProposalStages({
         saveCachedResult(proposalId, governorAddress, trackingResult);
       } catch (err) {
         if (abortController.signal.aborted) return;
+        trackerManager.trackingFinished(proposalId, governorAddress);
+
         trackerManager.updateSession(proposalId, governorAddress, {
           error: err instanceof Error ? err.message : String(err),
           status: "error",
@@ -269,8 +267,11 @@ export function useProposalStages({
           status: "idle",
           result: null,
           error: null,
+          queuePosition: null,
         });
-        startTracking(0);
+        trackerManager.requestTracking(proposalId, governorAddress, () =>
+          startTracking(0)
+        );
       } else {
         // Truncate stages from the target index onward
         const truncatedStages = existingStages.slice(0, stageIndex);
@@ -280,8 +281,11 @@ export function useProposalStages({
           status: "idle",
           result: null,
           error: null,
+          queuePosition: null,
         });
-        startTracking(stageIndex, truncatedStages);
+        trackerManager.requestTracking(proposalId, governorAddress, () =>
+          startTracking(stageIndex, truncatedStages)
+        );
       }
     },
     [proposalId, governorAddress, startTracking]
@@ -313,8 +317,12 @@ export function useProposalStages({
 
     // Check if we need to start tracking
     const shouldStartTracking = () => {
-      // Already tracking or complete
-      if (session.status === "loading" || session.status === "complete") {
+      // Already tracking, queued, or complete
+      if (
+        session.status === "loading" ||
+        session.status === "queued" ||
+        session.status === "complete"
+      ) {
         console.log(
           `[useProposalStages] Session status is ${session.status}, not starting new tracking`
         );
@@ -339,8 +347,10 @@ export function useProposalStages({
 
     // Only start tracking if session is idle
     if (shouldStartTracking()) {
-      console.log("[useProposalStages] Starting new tracking session");
-      startTracking();
+      console.log("[useProposalStages] Requesting tracking session");
+      trackerManager.requestTracking(proposalId, governorAddress, () =>
+        startTracking()
+      );
     }
 
     return () => {
@@ -359,6 +369,8 @@ export function useProposalStages({
     stages,
     currentStageIndex,
     isLoading,
+    isQueued,
+    queuePosition,
     isComplete,
     error,
     result,

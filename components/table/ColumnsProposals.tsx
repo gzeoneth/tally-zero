@@ -12,6 +12,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@components/ui/HoverCard";
+import { LifecycleCell } from "@components/ui/LifecycleCell";
 import { VoteDisplay } from "@components/ui/VoteDisplay";
 
 import { proposalSchema } from "@config/schema";
@@ -126,6 +127,15 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
+    },
+  },
+  {
+    accessorKey: "lifecycle",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Lifecycle" />
+    ),
+    cell: ({ row }: { row: Record<string, any> }) => {
+      return <LifecycleCell proposal={row.original} />;
     },
   },
   {

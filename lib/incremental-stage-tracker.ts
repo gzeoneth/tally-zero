@@ -302,10 +302,39 @@ export class IncrementalStageTracker {
     }
 
     // Stage 2: Voting (index 1)
+    let votingStage: ProposalStage;
     if (startIndex <= 1) {
       console.log("[StageTracker] Tracking stage 1: VOTING_ACTIVE");
-      const votingStage = await this.trackVotingStage(ctx);
+      votingStage = await this.trackVotingStage(ctx);
       addStage(votingStage);
+    } else {
+      votingStage = stages.find((s) => s.type === "VOTING_ACTIVE")!;
+    }
+
+    if (votingStage && votingStage.status === "PENDING") {
+      console.log(
+        "[StageTracker] Proposal still in voting, stopping at voting stage"
+      );
+      return {
+        proposalId,
+        creationTxHash,
+        governorAddress: this.governorAddress,
+        stages,
+        currentState,
+      };
+    }
+
+    if (votingStage && votingStage.status === "FAILED") {
+      console.log(
+        "[StageTracker] Proposal voting failed, stopping at voting stage"
+      );
+      return {
+        proposalId,
+        creationTxHash,
+        governorAddress: this.governorAddress,
+        stages,
+        currentState,
+      };
     }
 
     // Stage 3: Proposal Queued (index 2)
