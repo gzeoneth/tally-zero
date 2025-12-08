@@ -155,6 +155,7 @@ export const useSearchProposals = ({
               endBlock: endBlock.toString(),
               description,
               state: 0,
+              creationTxHash: event.transactionHash,
             } as Proposal;
           });
 

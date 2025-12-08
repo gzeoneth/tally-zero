@@ -23,16 +23,18 @@ interface UseMultiGovernorSearchOptions {
   daysToSearch: number;
   enabled: boolean;
   customRpcUrl?: string;
+  blockRange?: number;
 }
 
 // Arbitrum produces ~345600 blocks per day (0.25s block time)
 const ARBITRUM_BLOCKS_PER_DAY = 345600;
-const BLOCK_RANGE = 10000000;
+const DEFAULT_BLOCK_RANGE = 10000000;
 
 async function searchGovernor(
   provider: ethers.providers.Provider,
   contractAddress: string,
   daysToSearch: number,
+  blockRange: number,
   onProgress: (progress: number) => void
 ): Promise<Proposal[]> {
   const contract = new ethers.Contract(
@@ -53,9 +55,9 @@ async function searchGovernor(
   for (
     let fromBlock = startBlock;
     fromBlock <= currentBlock;
-    fromBlock += BLOCK_RANGE
+    fromBlock += blockRange
   ) {
-    const toBlock = Math.min(fromBlock + BLOCK_RANGE - 1, currentBlock);
+    const toBlock = Math.min(fromBlock + blockRange - 1, currentBlock);
     const queryFromBlock = fromBlock;
     const queryToBlock = toBlock;
 
@@ -108,6 +110,7 @@ async function searchGovernor(
         endBlock: endBlock.toString(),
         description,
         state: 0,
+        creationTxHash: event.transactionHash,
       } as Proposal);
     }
   }
@@ -153,6 +156,7 @@ async function parseProposals(
         networkId: String(ARBITRUM_CHAIN_ID),
         state: (ProposalState[proposalState] as string)?.toLowerCase(),
         governorName: governor?.name || "Unknown",
+        creationTxHash: proposal.creationTxHash,
         votes: votes
           ? {
               againstVotes: votes.againstVotes.toString(),
@@ -174,6 +178,7 @@ export function useMultiGovernorSearch({
   daysToSearch,
   enabled,
   customRpcUrl,
+  blockRange = DEFAULT_BLOCK_RANGE,
 }: UseMultiGovernorSearchOptions) {
   const [progress, setProgress] = useState(0);
   const [proposals, setProposals] = useState<ParsedProposal[]>([]);
@@ -230,6 +235,7 @@ export function useMultiGovernorSearch({
             provider,
             governor.address,
             daysToSearch,
+            blockRange,
             (p) => {
               progressMap[governor.id] = p;
               updateCombinedProgress();
@@ -272,7 +278,7 @@ export function useMultiGovernorSearch({
     return () => {
       cancelled = true;
     };
-  }, [enabled, providerReady, daysToSearch, rpcUrl]);
+  }, [enabled, providerReady, daysToSearch, rpcUrl, blockRange]);
 
   return {
     proposals,

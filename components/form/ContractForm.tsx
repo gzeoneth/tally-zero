@@ -59,12 +59,12 @@ export default function ContractForm({
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="60"
+                    placeholder="120"
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
                     onChange={(e) =>
-                      field.onChange(parseInt(e.target.value) || 60)
+                      field.onChange(parseInt(e.target.value) || 120)
                     }
                   />
                 </FormControl>
@@ -78,13 +78,78 @@ export default function ContractForm({
             name="rpcUrl"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Custom RPC URL (optional)</FormLabel>
+                <FormLabel>Arbitrum RPC URL (optional)</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="https://arb1.arbitrum.io/rpc"
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="l1RpcUrl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ethereum L1 RPC URL (optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="https://eth.llamarpc.com"
+                    autoComplete="off"
+                    disabled={progress > 0 && progress < 100}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="blockRange"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Arb1 Block Range (chunk size)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="10000000"
+                    autoComplete="off"
+                    disabled={progress > 0 && progress < 100}
+                    {...field}
+                    onChange={(e) =>
+                      field.onChange(parseInt(e.target.value) || 10000000)
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="l1BlockRange"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>L1 Block Range (chunk size)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="100000"
+                    autoComplete="off"
+                    disabled={progress > 0 && progress < 100}
+                    {...field}
+                    onChange={(e) =>
+                      field.onChange(parseInt(e.target.value) || 100000)
+                    }
                   />
                 </FormControl>
                 <FormMessage />

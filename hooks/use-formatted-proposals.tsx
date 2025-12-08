@@ -21,6 +21,7 @@ export function useFormattedProposals(
       networkId: networkId,
       state: (ProposalState[proposal.state] as string).toLowerCase(),
       votes: proposal.votes, // Pass through votes
+      creationTxHash: proposal.creationTxHash, // Pass through creation tx hash
       /*       state:
         networkId === "10"
           ? (ProposalOptimismState[proposal.state] as string).toLowerCase()

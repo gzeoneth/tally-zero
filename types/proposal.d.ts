@@ -12,6 +12,7 @@ export type Proposal = {
   endBlock: ethers.BigNumber;
   description: string;
   state: number;
+  creationTxHash?: string;
 };
 
 export type UseSearchProposals = (
@@ -49,6 +50,7 @@ export type ParsedProposal = {
   state: ProposalState | undefined;
   votes?: ProposalVotes;
   governorName?: string;
+  creationTxHash?: string;
 };
 
 export type UseTotalProposalsReturn = {

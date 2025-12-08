@@ -16,20 +16,54 @@ import { Progress } from "@/components/ui/Progress";
 
 import { useMultiGovernorSearch } from "@hooks/use-multi-governor-search";
 
+// Local storage keys for RPC settings
+const L1_RPC_KEY = "tally-zero-l1-rpc";
+const L2_RPC_KEY = "tally-zero-l2-rpc";
+const BLOCK_RANGE_KEY = "tally-zero-block-range";
+const L1_BLOCK_RANGE_KEY = "tally-zero-l1-block-range";
+
 export default function Search() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [autoStarted, setAutoStarted] = useState(false);
 
-  const daysToSearch = parseInt(searchParams.get("days") || "60");
+  const daysToSearch = parseInt(searchParams.get("days") || "120");
   const rpcFromUrl = searchParams.get("rpc") || "";
-  const [customRpc, setCustomRpc] = useState(rpcFromUrl);
+
+  // Load saved settings from localStorage
+  const [customRpc, setCustomRpc] = useState(() => {
+    if (typeof window !== "undefined") {
+      return rpcFromUrl || localStorage.getItem(L2_RPC_KEY) || "";
+    }
+    return rpcFromUrl;
+  });
+  const [l1Rpc, setL1Rpc] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(L1_RPC_KEY) || "";
+    }
+    return "";
+  });
+  const [blockRange, setBlockRange] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(BLOCK_RANGE_KEY);
+      return saved ? parseInt(saved) : 10000000;
+    }
+    return 10000000;
+  });
+  const [l1BlockRange, setL1BlockRange] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(L1_BLOCK_RANGE_KEY);
+      return saved ? parseInt(saved) : 100000;
+    }
+    return 100000;
+  });
 
   const { proposals, progress, error, isProviderReady, isSearching } =
     useMultiGovernorSearch({
       daysToSearch,
       enabled: autoStarted,
       customRpcUrl: customRpc || undefined,
+      blockRange,
     });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -38,8 +72,10 @@ export default function Search() {
       address: "0x0000000000000000000000000000000000000000",
       networkId: "42161",
       daysToSearch,
-      rpcUrl: rpcFromUrl,
-      blockRange: 10000000,
+      rpcUrl: customRpc,
+      l1RpcUrl: l1Rpc,
+      blockRange,
+      l1BlockRange,
       autoRun: false,
     },
   });
@@ -62,8 +98,32 @@ export default function Search() {
 
   const onSubmit = useCallback(
     (values: z.infer<typeof formSchema>) => {
+      // Save to localStorage for persistence
+      if (values.rpcUrl) {
+        localStorage.setItem(L2_RPC_KEY, values.rpcUrl);
+      } else {
+        localStorage.removeItem(L2_RPC_KEY);
+      }
+      if (values.l1RpcUrl) {
+        localStorage.setItem(L1_RPC_KEY, values.l1RpcUrl);
+      } else {
+        localStorage.removeItem(L1_RPC_KEY);
+      }
+      if (values.blockRange) {
+        localStorage.setItem(BLOCK_RANGE_KEY, values.blockRange.toString());
+      }
+      if (values.l1BlockRange) {
+        localStorage.setItem(
+          L1_BLOCK_RANGE_KEY,
+          values.l1BlockRange.toString()
+        );
+      }
+
       setCustomRpc(values.rpcUrl || "");
-      updateURL(values.daysToSearch || 60, values.rpcUrl);
+      setL1Rpc(values.l1RpcUrl || "");
+      setBlockRange(values.blockRange || 10000000);
+      setL1BlockRange(values.l1BlockRange || 100000);
+      updateURL(values.daysToSearch || 120, values.rpcUrl);
       setAutoStarted(true);
     },
     [updateURL]

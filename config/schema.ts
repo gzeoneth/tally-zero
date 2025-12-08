@@ -6,9 +6,11 @@ const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
 export const formSchema = z.object({
   address: z.string().regex(ethAddressRegex, "Invalid Ethereum address"),
   networkId: z.string(),
-  daysToSearch: z.number().min(1).optional().default(30),
+  daysToSearch: z.number().min(1).optional().default(120),
   rpcUrl: z.string().url().optional().or(z.literal("")),
+  l1RpcUrl: z.string().url().optional().or(z.literal("")),
   blockRange: z.number().min(100).optional().default(10000000),
+  l1BlockRange: z.number().min(100).optional().default(100000),
   autoRun: z.boolean().optional().default(false),
 });
 
@@ -31,6 +33,7 @@ export const proposalSchema = z.object({
   description: z.string(),
   networkId: z.string(),
   state: z.string(),
+  creationTxHash: z.string().optional(),
 });
 
 export const daoSchema = z.object({
