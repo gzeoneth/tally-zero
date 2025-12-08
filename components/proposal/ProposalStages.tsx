@@ -93,17 +93,26 @@ function StatusIcon({ status }: { status: StageStatus }) {
 function StageItem({
   stage,
   stageType,
+  stageIndex,
   isLast,
   isTracking,
+  isLoading,
+  isRefreshing,
+  onRefresh,
 }: {
   stage?: ProposalStage;
   stageType: StageType;
+  stageIndex: number;
   isLast: boolean;
   isTracking: boolean;
+  isLoading: boolean;
+  isRefreshing: boolean;
+  onRefresh: (index: number) => void;
 }) {
   const metadata = getStageMetadata(stageType);
   const status = stage?.status || "NOT_STARTED";
   const isActive = isTracking && !stage;
+  const canRefresh = stage && !isLoading;
 
   return (
     <div className="relative flex gap-4">
@@ -119,7 +128,7 @@ function StageItem({
 
       {/* Status icon */}
       <div className="relative z-10 flex-shrink-0 mt-0.5">
-        {isActive ? (
+        {isActive || isRefreshing ? (
           <ReloadIcon className="h-5 w-5 text-blue-500 animate-spin" />
         ) : (
           <StatusIcon status={status} />
@@ -153,6 +162,20 @@ function StageItem({
           >
             {metadata?.chain}
           </span>
+          {isRefreshing && (
+            <span className="text-xs text-blue-500 animate-pulse">
+              Refreshing...
+            </span>
+          )}
+          {canRefresh && (
+            <button
+              onClick={() => onRefresh(stageIndex)}
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title="Re-track from this stage"
+            >
+              <ReloadIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -168,7 +191,7 @@ function StageItem({
         {/* Transactions */}
         {stage?.transactions && stage.transactions.length > 0 && (
           <div className="mt-2 space-y-1">
-            {stage.transactions.slice(0, 3).map((tx, idx) => (
+            {stage.transactions.map((tx, idx) => (
               <div
                 key={`${tx.hash}-${idx}`}
                 className="flex items-center gap-2 text-xs"
@@ -189,11 +212,6 @@ function StageItem({
                 )}
               </div>
             ))}
-            {stage.transactions.length > 3 && (
-              <span className="text-xs text-muted-foreground">
-                +{stage.transactions.length - 3} more
-              </span>
-            )}
           </div>
         )}
 
@@ -257,7 +275,6 @@ function StageItem({
                   }>
                 )
                   .filter((d) => d.l2TxHash)
-                  .slice(0, 3)
                   .map((detail) => (
                     <div
                       key={`creation-${detail.index}`}
@@ -306,38 +323,36 @@ function StageItem({
                     status: string;
                     l2TxHash: string | null;
                   }>
-                )
-                  .slice(0, 3)
-                  .map((detail) => (
-                    <div
-                      key={`redemption-${detail.index}`}
-                      className="flex items-center gap-2"
-                    >
-                      <span className="text-xs px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-                        {detail.targetChain}
+                ).map((detail) => (
+                  <div
+                    key={`redemption-${detail.index}`}
+                    className="flex items-center gap-2"
+                  >
+                    <span className="text-xs px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                      {detail.targetChain}
+                    </span>
+                    {detail.l2TxHash ? (
+                      <a
+                        href={getExplorerUrl(
+                          detail.l2TxHash,
+                          "L2",
+                          detail.targetChain
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        {detail.l2TxHash.slice(0, 10)}...
+                        {detail.l2TxHash.slice(-8)}
+                        <ExternalLinkIcon className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {detail.status}
                       </span>
-                      {detail.l2TxHash ? (
-                        <a
-                          href={getExplorerUrl(
-                            detail.l2TxHash,
-                            "L2",
-                            detail.targetChain
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                        >
-                          {detail.l2TxHash.slice(0, 10)}...
-                          {detail.l2TxHash.slice(-8)}
-                          <ExternalLinkIcon className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          {detail.status}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                ))}
               </div>
             ) : null}
           </div>
@@ -376,7 +391,8 @@ export default function ProposalStages({
     isComplete,
     error,
     result,
-    refetch,
+    refetchFromStage,
+    refreshingFromIndex,
   } = useProposalStages({
     proposalId,
     creationTxHash,
@@ -407,7 +423,7 @@ export default function ProposalStages({
     return (
       <div className="p-4 text-center">
         <p className="text-sm text-red-500 mb-3">{error}</p>
-        <Button variant="outline" size="sm" onClick={refetch}>
+        <Button variant="outline" size="sm" onClick={() => refetchFromStage(0)}>
           <ReloadIcon className="mr-2 h-4 w-4" />
           Retry
         </Button>
@@ -422,23 +438,13 @@ export default function ProposalStages({
   return (
     <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-semibold">Governance Lifecycle</h3>
-          {result?.currentState && (
-            <p className="text-xs text-muted-foreground">
-              Current state: {result.currentState}
-            </p>
-          )}
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={refetch}
-          disabled={isLoading}
-        >
-          <ReloadIcon className={cn("h-4 w-4", isLoading && "animate-spin")} />
-        </Button>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold">Governance Lifecycle</h3>
+        {result?.currentState && (
+          <p className="text-xs text-muted-foreground">
+            Current state: {result.currentState}
+          </p>
+        )}
       </div>
 
       {/* Timeline */}
@@ -447,14 +453,20 @@ export default function ProposalStages({
           const stage = stageMap.get(meta.type);
           const isTrackingThis =
             isLoading && !isComplete && idx === currentStageIndex + 1;
+          const isRefreshingThis =
+            refreshingFromIndex !== null && idx >= refreshingFromIndex;
 
           return (
             <StageItem
               key={meta.type}
               stage={stage}
               stageType={meta.type}
+              stageIndex={idx}
               isLast={idx === stagesToShow.length - 1}
               isTracking={isTrackingThis}
+              isLoading={isLoading}
+              isRefreshing={isRefreshingThis && isLoading}
+              onRefresh={refetchFromStage}
             />
           );
         })}

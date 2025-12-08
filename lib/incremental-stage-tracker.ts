@@ -225,9 +225,12 @@ export class IncrementalStageTracker {
   async trackProposal(
     proposalId: string,
     creationTxHash: string,
-    onProgress?: StageProgressCallback
+    onProgress?: StageProgressCallback,
+    existingStages?: ProposalStage[],
+    startFromStageIndex?: number
   ): Promise<ProposalTrackingResult> {
     const stages: ProposalStage[] = [];
+    const startIndex = startFromStageIndex ?? 0;
 
     const ctx: TrackingContext = {
       l2Provider: this.l2Provider,
@@ -245,13 +248,29 @@ export class IncrementalStageTracker {
 
     // Helper to add stage and notify
     const addStage = (stage: ProposalStage, isLast: boolean = false) => {
+      console.log(
+        `[StageTracker] Adding stage ${stages.length}: ${stage.type} (status: ${stage.status})`,
+        stage
+      );
       stages.push(stage);
       if (onProgress) {
         onProgress(stage, stages.length - 1, isLast);
       }
     };
 
-    // Get creation receipt
+    // Restore context from existing stages if resuming
+    if (existingStages && startIndex > 0) {
+      console.log(
+        `[StageTracker] Resuming from stage ${startIndex}, restoring ${Math.min(startIndex, existingStages.length)} existing stages`
+      );
+      for (let i = 0; i < startIndex && i < existingStages.length; i++) {
+        const existing = existingStages[i];
+        addStage(existing);
+        this.restoreContextFromStage(ctx, existing);
+      }
+    }
+
+    // Get creation receipt (always needed)
     ctx.creationReceipt = await queryWithRetry(() =>
       this.l2Provider.getTransactionReceipt(creationTxHash)
     );
@@ -261,10 +280,6 @@ export class IncrementalStageTracker {
     ctx.creationL1BlockNumber = getL1BlockNumberFromReceipt(
       ctx.creationReceipt
     );
-
-    // Stage 1: Proposal Created
-    const createdStage = await this.trackProposalCreated(ctx);
-    addStage(createdStage);
 
     // Get current state
     const governor = new ethers.Contract(
@@ -279,15 +294,31 @@ export class IncrementalStageTracker {
         PROPOSAL_STATE_NAMES[stateNum as keyof typeof PROPOSAL_STATE_NAMES];
     } catch {}
 
-    // Stage 2: Voting
-    const votingStage = await this.trackVotingStage(ctx);
-    addStage(votingStage);
+    // Stage 1: Proposal Created (index 0)
+    if (startIndex <= 0) {
+      console.log("[StageTracker] Tracking stage 0: PROPOSAL_CREATED");
+      const createdStage = await this.trackProposalCreated(ctx);
+      addStage(createdStage);
+    }
 
-    // Stage 3: Proposal Queued
-    const queuedStage = await this.trackProposalQueued(ctx);
-    addStage(queuedStage);
+    // Stage 2: Voting (index 1)
+    if (startIndex <= 1) {
+      console.log("[StageTracker] Tracking stage 1: VOTING_ACTIVE");
+      const votingStage = await this.trackVotingStage(ctx);
+      addStage(votingStage);
+    }
 
-    if (queuedStage.status !== "COMPLETED") {
+    // Stage 3: Proposal Queued (index 2)
+    let queuedStage: ProposalStage;
+    if (startIndex <= 2) {
+      console.log("[StageTracker] Tracking stage 2: PROPOSAL_QUEUED");
+      queuedStage = await this.trackProposalQueued(ctx);
+      addStage(queuedStage);
+    } else {
+      queuedStage = stages.find((s) => s.type === "PROPOSAL_QUEUED")!;
+    }
+
+    if (!queuedStage || queuedStage.status !== "COMPLETED") {
       return {
         proposalId,
         creationTxHash,
@@ -297,18 +328,26 @@ export class IncrementalStageTracker {
       };
     }
 
-    // Get proposal data for operation ID
-    ctx.proposalData = await this.getProposalData(ctx);
+    // Get proposal data for operation ID (needed for later stages)
+    if (!ctx.proposalData) {
+      ctx.proposalData = await this.getProposalData(ctx);
+    }
 
-    // Stage 4: L2 Timelock Executed
-    const l2TimelockStage = await this.trackL2TimelockExecution(
-      ctx,
-      queuedStage.transactions[0]?.blockNumber ||
-        ctx.creationReceipt.blockNumber
-    );
-    addStage(l2TimelockStage);
+    // Stage 4: L2 Timelock Executed (index 3)
+    let l2TimelockStage: ProposalStage;
+    if (startIndex <= 3) {
+      console.log("[StageTracker] Tracking stage 3: L2_TIMELOCK_EXECUTED");
+      l2TimelockStage = await this.trackL2TimelockExecution(
+        ctx,
+        queuedStage.transactions[0]?.blockNumber ||
+          ctx.creationReceipt.blockNumber
+      );
+      addStage(l2TimelockStage);
+    } else {
+      l2TimelockStage = stages.find((s) => s.type === "L2_TIMELOCK_EXECUTED")!;
+    }
 
-    if (l2TimelockStage.status !== "COMPLETED") {
+    if (!l2TimelockStage || l2TimelockStage.status !== "COMPLETED") {
       return {
         proposalId,
         creationTxHash,
@@ -320,15 +359,24 @@ export class IncrementalStageTracker {
 
     ctx.l2TimelockTxHash = l2TimelockStage.transactions[0]?.hash;
 
-    // Stages 5-6: L2 to L1 Message
-    const l2ToL1Result = await this.trackL2ToL1Message(ctx);
-    for (const stage of l2ToL1Result.stages) {
-      addStage(stage);
+    // Stages 5-6: L2 to L1 Message (indices 4-5)
+    let l2ToL1ConfirmedStage: ProposalStage | undefined;
+    if (startIndex <= 5) {
+      console.log("[StageTracker] Tracking stages 4-5: L2_TO_L1_MESSAGE");
+      const l2ToL1Result = await this.trackL2ToL1Message(ctx);
+      for (const stage of l2ToL1Result.stages) {
+        if (startIndex <= stages.length) {
+          addStage(stage);
+        }
+      }
+      l2ToL1ConfirmedStage = l2ToL1Result.stages.find(
+        (s) => s.type === "L2_TO_L1_MESSAGE_CONFIRMED"
+      );
+    } else {
+      l2ToL1ConfirmedStage = stages.find(
+        (s) => s.type === "L2_TO_L1_MESSAGE_CONFIRMED"
+      );
     }
-
-    const l2ToL1ConfirmedStage = l2ToL1Result.stages.find(
-      (s) => s.type === "L2_TO_L1_MESSAGE_CONFIRMED"
-    );
 
     if (!l2ToL1ConfirmedStage || l2ToL1ConfirmedStage.status !== "COMPLETED") {
       return {
@@ -340,15 +388,22 @@ export class IncrementalStageTracker {
       };
     }
 
-    // Stages 7-8: L1 Timelock
-    const l1TimelockStages = await this.trackL1Timelock(ctx);
-    for (const stage of l1TimelockStages) {
-      addStage(stage);
+    // Stages 7-8: L1 Timelock (indices 6-7)
+    let l1ExecutedStage: ProposalStage | undefined;
+    if (startIndex <= 7) {
+      console.log("[StageTracker] Tracking stages 6-7: L1_TIMELOCK");
+      const l1TimelockStages = await this.trackL1Timelock(ctx);
+      for (const stage of l1TimelockStages) {
+        if (startIndex <= stages.length) {
+          addStage(stage);
+        }
+      }
+      l1ExecutedStage = l1TimelockStages.find(
+        (s) => s.type === "L1_TIMELOCK_EXECUTED"
+      );
+    } else {
+      l1ExecutedStage = stages.find((s) => s.type === "L1_TIMELOCK_EXECUTED");
     }
-
-    const l1ExecutedStage = l1TimelockStages.find(
-      (s) => s.type === "L1_TIMELOCK_EXECUTED"
-    );
 
     if (!l1ExecutedStage || l1ExecutedStage.status !== "COMPLETED") {
       return {
@@ -362,7 +417,8 @@ export class IncrementalStageTracker {
 
     ctx.l1ExecutionTxHash = l1ExecutedStage.transactions[0]?.hash;
 
-    // Stages 9-10: Retryables
+    // Stages 9-10: Retryables (indices 8-9)
+    console.log("[StageTracker] Tracking stages 8-9: RETRYABLES");
     const retryableStages = await this.trackRetryables(ctx);
     for (let i = 0; i < retryableStages.length; i++) {
       addStage(retryableStages[i], i === retryableStages.length - 1);
@@ -375,6 +431,24 @@ export class IncrementalStageTracker {
       stages,
       currentState,
     };
+  }
+
+  private restoreContextFromStage(
+    ctx: TrackingContext,
+    stage: ProposalStage
+  ): void {
+    switch (stage.type) {
+      case "L2_TIMELOCK_EXECUTED":
+        if (stage.transactions[0]?.hash) {
+          ctx.l2TimelockTxHash = stage.transactions[0].hash;
+        }
+        break;
+      case "L1_TIMELOCK_EXECUTED":
+        if (stage.transactions[0]?.hash) {
+          ctx.l1ExecutionTxHash = stage.transactions[0].hash;
+        }
+        break;
+    }
   }
 
   private async trackProposalCreated(
