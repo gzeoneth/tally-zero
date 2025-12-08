@@ -9,7 +9,8 @@
     "lint": "next lint --fix",
     "test": "npm run lint && tsc && vitest run",
     "prepare": "husky install",
-    "build:latest-daos": "npx tsx scripts/pull-daos/pull-daos.ts"
+    "build:latest-daos": "npx tsx scripts/pull-daos/pull-daos.ts",
+    "track:proposal": "npx tsx scripts/track-proposal.ts"
   },
   "prettier": {
     "semi": true,
@@ -24,6 +25,7 @@
     ]
   },
   "dependencies": {
+    "@arbitrum/sdk": "^4",
     "@headlessui/react": "^1.7.18",
     "@hookform/resolvers": "^3.3.4",
     "@next/bundle-analyzer": "^14.2.3",
