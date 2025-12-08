@@ -24,26 +24,32 @@ export async function queryWithRetry<T>(
   for (let attempt = 0; attempt <= (options.maxRetries || 3); attempt++) {
     try {
       return await queryFn();
-    } catch (error: any) {
-      lastError = error;
-      
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
       // Check if it's a rate limit error
+      const errorObj = error as { code?: number; message?: string };
       if (
-        error.code === 429 || 
-        error.message?.includes("rate limit") ||
-        error.message?.includes("too many requests")
+        errorObj.code === 429 ||
+        errorObj.message?.includes("rate limit") ||
+        errorObj.message?.includes("too many requests")
       ) {
-        console.warn(`Rate limit hit, attempt ${attempt + 1}/${(options.maxRetries || 3) + 1}`);
+        console.warn(
+          `Rate limit hit, attempt ${attempt + 1}/${(options.maxRetries || 3) + 1}`
+        );
       }
-      
+
       if (attempt < (options.maxRetries || 3)) {
         console.warn(`Retry attempt ${attempt + 1} after ${delay}ms`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay = Math.min(delay * (options.backoffFactor || 2), options.maxDelay || 16000);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay = Math.min(
+          delay * (options.backoffFactor || 2),
+          options.maxDelay || 16000
+        );
       }
     }
   }
-  
+
   throw lastError!;
 }
 
@@ -53,19 +59,19 @@ export async function batchQueryWithRateLimit<T>(
   delayBetweenBatches: number = 1000
 ): Promise<T[]> {
   const results: T[] = [];
-  
+
   for (let i = 0; i < queries.length; i += batchSize) {
     const batch = queries.slice(i, i + batchSize);
     const batchResults = await Promise.all(
-      batch.map(query => queryWithRetry(query))
+      batch.map((query) => queryWithRetry(query))
     );
     results.push(...batchResults);
-    
+
     // Add delay between batches to avoid rate limits
     if (i + batchSize < queries.length) {
-      await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+      await new Promise((resolve) => setTimeout(resolve, delayBetweenBatches));
     }
   }
-  
+
   return results;
 }

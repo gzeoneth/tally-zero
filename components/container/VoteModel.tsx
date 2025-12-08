@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import VoteForm from "@components/form/VoteForm";
 import ProposalStages from "@components/proposal/ProposalStages";
+import ProposalStagesError from "@components/proposal/ProposalStagesError";
 import { Badge } from "@components/ui/Badge";
 import {
   DialogContent,
@@ -17,6 +18,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@components/ui/Drawer";
+import { ErrorBoundary } from "@components/ui/ErrorBoundary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 
 import { CORE_GOVERNOR, TREASURY_GOVERNOR } from "@config/arbitrum-governance";
@@ -32,6 +34,16 @@ function isArbitrumGovernor(contractAddress: string): boolean {
   );
 }
 
+interface StateValue {
+  value: string;
+  label: string;
+  bgColor: string;
+  icon: React.ComponentType<{
+    className?: string;
+    style?: React.CSSProperties;
+  }>;
+}
+
 export default function VoteModel({
   proposal,
   stateValue,
@@ -39,7 +51,7 @@ export default function VoteModel({
   defaultTab = "description",
 }: {
   proposal: z.infer<typeof proposalSchema>;
-  stateValue: any;
+  stateValue: StateValue;
   isDesktop: boolean;
   defaultTab?: "description" | "stages" | "vote";
 }) {
@@ -104,11 +116,17 @@ export default function VoteModel({
               className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
             >
               <div className="max-h-[50vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg">
-                <ProposalStages
-                  proposalId={proposal.id}
-                  creationTxHash={proposal.creationTxHash}
-                  governorAddress={proposal.contractAddress}
-                />
+                <ErrorBoundary
+                  fallback={(error, reset) => (
+                    <ProposalStagesError error={error} onReset={reset} />
+                  )}
+                >
+                  <ProposalStages
+                    proposalId={proposal.id}
+                    creationTxHash={proposal.creationTxHash}
+                    governorAddress={proposal.contractAddress}
+                  />
+                </ErrorBoundary>
               </div>
             </TabsContent>
           )}
@@ -190,11 +208,17 @@ export default function VoteModel({
           {showStagesTab && proposal.creationTxHash && (
             <TabsContent value="stages" className="flex-1 min-h-0">
               <div className="max-h-[40vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg">
-                <ProposalStages
-                  proposalId={proposal.id}
-                  creationTxHash={proposal.creationTxHash}
-                  governorAddress={proposal.contractAddress}
-                />
+                <ErrorBoundary
+                  fallback={(error, reset) => (
+                    <ProposalStagesError error={error} onReset={reset} />
+                  )}
+                >
+                  <ProposalStages
+                    proposalId={proposal.id}
+                    creationTxHash={proposal.creationTxHash}
+                    governorAddress={proposal.contractAddress}
+                  />
+                </ErrorBoundary>
               </div>
             </TabsContent>
           )}

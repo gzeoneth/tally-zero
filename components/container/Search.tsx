@@ -14,6 +14,7 @@ import { columns } from "@/components/table/ColumnsProposals";
 import { DataTable } from "@/components/table/DataTable";
 import { Progress } from "@/components/ui/Progress";
 
+import { useLocalStorage } from "@hooks/use-local-storage";
 import { useMultiGovernorSearch } from "@hooks/use-multi-governor-search";
 
 // Local storage keys for RPC settings
@@ -30,33 +31,20 @@ export default function Search() {
   const daysToSearch = parseInt(searchParams.get("days") || "120");
   const rpcFromUrl = searchParams.get("rpc") || "";
 
-  // Load saved settings from localStorage
-  const [customRpc, setCustomRpc] = useState(() => {
-    if (typeof window !== "undefined") {
-      return rpcFromUrl || localStorage.getItem(L2_RPC_KEY) || "";
-    }
-    return rpcFromUrl;
-  });
-  const [l1Rpc, setL1Rpc] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(L1_RPC_KEY) || "";
-    }
-    return "";
-  });
-  const [blockRange, setBlockRange] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(BLOCK_RANGE_KEY);
-      return saved ? parseInt(saved) : 10000000;
-    }
-    return 10000000;
-  });
-  const [l1BlockRange, setL1BlockRange] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(L1_BLOCK_RANGE_KEY);
-      return saved ? parseInt(saved) : 100000;
-    }
-    return 100000;
-  });
+  // Load saved settings from localStorage using the hook
+  const [storedL2Rpc, setStoredL2Rpc] = useLocalStorage(L2_RPC_KEY, "");
+  const [l1Rpc, setL1Rpc] = useLocalStorage(L1_RPC_KEY, "");
+  const [blockRange, setBlockRange] = useLocalStorage(
+    BLOCK_RANGE_KEY,
+    10000000
+  );
+  const [l1BlockRange, setL1BlockRange] = useLocalStorage(
+    L1_BLOCK_RANGE_KEY,
+    100000
+  );
+
+  // RPC from URL takes precedence over stored value
+  const customRpc = rpcFromUrl || storedL2Rpc;
 
   const { proposals, progress, error, isProviderReady, isSearching } =
     useMultiGovernorSearch({
@@ -98,35 +86,16 @@ export default function Search() {
 
   const onSubmit = useCallback(
     (values: z.infer<typeof formSchema>) => {
-      // Save to localStorage for persistence
-      if (values.rpcUrl) {
-        localStorage.setItem(L2_RPC_KEY, values.rpcUrl);
-      } else {
-        localStorage.removeItem(L2_RPC_KEY);
-      }
-      if (values.l1RpcUrl) {
-        localStorage.setItem(L1_RPC_KEY, values.l1RpcUrl);
-      } else {
-        localStorage.removeItem(L1_RPC_KEY);
-      }
-      if (values.blockRange) {
-        localStorage.setItem(BLOCK_RANGE_KEY, values.blockRange.toString());
-      }
-      if (values.l1BlockRange) {
-        localStorage.setItem(
-          L1_BLOCK_RANGE_KEY,
-          values.l1BlockRange.toString()
-        );
-      }
-
-      setCustomRpc(values.rpcUrl || "");
+      // Save to localStorage for persistence using the hook setters
+      setStoredL2Rpc(values.rpcUrl || "");
       setL1Rpc(values.l1RpcUrl || "");
       setBlockRange(values.blockRange || 10000000);
       setL1BlockRange(values.l1BlockRange || 100000);
+
       updateURL(values.daysToSearch || 120, values.rpcUrl);
       setAutoStarted(true);
     },
-    [updateURL]
+    [updateURL, setStoredL2Rpc, setL1Rpc, setBlockRange, setL1BlockRange]
   );
 
   return (
@@ -166,11 +135,7 @@ export default function Search() {
           )}
 
           {progress === 100 && !error && (
-            <DataTable
-              isPaginated={true}
-              columns={columns}
-              data={proposals as any[]}
-            />
+            <DataTable isPaginated={true} columns={columns} data={proposals} />
           )}
         </section>
       </form>

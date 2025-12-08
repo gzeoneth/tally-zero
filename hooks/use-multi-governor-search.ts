@@ -13,17 +13,19 @@ import {
 import { ProposalState } from "@config/intial-state";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
-interface GovernorSearchResult {
-  proposals: Proposal[];
-  progress: number;
-  error: Error | null;
-}
-
 interface UseMultiGovernorSearchOptions {
   daysToSearch: number;
   enabled: boolean;
   customRpcUrl?: string;
   blockRange?: number;
+}
+
+interface UseMultiGovernorSearchResult {
+  proposals: ParsedProposal[];
+  progress: number;
+  error: Error | null;
+  isSearching: boolean;
+  isProviderReady: boolean;
 }
 
 // Arbitrum produces ~345600 blocks per day (0.25s block time)
@@ -72,10 +74,6 @@ async function searchGovernor(
         onProgress(Math.min((processedBlocks / totalBlocks) * 100, 100));
         return events;
       } catch (error) {
-        console.error(
-          `Error querying blocks ${queryFromBlock}-${queryToBlock}:`,
-          error
-        );
         return [];
       }
     });
@@ -167,7 +165,7 @@ async function parseProposals(
           : undefined,
       } as ParsedProposal);
     } catch (error) {
-      console.error(`Error parsing proposal ${proposal.id}:`, error);
+      // Skip proposals that fail to parse
     }
   }
 
@@ -179,7 +177,7 @@ export function useMultiGovernorSearch({
   enabled,
   customRpcUrl,
   blockRange = DEFAULT_BLOCK_RANGE,
-}: UseMultiGovernorSearchOptions) {
+}: UseMultiGovernorSearchOptions): UseMultiGovernorSearchResult {
   const [progress, setProgress] = useState(0);
   const [proposals, setProposals] = useState<ParsedProposal[]>([]);
   const [error, setError] = useState<Error | null>(null);
@@ -197,7 +195,6 @@ export function useMultiGovernorSearch({
         await provider.getBlockNumber();
         setProviderReady(true);
       } catch (err) {
-        console.error("Failed to initialize provider:", err);
         setError(err as Error);
       }
     };
@@ -266,7 +263,6 @@ export function useMultiGovernorSearch({
         setIsSearching(false);
       } catch (err) {
         if (!cancelled) {
-          console.error("Search error:", err);
           setError(err as Error);
           setIsSearching(false);
         }

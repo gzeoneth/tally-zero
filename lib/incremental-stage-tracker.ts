@@ -248,10 +248,6 @@ export class IncrementalStageTracker {
 
     // Helper to add stage and notify
     const addStage = (stage: ProposalStage, isLast: boolean = false) => {
-      console.log(
-        `[StageTracker] Adding stage ${stages.length}: ${stage.type} (status: ${stage.status})`,
-        stage
-      );
       stages.push(stage);
       if (onProgress) {
         onProgress(stage, stages.length - 1, isLast);
@@ -260,9 +256,6 @@ export class IncrementalStageTracker {
 
     // Restore context from existing stages if resuming
     if (existingStages && startIndex > 0) {
-      console.log(
-        `[StageTracker] Resuming from stage ${startIndex}, restoring ${Math.min(startIndex, existingStages.length)} existing stages`
-      );
       for (let i = 0; i < startIndex && i < existingStages.length; i++) {
         const existing = existingStages[i];
         addStage(existing);
@@ -296,7 +289,6 @@ export class IncrementalStageTracker {
 
     // Stage 1: Proposal Created (index 0)
     if (startIndex <= 0) {
-      console.log("[StageTracker] Tracking stage 0: PROPOSAL_CREATED");
       const createdStage = await this.trackProposalCreated(ctx);
       addStage(createdStage);
     }
@@ -304,7 +296,6 @@ export class IncrementalStageTracker {
     // Stage 2: Voting (index 1)
     let votingStage: ProposalStage;
     if (startIndex <= 1) {
-      console.log("[StageTracker] Tracking stage 1: VOTING_ACTIVE");
       votingStage = await this.trackVotingStage(ctx);
       addStage(votingStage);
     } else {
@@ -312,9 +303,6 @@ export class IncrementalStageTracker {
     }
 
     if (votingStage && votingStage.status === "PENDING") {
-      console.log(
-        "[StageTracker] Proposal still in voting, stopping at voting stage"
-      );
       return {
         proposalId,
         creationTxHash,
@@ -325,9 +313,6 @@ export class IncrementalStageTracker {
     }
 
     if (votingStage && votingStage.status === "FAILED") {
-      console.log(
-        "[StageTracker] Proposal voting failed, stopping at voting stage"
-      );
       return {
         proposalId,
         creationTxHash,
@@ -340,7 +325,6 @@ export class IncrementalStageTracker {
     // Stage 3: Proposal Queued (index 2)
     let queuedStage: ProposalStage;
     if (startIndex <= 2) {
-      console.log("[StageTracker] Tracking stage 2: PROPOSAL_QUEUED");
       queuedStage = await this.trackProposalQueued(ctx);
       addStage(queuedStage);
     } else {
@@ -365,7 +349,6 @@ export class IncrementalStageTracker {
     // Stage 4: L2 Timelock Executed (index 3)
     let l2TimelockStage: ProposalStage;
     if (startIndex <= 3) {
-      console.log("[StageTracker] Tracking stage 3: L2_TIMELOCK_EXECUTED");
       l2TimelockStage = await this.trackL2TimelockExecution(
         ctx,
         queuedStage.transactions[0]?.blockNumber ||
@@ -391,7 +374,6 @@ export class IncrementalStageTracker {
     // Stages 5-6: L2 to L1 Message (indices 4-5)
     let l2ToL1ConfirmedStage: ProposalStage | undefined;
     if (startIndex <= 5) {
-      console.log("[StageTracker] Tracking stages 4-5: L2_TO_L1_MESSAGE");
       const l2ToL1Result = await this.trackL2ToL1Message(ctx);
       for (const stage of l2ToL1Result.stages) {
         if (startIndex <= stages.length) {
@@ -420,7 +402,6 @@ export class IncrementalStageTracker {
     // Stages 7-8: L1 Timelock (indices 6-7)
     let l1ExecutedStage: ProposalStage | undefined;
     if (startIndex <= 7) {
-      console.log("[StageTracker] Tracking stages 6-7: L1_TIMELOCK");
       const l1TimelockStages = await this.trackL1Timelock(ctx);
       for (const stage of l1TimelockStages) {
         if (startIndex <= stages.length) {
@@ -447,7 +428,6 @@ export class IncrementalStageTracker {
     ctx.l1ExecutionTxHash = l1ExecutedStage.transactions[0]?.hash;
 
     // Stages 9-10: Retryables (indices 8-9)
-    console.log("[StageTracker] Tracking stages 8-9: RETRYABLES");
     const retryableStages = await this.trackRetryables(ctx);
     for (let i = 0; i < retryableStages.length; i++) {
       addStage(retryableStages[i], i === retryableStages.length - 1);

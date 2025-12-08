@@ -12,3 +12,14 @@ export function formatPercent(percent: number): number {
 
 export const CLUSTER_SIZE =
   env.NEXT_PUBLIC_NODE_ENV === "development" ? 20 : 300;
+
+export function isValidRpcUrl(url: string): boolean {
+  if (!url || url.trim() === "") return true;
+
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+  } catch {
+    return false;
+  }
+}

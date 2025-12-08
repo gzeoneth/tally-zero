@@ -212,9 +212,6 @@ class ProposalTrackerManager {
       session.queuePosition = this.queue.length;
       this.notifySubscribers(session);
       this.notifyGlobalSubscribers();
-      console.log(
-        `[TrackerManager] Queued proposal ${proposalId.slice(0, 8)}... at position ${session.queuePosition}`
-      );
     }
   }
 
@@ -222,21 +219,10 @@ class ProposalTrackerManager {
     const key = getSessionKey(proposalId, governorAddress);
     const session = this.sessions.get(key);
 
-    console.log(
-      `[TrackerManager] trackingFinished called for ${proposalId.slice(0, 8)}... status=${session?.status}, activeCount=${this.activeCount}, queueLength=${this.queue.length}`
-    );
-
     if (session?.status === "loading") {
       this.activeCount = Math.max(0, this.activeCount - 1);
-      console.log(
-        `[TrackerManager] Decremented activeCount to ${this.activeCount}, processing queue...`
-      );
       this.notifyGlobalSubscribers();
       this.processQueue();
-    } else {
-      console.log(
-        `[TrackerManager] NOT decrementing - session status is ${session?.status}, not "loading"`
-      );
     }
   }
 
@@ -259,9 +245,6 @@ class ProposalTrackerManager {
       session.status = "loading";
       session.queuePosition = null;
       this.notifySubscribers(session);
-      console.log(
-        `[TrackerManager] Starting queued proposal ${item.proposalId.slice(0, 8)}...`
-      );
       item.startTracking();
     }
 

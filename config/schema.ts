@@ -1,14 +1,30 @@
+import { isValidRpcUrl } from "@lib/utils";
 import * as z from "zod";
 
 // `0x${string}` is a valid Ethereum address
 const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
 
+// RPC URL validation schema
+const rpcUrlSchema = z
+  .string()
+  .optional()
+  .refine(
+    (url) => {
+      if (!url || url === "") return true;
+      return isValidRpcUrl(url);
+    },
+    {
+      message: "RPC URL must be a valid HTTP or HTTPS URL",
+    }
+  )
+  .or(z.literal(""));
+
 export const formSchema = z.object({
   address: z.string().regex(ethAddressRegex, "Invalid Ethereum address"),
   networkId: z.string(),
   daysToSearch: z.number().min(1).optional().default(120),
-  rpcUrl: z.string().url().optional().or(z.literal("")),
-  l1RpcUrl: z.string().url().optional().or(z.literal("")),
+  rpcUrl: rpcUrlSchema,
+  l1RpcUrl: rpcUrlSchema,
   blockRange: z.number().min(100).optional().default(10000000),
   l1BlockRange: z.number().min(100).optional().default(100000),
   autoRun: z.boolean().optional().default(false),

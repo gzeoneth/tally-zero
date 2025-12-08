@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, Row } from "@tanstack/react-table";
 
 import { ProposerCell } from "@components/container/ProposerCell";
 import { DataTableColumnHeader } from "@components/table/ColumnHeader";
@@ -15,20 +15,20 @@ import {
 import { LifecycleCell } from "@components/ui/LifecycleCell";
 import { VoteDisplay } from "@components/ui/VoteDisplay";
 
-import { proposalSchema } from "@config/schema";
+import { ParsedProposal } from "@/types/proposal";
 import { states } from "@data/table/data";
 import { cn } from "@lib/utils";
 
 import { DotIcon } from "lucide-react";
 
-export const columns: ColumnDef<typeof proposalSchema>[] = [
+export const columns: ColumnDef<ParsedProposal>[] = [
   {
     accessorKey: "id",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Proposal ID" />
     ),
-    cell: ({ row }: { row: Record<string, any> }) => {
-      const id = row.getValue("id");
+    cell: ({ row }: { row: Row<ParsedProposal> }) => {
+      const id = row.getValue("id") as string;
 
       return id.length < 6 ? (
         <span>{id}</span>
@@ -73,7 +73,7 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Governor" />
     ),
-    cell: ({ row }: { row: Record<string, any> }) => {
+    cell: ({ row }: { row: Row<ParsedProposal> }) => {
       const governorName = row.original.governorName || "Unknown";
       const isCore = governorName.toLowerCase().includes("core");
       return (
@@ -96,8 +96,7 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="State" />
     ),
-    cell: ({ row }) => {
-      // @ts-ignore: networkId is always present
+    cell: ({ row }: { row: Row<ParsedProposal> }) => {
       const networkId = row.original.networkId;
 
       let stateValue;
@@ -134,7 +133,7 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Lifecycle" />
     ),
-    cell: ({ row }: { row: Record<string, any> }) => {
+    cell: ({ row }: { row: Row<ParsedProposal> }) => {
       return <LifecycleCell proposal={row.original} />;
     },
   },
@@ -143,7 +142,7 @@ export const columns: ColumnDef<typeof proposalSchema>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Votes" />
     ),
-    cell: ({ row }: { row: Record<string, any> }) => {
+    cell: ({ row }: { row: Row<ParsedProposal> }) => {
       return <VoteDisplay votes={row.original.votes} />;
     },
   },

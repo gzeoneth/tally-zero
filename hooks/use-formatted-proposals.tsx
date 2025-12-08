@@ -7,26 +7,27 @@ export function useFormattedProposals(
   networkId: string
 ): ParsedProposal[] {
   return useMemo(() => {
-    const formattedProposals = proposals.map((proposal: any) => ({
-      id: proposal.id,
-      contractAddress: proposal.contractAddress,
-      proposer: proposal.proposer,
-      targets: proposal.targets,
-      values: proposal.values.map((value: any) => value.toString()),
-      signatures: proposal.signatures,
-      calldatas: proposal.calldatas,
-      startBlock: proposal.startBlock.toString(),
-      endBlock: proposal.endBlock.toString(),
-      description: proposal.description,
-      networkId: networkId,
-      state: (ProposalState[proposal.state] as string).toLowerCase(),
-      votes: proposal.votes, // Pass through votes
-      creationTxHash: proposal.creationTxHash, // Pass through creation tx hash
-      /*       state:
+    const formattedProposals = proposals.map(
+      (proposal: Proposal): ParsedProposal => ({
+        id: proposal.id,
+        contractAddress: proposal.contractAddress,
+        proposer: proposal.proposer,
+        targets: proposal.targets,
+        values: proposal.values.map((value) => value.toString()),
+        signatures: proposal.signatures,
+        calldatas: proposal.calldatas,
+        startBlock: proposal.startBlock.toString(),
+        endBlock: proposal.endBlock.toString(),
+        description: proposal.description,
+        networkId: networkId,
+        state: (ProposalState[proposal.state] as string).toLowerCase(),
+        creationTxHash: proposal.creationTxHash,
+        /*       state:
         networkId === "10"
           ? (ProposalOptimismState[proposal.state] as string).toLowerCase()
           : (ProposalState[proposal.state] as string).toLowerCase(), */
-    }));
+      })
+    );
 
     return formattedProposals.sort((a, b) => {
       if (a.state === "active" && b.state !== "active") {
