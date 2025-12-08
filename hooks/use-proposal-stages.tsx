@@ -102,7 +102,16 @@ interface UseProposalStagesResult {
 
 function getStoredRpc(key: string, defaultValue: string): string {
   if (typeof window !== "undefined") {
-    return localStorage.getItem(key) || defaultValue;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      try {
+        // Values are stored via useLocalStorage which uses JSON.stringify
+        return JSON.parse(stored) || defaultValue;
+      } catch {
+        return stored || defaultValue;
+      }
+    }
+    return defaultValue;
   }
   return defaultValue;
 }
@@ -115,9 +124,11 @@ export function useProposalStages({
   l1RpcUrl,
   l2RpcUrl,
 }: UseProposalStagesOptions): UseProposalStagesResult {
-  const effectiveL1RpcUrl =
-    l1RpcUrl || getStoredRpc(STORAGE_KEYS.L1_RPC, ETHEREUM_RPC_URL);
-  const effectiveL2RpcUrl = l2RpcUrl || getStoredRpc(STORAGE_KEYS.L2_RPC, "");
+  const storedL1Rpc = getStoredRpc(STORAGE_KEYS.L1_RPC, ETHEREUM_RPC_URL);
+  const storedL2Rpc = getStoredRpc(STORAGE_KEYS.L2_RPC, "");
+
+  const effectiveL1RpcUrl = l1RpcUrl || storedL1Rpc;
+  const effectiveL2RpcUrl = l2RpcUrl || storedL2Rpc;
 
   // Local state that syncs with the global session
   const [stages, setStages] = useState<ProposalStage[]>([]);

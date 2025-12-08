@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import * as z from "zod";
 
 import { Form } from "@/components/ui/Form";
@@ -10,6 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 import ContractCard from "@/components/container/ContractCard";
+import RpcStatus from "@/components/container/RpcStatus";
 import { columns } from "@/components/table/ColumnsProposals";
 import { DataTable } from "@/components/table/DataTable";
 import { Progress } from "@/components/ui/Progress";
@@ -22,6 +23,7 @@ export default function Search() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [autoStarted, setAutoStarted] = useState(false);
+  const [rpcHealthy, setRpcHealthy] = useState<boolean | null>(null);
 
   const daysToSearch = parseInt(searchParams.get("days") || "120");
   const rpcFromUrl = searchParams.get("rpc") || "";
@@ -45,14 +47,7 @@ export default function Search() {
   // RPC from URL takes precedence over stored value
   const customRpc = rpcFromUrl || storedL2Rpc;
 
-  const { proposals, progress, error, isProviderReady, isSearching } =
-    useMultiGovernorSearch({
-      daysToSearch,
-      enabled: autoStarted,
-      customRpcUrl: customRpc || undefined,
-      blockRange,
-    });
-
+  // Initialize form first so we can watch values
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -67,11 +62,53 @@ export default function Search() {
     },
   });
 
+  // Watch form values to sync with RPC health check
+  const watchedL2Rpc = form.watch("rpcUrl");
+  const watchedL1Rpc = form.watch("l1RpcUrl");
+
+  // Update form defaults when localStorage hydrates
   useEffect(() => {
-    if (isProviderReady && !autoStarted) {
+    if (isL1RpcHydrated && l1Rpc) {
+      form.setValue("l1RpcUrl", l1Rpc);
+    }
+  }, [isL1RpcHydrated, l1Rpc, form]);
+
+  useEffect(() => {
+    if (isL2RpcHydrated && storedL2Rpc) {
+      form.setValue("rpcUrl", storedL2Rpc);
+    }
+  }, [isL2RpcHydrated, storedL2Rpc, form]);
+
+  // Memoize custom RPC URLs for health check - use watched form values
+  const customRpcUrls = useMemo(
+    () => ({
+      arb1: watchedL2Rpc || customRpc || undefined,
+      l1: watchedL1Rpc || l1Rpc || undefined,
+    }),
+    [watchedL2Rpc, watchedL1Rpc, customRpc, l1Rpc]
+  );
+
+  // Handle RPC health check results
+  const handleRpcHealthChecked = useCallback(
+    (allHealthy: boolean, requiredHealthy: boolean) => {
+      setRpcHealthy(requiredHealthy);
+    },
+    []
+  );
+
+  const { proposals, progress, error, isProviderReady, isSearching } =
+    useMultiGovernorSearch({
+      daysToSearch,
+      enabled: autoStarted && rpcHealthy === true,
+      customRpcUrl: watchedL2Rpc || customRpc || undefined,
+      blockRange,
+    });
+
+  useEffect(() => {
+    if (isProviderReady && rpcHealthy === true && !autoStarted) {
       setAutoStarted(true);
     }
-  }, [isProviderReady, autoStarted]);
+  }, [isProviderReady, rpcHealthy, autoStarted]);
 
   const updateURL = useCallback(
     (days: number, rpc?: string) => {
@@ -109,8 +146,22 @@ export default function Search() {
           providerReady={isProviderReady}
         />
 
+        <RpcStatus
+          customUrls={customRpcUrls}
+          onHealthChecked={handleRpcHealthChecked}
+        />
+
         <section id="proposals-table">
-          {autoStarted && progress < 100 && !error && (
+          {rpcHealthy === false && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Cannot connect to Arbitrum RPC. Please check your connection or
+                try a different RPC URL in settings.
+              </p>
+            </div>
+          )}
+
+          {rpcHealthy === true && autoStarted && progress < 100 && !error && (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <div className="w-full max-w-md">
                 <Progress value={progress} />
