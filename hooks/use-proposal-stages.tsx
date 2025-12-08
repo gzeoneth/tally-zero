@@ -176,11 +176,11 @@ export function useProposalStages({
         const tracker = isCoreGovernor
           ? createCoreGovernorTracker(
               effectiveL2RpcUrl || undefined,
-              effectiveL1RpcUrl
+              effectiveL1RpcUrl || undefined
             )
           : createTreasuryGovernorTracker(
               effectiveL2RpcUrl || undefined,
-              effectiveL1RpcUrl
+              effectiveL1RpcUrl || undefined
             );
 
         const onProgress: StageProgressCallback = (stage, index) => {
