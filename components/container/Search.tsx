@@ -14,14 +14,9 @@ import { columns } from "@/components/table/ColumnsProposals";
 import { DataTable } from "@/components/table/DataTable";
 import { Progress } from "@/components/ui/Progress";
 
+import { STORAGE_KEYS } from "@config/storage-keys";
 import { useLocalStorage } from "@hooks/use-local-storage";
 import { useMultiGovernorSearch } from "@hooks/use-multi-governor-search";
-
-// Local storage keys for RPC settings
-const L1_RPC_KEY = "tally-zero-l1-rpc";
-const L2_RPC_KEY = "tally-zero-l2-rpc";
-const BLOCK_RANGE_KEY = "tally-zero-block-range";
-const L1_BLOCK_RANGE_KEY = "tally-zero-l1-block-range";
 
 export default function Search() {
   const searchParams = useSearchParams();
@@ -32,16 +27,20 @@ export default function Search() {
   const rpcFromUrl = searchParams.get("rpc") || "";
 
   // Load saved settings from localStorage using the hook
-  const [storedL2Rpc, setStoredL2Rpc] = useLocalStorage(L2_RPC_KEY, "");
-  const [l1Rpc, setL1Rpc] = useLocalStorage(L1_RPC_KEY, "");
-  const [blockRange, setBlockRange] = useLocalStorage(
-    BLOCK_RANGE_KEY,
+  const [storedL2Rpc, setStoredL2Rpc, isL2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+  const [l1Rpc, setL1Rpc, isL1RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L1_RPC,
+    ""
+  );
+  const [blockRange, setBlockRange, isBlockRangeHydrated] = useLocalStorage(
+    STORAGE_KEYS.BLOCK_RANGE,
     10000000
   );
-  const [l1BlockRange, setL1BlockRange] = useLocalStorage(
-    L1_BLOCK_RANGE_KEY,
-    100000
-  );
+  const [l1BlockRange, setL1BlockRange, isL1BlockRangeHydrated] =
+    useLocalStorage(STORAGE_KEYS.L1_BLOCK_RANGE, 100000);
 
   // RPC from URL takes precedence over stored value
   const customRpc = rpcFromUrl || storedL2Rpc;

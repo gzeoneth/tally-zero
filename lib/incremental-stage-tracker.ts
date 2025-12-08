@@ -1,6 +1,7 @@
 import {
   ARBITRUM_NOVA_RPC_URL,
   ARBITRUM_RPC_URL,
+  CHALLENGE_PERIOD_L1_BLOCKS,
   CORE_GOVERNOR,
   DEFAULT_CHUNKING_CONFIG,
   DELAYED_INBOX,
@@ -285,7 +286,9 @@ export class IncrementalStageTracker {
       const stateNum = await governor.state(proposalId);
       currentState =
         PROPOSAL_STATE_NAMES[stateNum as keyof typeof PROPOSAL_STATE_NAMES];
-    } catch {}
+    } catch {
+      // Intentionally ignored - operation is optional/best-effort
+    }
 
     // Stage 1: Proposal Created (index 0)
     if (startIndex <= 0) {
@@ -641,7 +644,9 @@ export class IncrementalStageTracker {
           },
         };
       }
-    } catch {}
+    } catch {
+      // Intentionally ignored - operation is optional/best-effort
+    }
 
     return { type: "PROPOSAL_QUEUED", status: "NOT_STARTED", transactions: [] };
   }
@@ -783,7 +788,9 @@ export class IncrementalStageTracker {
           data: { operationId, eta: timestamp.toString() },
         };
       }
-    } catch {}
+    } catch {
+      // Intentionally ignored - operation is optional/best-effort
+    }
 
     return {
       type: "L2_TIMELOCK_EXECUTED",
@@ -934,7 +941,6 @@ export class IncrementalStageTracker {
     if (executableBlock) {
       fromBlock = executableBlock.toNumber();
     } else {
-      const CHALLENGE_PERIOD_L1_BLOCKS = 46080;
       const l1BlockAtL2Tx = getL1BlockNumberFromReceipt(receipt);
       fromBlock = l1BlockAtL2Tx + CHALLENGE_PERIOD_L1_BLOCKS;
     }
@@ -1055,7 +1061,9 @@ export class IncrementalStageTracker {
           data: { operationId, eta: timestamp.toString() },
         };
       }
-    } catch {}
+    } catch {
+      // Intentionally ignored - operation is optional/best-effort
+    }
 
     return {
       type: "L1_TIMELOCK_EXECUTED",
@@ -1184,6 +1192,7 @@ export class IncrementalStageTracker {
             });
           }
         } catch {
+          // Intentionally ignored - operation is optional/best-effort
           creationDetails.push({
             index: globalIndex,
             targetChain: chain.name,
@@ -1233,6 +1242,7 @@ export class IncrementalStageTracker {
             });
           }
         } catch {
+          // Intentionally ignored - operation is optional/best-effort
           allRedeemed = false;
           redemptionDetails.push({
             index: globalIndex,

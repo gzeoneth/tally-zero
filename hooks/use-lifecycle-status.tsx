@@ -19,12 +19,8 @@ import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
+import { CACHE_VERSION, STORAGE_KEYS } from "@config/storage-keys";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-const L1_RPC_KEY = "tally-zero-l1-rpc";
-const L2_RPC_KEY = "tally-zero-l2-rpc";
-const CACHE_PREFIX = "tally-zero-stages-";
-const CACHE_VERSION = 1;
 
 interface CachedResult {
   version: number;
@@ -33,7 +29,7 @@ interface CachedResult {
 }
 
 function getCacheKey(proposalId: string, governorAddress: string): string {
-  return `${CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
+  return `${STORAGE_KEYS.STAGES_CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
 }
 
 function loadCachedResult(
@@ -110,8 +106,8 @@ export function useLifecycleStatus({
   const isMounted = useRef(true);
   const hasInitialized = useRef(false);
 
-  const effectiveL1RpcUrl = getStoredRpc(L1_RPC_KEY, ETHEREUM_RPC_URL);
-  const effectiveL2RpcUrl = getStoredRpc(L2_RPC_KEY, "");
+  const effectiveL1RpcUrl = getStoredRpc(STORAGE_KEYS.L1_RPC, ETHEREUM_RPC_URL);
+  const effectiveL2RpcUrl = getStoredRpc(STORAGE_KEYS.L2_RPC, "");
 
   const syncFromSession = useCallback((session: TrackingSession) => {
     if (!isMounted.current) return;

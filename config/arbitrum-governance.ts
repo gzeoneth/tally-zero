@@ -12,7 +12,8 @@ export const ETHEREUM_CHAIN_ID = 1;
 // RPC URLs
 export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
 export const ARBITRUM_NOVA_RPC_URL = "https://nova.arbitrum.io/rpc";
-export const ETHEREUM_RPC_URL = "http://192.168.1.8:8545";
+export const ETHEREUM_RPC_URL =
+  process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL || "https://eth.llamarpc.com";
 
 /**
  * Core Governor Contract (Constitutional Proposals)
@@ -101,7 +102,7 @@ export const ARBITRUM_BRIDGE = {
  */
 export const DEFAULT_CHUNKING_CONFIG: ChunkingConfig = {
   l2ChunkSize: 10000000, // arb1.arbitrum.io/rpc can handle 10M block ranges
-  l1ChunkSize: 100000, // local node can handle larger ranges
+  l1ChunkSize: 1000, // public RPCs have stricter limits
   delayBetweenChunks: 100, // ms delay between chunk queries
 };
 
@@ -139,6 +140,11 @@ export function getGovernorConfig(type: "core" | "treasury") {
     };
   }
 }
+
+/**
+ * Challenge period in L1 blocks (~7 days at 12s/block)
+ */
+export const CHALLENGE_PERIOD_L1_BLOCKS = 46080;
 
 /**
  * Block times for time-based calculations

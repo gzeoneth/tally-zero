@@ -74,6 +74,10 @@ async function searchGovernor(
         onProgress(Math.min((processedBlocks / totalBlocks) * 100, 100));
         return events;
       } catch (error) {
+        console.warn(
+          `[searchGovernor] Query failed for block range ${queryFromBlock}-${queryToBlock}:`,
+          error
+        );
         return [];
       }
     });
@@ -204,6 +208,7 @@ export function useMultiGovernorSearch({
   useEffect(() => {
     if (!enabled || !providerReady) return;
 
+    const abortController = new AbortController();
     let cancelled = false;
     const progressMap: Record<string, number> = {};
 
@@ -226,6 +231,8 @@ export function useMultiGovernorSearch({
         await provider.ready;
 
         const searchPromises = ARBITRUM_GOVERNORS.map(async (governor) => {
+          if (abortController.signal.aborted) return [];
+
           progressMap[governor.id] = 0;
 
           const rawProposals = await searchGovernor(
@@ -243,13 +250,13 @@ export function useMultiGovernorSearch({
         });
 
         const results = await Promise.all(searchPromises);
-        if (cancelled) return;
+        if (cancelled || abortController.signal.aborted) return;
 
         const allRawProposals = results.flat();
         setProgress(95);
         const parsedProposals = await parseProposals(provider, allRawProposals);
 
-        if (cancelled) return;
+        if (cancelled || abortController.signal.aborted) return;
 
         // Sort: active first, then by startBlock descending
         const sorted = parsedProposals.sort((a, b) => {
@@ -262,7 +269,7 @@ export function useMultiGovernorSearch({
         setProgress(100);
         setIsSearching(false);
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !abortController.signal.aborted) {
           setError(err as Error);
           setIsSearching(false);
         }
@@ -273,6 +280,7 @@ export function useMultiGovernorSearch({
 
     return () => {
       cancelled = true;
+      abortController.abort();
     };
   }, [enabled, providerReady, daysToSearch, rpcUrl, blockRange]);
 

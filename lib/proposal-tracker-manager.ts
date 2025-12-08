@@ -27,6 +27,7 @@ export interface TrackingSession {
   subscribers: Set<(session: TrackingSession) => void>;
   abortController: AbortController | null;
   queuePosition: number | null;
+  lastUpdatedAt: number;
 }
 
 export interface QueuedItem {
@@ -94,6 +95,7 @@ class ProposalTrackerManager {
       subscribers: new Set(),
       abortController: null,
       queuePosition: null,
+      lastUpdatedAt: Date.now(),
     };
 
     this.sessions.set(key, session);
@@ -111,7 +113,7 @@ class ProposalTrackerManager {
     const session = this.sessions.get(key);
     if (!session) return;
 
-    Object.assign(session, updates);
+    Object.assign(session, updates, { lastUpdatedAt: Date.now() });
     this.notifySubscribers(session);
   }
 
@@ -301,6 +303,29 @@ class ProposalTrackerManager {
       this.notifyGlobalSubscribers();
       this.processQueue();
     }
+  }
+
+  /**
+   * Remove stale sessions that are complete or errored and older than maxAgeMs
+   * @param maxAgeMs - Maximum age in milliseconds (default: 30 minutes)
+   * @returns Number of sessions cleaned up
+   */
+  cleanupStaleSessions(maxAgeMs: number = 30 * 60 * 1000): number {
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    for (const [key, session] of Array.from(this.sessions.entries())) {
+      if (
+        (session.status === "complete" || session.status === "error") &&
+        session.subscribers.size === 0 &&
+        now - session.lastUpdatedAt > maxAgeMs
+      ) {
+        this.sessions.delete(key);
+        cleanedCount++;
+      }
+    }
+
+    return cleanedCount;
   }
 }
 

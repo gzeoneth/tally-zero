@@ -19,12 +19,8 @@ import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
+import { CACHE_VERSION, STORAGE_KEYS } from "@config/storage-keys";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-const L1_RPC_KEY = "tally-zero-l1-rpc";
-const L2_RPC_KEY = "tally-zero-l2-rpc";
-const CACHE_PREFIX = "tally-zero-stages-";
-const CACHE_VERSION = 1;
 
 interface CachedResult {
   version: number;
@@ -33,7 +29,7 @@ interface CachedResult {
 }
 
 function getCacheKey(proposalId: string, governorAddress: string): string {
-  return `${CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
+  return `${STORAGE_KEYS.STAGES_CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
 }
 
 function loadCachedResult(
@@ -120,8 +116,8 @@ export function useProposalStages({
   l2RpcUrl,
 }: UseProposalStagesOptions): UseProposalStagesResult {
   const effectiveL1RpcUrl =
-    l1RpcUrl || getStoredRpc(L1_RPC_KEY, ETHEREUM_RPC_URL);
-  const effectiveL2RpcUrl = l2RpcUrl || getStoredRpc(L2_RPC_KEY, "");
+    l1RpcUrl || getStoredRpc(STORAGE_KEYS.L1_RPC, ETHEREUM_RPC_URL);
+  const effectiveL2RpcUrl = l2RpcUrl || getStoredRpc(STORAGE_KEYS.L2_RPC, "");
 
   // Local state that syncs with the global session
   const [stages, setStages] = useState<ProposalStage[]>([]);
@@ -187,7 +183,7 @@ export function useProposalStages({
               effectiveL1RpcUrl
             );
 
-        const onProgress: StageProgressCallback = (stage, index, _isLast) => {
+        const onProgress: StageProgressCallback = (stage, index) => {
           if (abortController.signal.aborted) return;
 
           const session = trackerManager.getSession(
@@ -323,16 +319,12 @@ export function useProposalStages({
         session.status === "queued" ||
         session.status === "complete"
       ) {
-        console.log(
-          `[useProposalStages] Session status is ${session.status}, not starting new tracking`
-        );
         return false;
       }
 
       // Check for cached result
       const cached = loadCachedResult(proposalId, governorAddress);
       if (cached) {
-        console.log("[useProposalStages] Found cached result, restoring");
         trackerManager.updateSession(proposalId, governorAddress, {
           stages: cached.stages,
           currentStageIndex: cached.stages.length - 1,
@@ -347,7 +339,6 @@ export function useProposalStages({
 
     // Only start tracking if session is idle
     if (shouldStartTracking()) {
-      console.log("[useProposalStages] Requesting tracking session");
       trackerManager.requestTracking(proposalId, governorAddress, () =>
         startTracking()
       );
