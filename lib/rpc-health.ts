@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import {
   ARBITRUM_NOVA_RPC_URL,
   ARBITRUM_RPC_URL,
+  DEFAULT_CHUNKING_CONFIG,
   ETHEREUM_RPC_URL,
 } from "@/config/arbitrum-governance";
 
@@ -24,6 +25,8 @@ export interface RpcHealthResult {
   latencyMs?: number;
   blockNumber?: number;
   error?: string;
+  logSearchSupported?: boolean;
+  logSearchError?: string;
 }
 
 export const DEFAULT_RPC_ENDPOINTS: RpcEndpoint[] = [
@@ -51,13 +54,15 @@ export const DEFAULT_RPC_ENDPOINTS: RpcEndpoint[] = [
 ];
 
 const HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds
+const LOG_SEARCH_TIMEOUT = 10000; // 10 seconds for log search
 
 /**
  * Test connectivity to a single RPC endpoint
  */
 export async function checkRpcHealth(
   endpoint: RpcEndpoint,
-  customUrl?: string
+  customUrl?: string,
+  chunkSize?: number
 ): Promise<RpcHealthResult> {
   const url = customUrl || endpoint.url;
   const startTime = Date.now();
@@ -69,7 +74,6 @@ export async function checkRpcHealth(
     status: "checking",
   };
 
-  // Skip if URL is empty
   if (!url || url.trim() === "") {
     return {
       ...baseResult,
@@ -81,7 +85,6 @@ export async function checkRpcHealth(
   try {
     const provider = new ethers.providers.JsonRpcProvider(url);
 
-    // Create a timeout promise
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(
         () => reject(new Error("Request timeout")),
@@ -89,7 +92,6 @@ export async function checkRpcHealth(
       );
     });
 
-    // Race between the actual request and timeout
     const blockNumber = await Promise.race([
       provider.getBlockNumber(),
       timeoutPromise,
@@ -97,7 +99,31 @@ export async function checkRpcHealth(
 
     const latencyMs = Date.now() - startTime;
 
-    // Consider > 3 seconds as degraded
+    // Test log search with configured chunk size
+    const effectiveChunkSize =
+      chunkSize ||
+      (endpoint.id === "l1"
+        ? DEFAULT_CHUNKING_CONFIG.l1ChunkSize
+        : DEFAULT_CHUNKING_CONFIG.l2ChunkSize);
+
+    const logSearchResult = await testLogSearch(
+      provider,
+      blockNumber,
+      effectiveChunkSize
+    );
+
+    if (!logSearchResult.supported) {
+      return {
+        ...baseResult,
+        status: "down",
+        latencyMs,
+        blockNumber,
+        logSearchSupported: false,
+        logSearchError: logSearchResult.error,
+        error: `Log search failed: ${logSearchResult.error}`,
+      };
+    }
+
     const status = latencyMs > 3000 ? "degraded" : "healthy";
 
     return {
@@ -105,6 +131,7 @@ export async function checkRpcHealth(
       status,
       latencyMs,
       blockNumber,
+      logSearchSupported: true,
     };
   } catch (error) {
     const latencyMs = Date.now() - startTime;
@@ -121,21 +148,89 @@ export async function checkRpcHealth(
 }
 
 /**
+ * Test if the RPC supports log searches with the given chunk size
+ */
+async function testLogSearch(
+  provider: ethers.providers.JsonRpcProvider,
+  currentBlock: number,
+  chunkSize: number
+): Promise<{ supported: boolean; error?: string }> {
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error("Log search timeout")),
+        LOG_SEARCH_TIMEOUT
+      );
+    });
+
+    const fromBlock = Math.max(0, currentBlock - chunkSize);
+
+    // Query for any logs in the block range (use a non-existent address to get empty results quickly)
+    await Promise.race([
+      provider.getLogs({
+        fromBlock,
+        toBlock: currentBlock,
+        address: "0x0000000000000000000000000000000000000001",
+      }),
+      timeoutPromise,
+    ]);
+
+    return { supported: true };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    // Check for common block range errors
+    if (
+      errorMessage.includes("block range") ||
+      errorMessage.includes("exceed") ||
+      errorMessage.includes("too large") ||
+      errorMessage.includes("limit") ||
+      errorMessage.includes("10000") ||
+      errorMessage.includes("query returned more than")
+    ) {
+      return {
+        supported: false,
+        error: `Block range ${chunkSize.toLocaleString()} too large for this RPC`,
+      };
+    }
+
+    if (errorMessage.includes("timeout")) {
+      return {
+        supported: false,
+        error: "Log search timed out - block range may be too large",
+      };
+    }
+
+    // Other errors might be transient, consider it supported
+    return { supported: true };
+  }
+}
+
+/**
  * Check health of all RPC endpoints in parallel
  */
-export async function checkAllRpcHealth(customUrls?: {
-  arb1?: string;
-  nova?: string;
-  l1?: string;
-}): Promise<RpcHealthResult[]> {
+export async function checkAllRpcHealth(
+  customUrls?: {
+    arb1?: string;
+    nova?: string;
+    l1?: string;
+  },
+  chunkSizes?: {
+    arb1?: number;
+    nova?: number;
+    l1?: number;
+  }
+): Promise<RpcHealthResult[]> {
   const endpoints = DEFAULT_RPC_ENDPOINTS.map((endpoint) => ({
     endpoint,
     customUrl: customUrls?.[endpoint.id],
+    chunkSize: chunkSizes?.[endpoint.id],
   }));
 
   const results = await Promise.all(
-    endpoints.map(({ endpoint, customUrl }) =>
-      checkRpcHealth(endpoint, customUrl)
+    endpoints.map(({ endpoint, customUrl, chunkSize }) =>
+      checkRpcHealth(endpoint, customUrl, chunkSize)
     )
   );
 

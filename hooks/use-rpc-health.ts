@@ -14,6 +14,11 @@ export interface UseRpcHealthOptions {
     nova?: string;
     l1?: string;
   };
+  chunkSizes?: {
+    arb1?: number;
+    nova?: number;
+    l1?: number;
+  };
   autoCheck?: boolean;
 }
 
@@ -32,6 +37,7 @@ export interface UseRpcHealthResult {
 
 export function useRpcHealth({
   customUrls,
+  chunkSizes,
   autoCheck = true,
 }: UseRpcHealthOptions = {}): UseRpcHealthResult {
   const [results, setResults] = useState<RpcHealthResult[]>([]);
@@ -41,7 +47,6 @@ export function useRpcHealth({
   const checkHealth = useCallback(async () => {
     setIsChecking(true);
 
-    // Set initial "checking" state for all endpoints
     setResults([
       { id: "arb1", name: "Arbitrum One", url: "", status: "checking" },
       { id: "nova", name: "Arbitrum Nova", url: "", status: "checking" },
@@ -49,7 +54,7 @@ export function useRpcHealth({
     ]);
 
     try {
-      const healthResults = await checkAllRpcHealth(customUrls);
+      const healthResults = await checkAllRpcHealth(customUrls, chunkSizes);
       setResults(healthResults);
       setLastCheckedAt(new Date());
     } catch (error) {
@@ -57,7 +62,7 @@ export function useRpcHealth({
     } finally {
       setIsChecking(false);
     }
-  }, [customUrls]);
+  }, [customUrls, chunkSizes]);
 
   // Auto-check on mount
   useEffect(() => {

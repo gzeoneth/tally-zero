@@ -12,7 +12,7 @@ export const ETHEREUM_CHAIN_ID = 1;
 // RPC URLs
 export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
 export const ARBITRUM_NOVA_RPC_URL = "https://nova.arbitrum.io/rpc";
-export const ETHEREUM_RPC_URL = "https://eth.llamarpc.com";
+export const ETHEREUM_RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/demo";
 
 /**
  * Core Governor Contract (Constitutional Proposals)
