@@ -1,5 +1,6 @@
-export const ARBITRUM_CHAIN_ID = 42161;
-export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
+import { ARBITRUM_CHAIN_ID, ARBITRUM_RPC_URL } from "./arbitrum-governance";
+
+export { ARBITRUM_CHAIN_ID, ARBITRUM_RPC_URL };
 
 export const ARBITRUM_GOVERNORS = [
   {

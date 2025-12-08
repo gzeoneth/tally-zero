@@ -31,11 +31,11 @@ import {
   L1_TIMELOCK,
   L2_CORE_TIMELOCK,
 } from "../config/arbitrum-governance";
-import {
-  ProposalStageTracker,
-  formatTrackingResult,
-} from "../lib/proposal-stage-tracker";
-import type { ChunkingConfig } from "../types/proposal-stage";
+import { IncrementalStageTracker } from "../lib/incremental-stage-tracker";
+import type {
+  ChunkingConfig,
+  ProposalTrackingResult,
+} from "../types/proposal-stage";
 
 interface CliOptions {
   proposalId: string;
@@ -59,6 +59,77 @@ function debug(...args: unknown[]) {
   if (VERBOSE) {
     console.log("[DEBUG]", ...args);
   }
+}
+
+/**
+ * Format a tracking result for console output
+ */
+function formatTrackingResult(result: ProposalTrackingResult): string {
+  const lines: string[] = [];
+
+  lines.push("=".repeat(60));
+  lines.push("Arbitrum Governance Proposal Stage Tracker");
+  lines.push("=".repeat(60));
+  lines.push("");
+  lines.push(`Proposal ID: ${result.proposalId}`);
+  lines.push(`Creation TX: ${result.creationTxHash}`);
+  lines.push(`Governor: ${result.governorAddress}`);
+  if (result.currentState) {
+    lines.push(`Current State: ${result.currentState}`);
+  }
+  lines.push("");
+  lines.push("-".repeat(60));
+  lines.push("Stages:");
+  lines.push("-".repeat(60));
+
+  for (const stage of result.stages) {
+    const statusIcon =
+      stage.status === "COMPLETED"
+        ? "[OK]"
+        : stage.status === "PENDING"
+          ? "[..]"
+          : stage.status === "FAILED"
+            ? "[X]"
+            : "[ ]";
+
+    lines.push("");
+    lines.push(`${statusIcon} ${stage.type}`);
+    lines.push(`    Status: ${stage.status}`);
+
+    if (stage.transactions.length > 0) {
+      lines.push(`    Transactions:`);
+      for (const tx of stage.transactions) {
+        const explorer =
+          tx.chain === "L1"
+            ? `https://etherscan.io/tx/${tx.hash}`
+            : `https://arbiscan.io/tx/${tx.hash}`;
+        lines.push(`      - ${tx.hash}`);
+        lines.push(`        Block: ${tx.blockNumber} (${tx.chain})`);
+        if (tx.timestamp) {
+          lines.push(
+            `        Time: ${new Date(tx.timestamp * 1000).toISOString()}`
+          );
+        }
+        lines.push(`        Explorer: ${explorer}`);
+      }
+    }
+
+    if (stage.data && Object.keys(stage.data).length > 0) {
+      lines.push(`    Data:`);
+      for (const [key, value] of Object.entries(stage.data)) {
+        if (typeof value === "string" && value.length > 80) {
+          lines.push(`      ${key}: ${value.substring(0, 80)}...`);
+        } else {
+          lines.push(`      ${key}: ${JSON.stringify(value)}`);
+        }
+      }
+    }
+  }
+
+  lines.push("");
+  lines.push("=".repeat(60));
+
+  return lines.join("\n");
 }
 
 function parseArgs(): CliOptions {
@@ -247,18 +318,17 @@ async function main(): Promise<void> {
   console.log(`  L1 Timelock: ${l1TimelockAddress}`);
   console.log("");
 
-  const tracker = new ProposalStageTracker(
+  const tracker = new IncrementalStageTracker(
     l2Provider,
     l1Provider,
     governorAddress,
     l2TimelockAddress,
     l1TimelockAddress,
     chunkingConfig,
-    baseL2Provider, // Pass base provider for SDK operations
-    VERBOSE ? debug : undefined // Pass debug logger if verbose
+    baseL2Provider // Pass base provider for SDK operations
   );
 
-  debug("ProposalStageTracker created");
+  debug("IncrementalStageTracker created");
 
   // Normalize proposal ID
   let proposalId = options.proposalId;
