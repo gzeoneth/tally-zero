@@ -28,10 +28,14 @@ interface ProposalStagesProps {
   l1RpcUrl?: string;
 }
 
-function getExplorerUrl(hash: string, chain: "L1" | "L2"): string {
-  return chain === "L1"
-    ? `https://etherscan.io/tx/${hash}`
-    : `https://arbiscan.io/tx/${hash}`;
+function getExplorerUrl(
+  hash: string,
+  chain: "L1" | "L2",
+  targetChain?: "Arb1" | "Nova"
+): string {
+  if (chain === "L1") return `https://etherscan.io/tx/${hash}`;
+  if (targetChain === "Nova") return `https://nova.arbiscan.io/tx/${hash}`;
+  return `https://arbiscan.io/tx/${hash}`;
 }
 
 function formatTimestamp(timestamp?: number): string {
@@ -229,10 +233,112 @@ function StageItem({
                 {String(stage.data.message)}
               </p>
             ) : null}
-            {"retryableCount" in stage.data && stage.data.retryableCount ? (
-              <p className="text-muted-foreground">
-                Retryable tickets: {Number(stage.data.retryableCount)}
-              </p>
+            {"creationDetails" in stage.data &&
+            Array.isArray(stage.data.creationDetails) &&
+            stage.data.creationDetails.length > 0 ? (
+              <div className="space-y-1 mt-1">
+                <p className="text-muted-foreground">
+                  Retryable tickets created:{" "}
+                  {
+                    (
+                      stage.data.creationDetails as Array<{
+                        targetChain: string;
+                        l2TxHash: string | null;
+                      }>
+                    ).filter((d) => d.l2TxHash).length
+                  }
+                  /{stage.data.creationDetails.length}
+                </p>
+                {(
+                  stage.data.creationDetails as Array<{
+                    index: number;
+                    targetChain: "Arb1" | "Nova";
+                    l2TxHash: string | null;
+                  }>
+                )
+                  .filter((d) => d.l2TxHash)
+                  .slice(0, 3)
+                  .map((detail) => (
+                    <div
+                      key={`creation-${detail.index}`}
+                      className="flex items-center gap-2"
+                    >
+                      <span className="text-xs px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                        {detail.targetChain}
+                      </span>
+                      <a
+                        href={getExplorerUrl(
+                          detail.l2TxHash!,
+                          "L2",
+                          detail.targetChain
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        {detail.l2TxHash!.slice(0, 10)}...
+                        {detail.l2TxHash!.slice(-8)}
+                        <ExternalLinkIcon className="h-3 w-3" />
+                      </a>
+                    </div>
+                  ))}
+              </div>
+            ) : null}
+            {"redemptionDetails" in stage.data &&
+            Array.isArray(stage.data.redemptionDetails) &&
+            stage.data.redemptionDetails.length > 0 ? (
+              <div className="space-y-1 mt-1">
+                <p className="text-muted-foreground">
+                  Redemptions:{" "}
+                  {
+                    (
+                      stage.data.redemptionDetails as Array<{
+                        l2TxHash: string | null;
+                      }>
+                    ).filter((d) => d.l2TxHash).length
+                  }
+                  /{stage.data.redemptionDetails.length}
+                </p>
+                {(
+                  stage.data.redemptionDetails as Array<{
+                    index: number;
+                    targetChain: "Arb1" | "Nova";
+                    status: string;
+                    l2TxHash: string | null;
+                  }>
+                )
+                  .slice(0, 3)
+                  .map((detail) => (
+                    <div
+                      key={`redemption-${detail.index}`}
+                      className="flex items-center gap-2"
+                    >
+                      <span className="text-xs px-1 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                        {detail.targetChain}
+                      </span>
+                      {detail.l2TxHash ? (
+                        <a
+                          href={getExplorerUrl(
+                            detail.l2TxHash,
+                            "L2",
+                            detail.targetChain
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                        >
+                          {detail.l2TxHash.slice(0, 10)}...
+                          {detail.l2TxHash.slice(-8)}
+                          <ExternalLinkIcon className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {detail.status}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+              </div>
             ) : null}
           </div>
         )}

@@ -1,7 +1,9 @@
 import {
+  ARBITRUM_NOVA_RPC_URL,
   ARBITRUM_RPC_URL,
   CORE_GOVERNOR,
   DEFAULT_CHUNKING_CONFIG,
+  DELAYED_INBOX,
   ETHEREUM_RPC_URL,
   L1_TIMELOCK,
   L2_CORE_TIMELOCK,
@@ -992,49 +994,50 @@ export class IncrementalStageTracker {
       return [];
     }
 
-    const parentReceipt = new ParentTransactionReceipt(receipt);
-    const messages = await parentReceipt.getParentToChildMessages(
-      ctx.baseL2Provider
+    // Detect target chains by checking which inboxes were interacted with
+    const hasArb1Inbox = receipt.logs.some(
+      (log) => log.address.toLowerCase() === DELAYED_INBOX.ARB1.toLowerCase()
+    );
+    const hasNovaInbox = receipt.logs.some(
+      (log) => log.address.toLowerCase() === DELAYED_INBOX.NOVA.toLowerCase()
     );
 
-    if (messages.length === 0) {
-      return [];
+    type ChainInfo = {
+      name: "Arb1" | "Nova";
+      provider: ethers.providers.Provider;
+      chainId: number;
+    };
+
+    const chains: ChainInfo[] = [];
+    if (hasArb1Inbox) {
+      chains.push({
+        name: "Arb1",
+        provider: ctx.baseL2Provider,
+        chainId: 42161,
+      });
+    }
+    if (hasNovaInbox) {
+      const novaProvider = new ethers.providers.JsonRpcProvider(
+        ARBITRUM_NOVA_RPC_URL
+      );
+      chains.push({
+        name: "Nova",
+        provider: novaProvider,
+        chainId: 42170,
+      });
     }
 
+    // If no specific inbox detected, default to Arb1
+    if (chains.length === 0) {
+      chains.push({
+        name: "Arb1",
+        provider: ctx.baseL2Provider,
+        chainId: 42161,
+      });
+    }
+
+    const parentReceipt = new ParentTransactionReceipt(receipt);
     const l1Block = await ctx.l1Provider.getBlock(receipt.blockNumber);
-    const creationTxs: StageTransaction[] = [];
-    const creationDetails: Array<{
-      index: number;
-      l2TxHash: string | null;
-      l2Block: number | null;
-    }> = [];
-
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      try {
-        const creationReceipt = await msg.getRetryableCreationReceipt();
-        if (creationReceipt) {
-          const l2Block = await ctx.baseL2Provider.getBlock(
-            creationReceipt.blockNumber
-          );
-          creationTxs.push({
-            hash: creationReceipt.transactionHash,
-            blockNumber: creationReceipt.blockNumber,
-            timestamp: l2Block.timestamp,
-            chain: "L2",
-          });
-          creationDetails.push({
-            index: i,
-            l2TxHash: creationReceipt.transactionHash,
-            l2Block: creationReceipt.blockNumber,
-          });
-        } else {
-          creationDetails.push({ index: i, l2TxHash: null, l2Block: null });
-        }
-      } catch {
-        creationDetails.push({ index: i, l2TxHash: null, l2Block: null });
-      }
-    }
 
     const allCreationTxs: StageTransaction[] = [
       {
@@ -1043,79 +1046,155 @@ export class IncrementalStageTracker {
         timestamp: l1Block.timestamp,
         chain: "L1",
       },
-      ...creationTxs,
     ];
-
-    stages.push({
-      type: "RETRYABLE_CREATED",
-      status: creationTxs.length > 0 ? "COMPLETED" : "PENDING",
-      transactions: allCreationTxs,
-      data: { retryableCount: messages.length, creationDetails },
-    });
-
+    const creationDetails: Array<{
+      index: number;
+      targetChain: "Arb1" | "Nova";
+      l2TxHash: string | null;
+      l2Block: number | null;
+    }> = [];
     const redemptionTxs: StageTransaction[] = [];
     const redemptionDetails: Array<{
       index: number;
+      targetChain: "Arb1" | "Nova";
       status: string;
       l2TxHash: string | null;
     }> = [];
+
+    let totalMessages = 0;
     let allRedeemed = true;
 
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      try {
-        const redeemResult = await msg.getSuccessfulRedeem();
-        const statusName = ParentToChildMessageStatus[redeemResult.status];
+    for (const chain of chains) {
+      const messages = await parentReceipt.getParentToChildMessages(
+        chain.provider
+      );
 
-        if (redeemResult.status === ParentToChildMessageStatus.REDEEMED) {
-          const txReceipt = redeemResult.childTxReceipt;
-          if (txReceipt) {
-            const l2Block = await ctx.baseL2Provider.getBlock(
-              txReceipt.blockNumber
+      for (let i = 0; i < messages.length; i++) {
+        const globalIndex = totalMessages + i;
+        const msg = messages[i];
+
+        // Track creation
+        try {
+          const creationReceipt = await msg.getRetryableCreationReceipt();
+          if (creationReceipt) {
+            const l2Block = await chain.provider.getBlock(
+              creationReceipt.blockNumber
             );
-            redemptionTxs.push({
-              hash: txReceipt.transactionHash,
-              blockNumber: txReceipt.blockNumber,
+            allCreationTxs.push({
+              hash: creationReceipt.transactionHash,
+              blockNumber: creationReceipt.blockNumber,
               timestamp: l2Block.timestamp,
               chain: "L2",
             });
-            redemptionDetails.push({
-              index: i,
-              status: statusName,
-              l2TxHash: txReceipt.transactionHash,
+            creationDetails.push({
+              index: globalIndex,
+              targetChain: chain.name,
+              l2TxHash: creationReceipt.transactionHash,
+              l2Block: creationReceipt.blockNumber,
             });
           } else {
+            creationDetails.push({
+              index: globalIndex,
+              targetChain: chain.name,
+              l2TxHash: null,
+              l2Block: null,
+            });
+          }
+        } catch {
+          creationDetails.push({
+            index: globalIndex,
+            targetChain: chain.name,
+            l2TxHash: null,
+            l2Block: null,
+          });
+        }
+
+        // Track redemption
+        try {
+          const redeemResult = await msg.getSuccessfulRedeem();
+          const statusName = ParentToChildMessageStatus[redeemResult.status];
+
+          if (redeemResult.status === ParentToChildMessageStatus.REDEEMED) {
+            const txReceipt = redeemResult.childTxReceipt;
+            if (txReceipt) {
+              const l2Block = await chain.provider.getBlock(
+                txReceipt.blockNumber
+              );
+              redemptionTxs.push({
+                hash: txReceipt.transactionHash,
+                blockNumber: txReceipt.blockNumber,
+                timestamp: l2Block.timestamp,
+                chain: "L2",
+              });
+              redemptionDetails.push({
+                index: globalIndex,
+                targetChain: chain.name,
+                status: statusName,
+                l2TxHash: txReceipt.transactionHash,
+              });
+            } else {
+              redemptionDetails.push({
+                index: globalIndex,
+                targetChain: chain.name,
+                status: statusName,
+                l2TxHash: null,
+              });
+            }
+          } else {
+            allRedeemed = false;
             redemptionDetails.push({
-              index: i,
+              index: globalIndex,
+              targetChain: chain.name,
               status: statusName,
               l2TxHash: null,
             });
           }
-        } else {
+        } catch {
           allRedeemed = false;
           redemptionDetails.push({
-            index: i,
-            status: statusName,
+            index: globalIndex,
+            targetChain: chain.name,
+            status: "ERROR",
             l2TxHash: null,
           });
         }
-      } catch {
-        allRedeemed = false;
-        redemptionDetails.push({ index: i, status: "ERROR", l2TxHash: null });
       }
+
+      totalMessages += messages.length;
     }
+
+    if (totalMessages === 0) {
+      return [];
+    }
+
+    const targetChains = Array.from(
+      new Set(creationDetails.map((d) => d.targetChain))
+    );
+    const createdCount = creationDetails.filter((d) => d.l2TxHash).length;
+
+    stages.push({
+      type: "RETRYABLE_CREATED",
+      status: createdCount > 0 ? "COMPLETED" : "PENDING",
+      transactions: allCreationTxs,
+      data: {
+        retryableCount: totalMessages,
+        targetChains,
+        creationDetails,
+      },
+    });
 
     stages.push({
       type: "RETRYABLE_REDEEMED",
       status:
-        allRedeemed && redemptionTxs.length === messages.length
+        allRedeemed && redemptionTxs.length === totalMessages
           ? "COMPLETED"
           : redemptionTxs.length > 0
             ? "PENDING"
             : "NOT_STARTED",
       transactions: redemptionTxs,
       data: {
-        totalRetryables: messages.length,
+        totalRetryables: totalMessages,
+        targetChains,
         redeemedCount: redemptionTxs.length,
         redemptionDetails,
       },

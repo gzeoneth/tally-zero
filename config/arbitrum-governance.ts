@@ -11,6 +11,7 @@ export const ETHEREUM_CHAIN_ID = 1;
 
 // RPC URLs
 export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
+export const ARBITRUM_NOVA_RPC_URL = "https://nova.arbitrum.io/rpc";
 export const ETHEREUM_RPC_URL = "http://192.168.1.8:8545";
 
 /**
@@ -82,10 +83,12 @@ export const ARB_TOKEN = {
   name: "ARB Token",
 } as const;
 
-/**
- * Arbitrum Bridge Contracts (from Arbitrum SDK)
- * These are fetched dynamically but provided as defaults
- */
+// Delayed Inbox addresses for detecting target L2 chain
+export const DELAYED_INBOX = {
+  ARB1: "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f",
+  NOVA: "0xc4448b71118c9071Bcb9734A0EAc55D18A153949",
+} as const;
+
 export const ARBITRUM_BRIDGE = {
   inbox: "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f",
   outbox: "0x0B9857ae2D4A3DBe74ffE1d7DF045bb7F96E4840",
