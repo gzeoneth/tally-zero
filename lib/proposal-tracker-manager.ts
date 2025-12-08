@@ -75,6 +75,11 @@ class ProposalTrackerManager {
   }
 
   createSession(proposalId: string, governorAddress: string): TrackingSession {
+    // Cleanup old sessions periodically (every 50 creates)
+    if (this.sessions.size > 0 && this.sessions.size % 50 === 0) {
+      this.cleanupStaleSessions();
+    }
+
     const key = getSessionKey(proposalId, governorAddress);
 
     // Return existing session if it exists

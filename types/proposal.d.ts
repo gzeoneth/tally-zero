@@ -15,19 +15,6 @@ export type Proposal = {
   creationTxHash?: string;
 };
 
-export type UseSearchProposals = (
-  provider: ethers.providers.Provider | undefined,
-  contract: Address | undefined,
-  blockRange: number,
-  startingBlock: number | null,
-  enabled: boolean
-) => {
-  proposals: Proposal[];
-  searchProgress: number;
-  error?: Error | null;
-  isSearching?: boolean;
-};
-
 export type ProposalVotes = {
   againstVotes: string;
   forVotes: string;

@@ -286,8 +286,12 @@ export class IncrementalStageTracker {
       const stateNum = await governor.state(proposalId);
       currentState =
         PROPOSAL_STATE_NAMES[stateNum as keyof typeof PROPOSAL_STATE_NAMES];
-    } catch {
+    } catch (e) {
       // Intentionally ignored - operation is optional/best-effort
+      console.debug(
+        "[IncrementalStageTracker] Failed to get current proposal state:",
+        e
+      );
     }
 
     // Stage 1: Proposal Created (index 0)
@@ -644,8 +648,12 @@ export class IncrementalStageTracker {
           },
         };
       }
-    } catch {
+    } catch (e) {
       // Intentionally ignored - operation is optional/best-effort
+      console.debug(
+        "[IncrementalStageTracker] Failed to check proposal state for queued stage:",
+        e
+      );
     }
 
     return { type: "PROPOSAL_QUEUED", status: "NOT_STARTED", transactions: [] };
@@ -788,8 +796,12 @@ export class IncrementalStageTracker {
           data: { operationId, eta: timestamp.toString() },
         };
       }
-    } catch {
+    } catch (e) {
       // Intentionally ignored - operation is optional/best-effort
+      console.debug(
+        "[IncrementalStageTracker] Failed to check L2 timelock state:",
+        e
+      );
     }
 
     return {
@@ -1061,8 +1073,12 @@ export class IncrementalStageTracker {
           data: { operationId, eta: timestamp.toString() },
         };
       }
-    } catch {
+    } catch (e) {
       // Intentionally ignored - operation is optional/best-effort
+      console.debug(
+        "[IncrementalStageTracker] Failed to check L1 timelock state:",
+        e
+      );
     }
 
     return {
@@ -1191,8 +1207,12 @@ export class IncrementalStageTracker {
               l2Block: null,
             });
           }
-        } catch {
+        } catch (e) {
           // Intentionally ignored - operation is optional/best-effort
+          console.debug(
+            "[IncrementalStageTracker] Failed to get retryable creation receipt:",
+            e
+          );
           creationDetails.push({
             index: globalIndex,
             targetChain: chain.name,
@@ -1241,8 +1261,12 @@ export class IncrementalStageTracker {
               l2TxHash: null,
             });
           }
-        } catch {
+        } catch (e) {
           // Intentionally ignored - operation is optional/best-effort
+          console.debug(
+            "[IncrementalStageTracker] Failed to get retryable redemption status:",
+            e
+          );
           allRedeemed = false;
           redemptionDetails.push({
             index: globalIndex,

@@ -1,5 +1,6 @@
 "use client";
 
+import { STAGE_METADATA } from "@/lib/incremental-stage-tracker";
 import type { TrackingStatus } from "@/lib/proposal-tracker-manager";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { useMemo } from "react";
@@ -62,7 +63,7 @@ export function useLifecycleStatus({
     currentState,
     queuePosition: proposalStagesResult.queuePosition,
     currentStageIndex: proposalStagesResult.currentStageIndex,
-    totalStages: 10, // Total stages in the lifecycle
+    totalStages: STAGE_METADATA.length,
     stages: proposalStagesResult.stages,
   };
 }

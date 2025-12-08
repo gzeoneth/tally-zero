@@ -143,8 +143,9 @@ async function parseProposals(
       if (proposalState !== 0) {
         try {
           quorum = await contract.quorum(proposal.startBlock);
-        } catch {
+        } catch (e) {
           // Quorum fetch can fail for some states
+          console.debug("[useMultiGovernorSearch] Failed to fetch quorum:", e);
         }
       }
 
@@ -168,8 +169,9 @@ async function parseProposals(
             }
           : undefined,
       } as ParsedProposal);
-    } catch (error) {
+    } catch (e) {
       // Skip proposals that fail to parse
+      console.debug("[useMultiGovernorSearch] Failed to parse proposal:", e);
     }
   }
 
