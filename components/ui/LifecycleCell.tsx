@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/HoverCard";
 import { proposalSchema } from "@/config/schema";
 import { states } from "@/data/table/data";
-import { useLifecycleStatus } from "@/hooks/use-lifecycle-status";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useProposalStages } from "@/hooks/use-proposal-stages";
 import { cn } from "@/lib/utils";
 import {
   CheckCircledIcon,
@@ -28,13 +28,26 @@ interface LifecycleCellProps {
 
 export function LifecycleCell({ proposal }: LifecycleCellProps) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
-  const { status, currentState, queuePosition, currentStageIndex, stages } =
-    useLifecycleStatus({
-      proposalId: proposal.id,
-      creationTxHash: proposal.creationTxHash,
-      governorAddress: proposal.contractAddress,
-      enabled: !!proposal.creationTxHash,
-    });
+  const proposalStages = useProposalStages({
+    proposalId: proposal.id,
+    creationTxHash: proposal.creationTxHash || "",
+    governorAddress: proposal.contractAddress,
+    enabled: !!proposal.creationTxHash,
+  });
+
+  // Derive status from proposal stages result
+  const status = proposalStages.isQueued
+    ? "queued"
+    : proposalStages.isLoading
+      ? "loading"
+      : proposalStages.error
+        ? "error"
+        : proposalStages.isComplete
+          ? "complete"
+          : "idle";
+
+  const currentState = proposalStages.result?.currentState || null;
+  const { queuePosition, currentStageIndex, stages } = proposalStages;
 
   const stateValue = states.find((state) => state.value === proposal.state);
 

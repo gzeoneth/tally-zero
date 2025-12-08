@@ -12,8 +12,7 @@ export const ETHEREUM_CHAIN_ID = 1;
 // RPC URLs
 export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
 export const ARBITRUM_NOVA_RPC_URL = "https://nova.arbitrum.io/rpc";
-export const ETHEREUM_RPC_URL =
-  process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL || "https://eth.llamarpc.com";
+export const ETHEREUM_RPC_URL = "https://eth.llamarpc.com";
 
 /**
  * Core Governor Contract (Constitutional Proposals)
@@ -152,6 +151,15 @@ export const CHALLENGE_PERIOD_L1_BLOCKS = 46080;
 export const BLOCK_TIMES = {
   ethereum: 12, // seconds per block
   arbitrum: 0.25, // seconds per block
+} as const;
+
+/**
+ * Blocks per day for time-based calculations
+ * Derived from: 86400 seconds/day ÷ block time
+ */
+export const BLOCKS_PER_DAY = {
+  ethereum: 7200, // 86400 / 12
+  arbitrum: 345600, // 86400 / 0.25
 } as const;
 
 /**

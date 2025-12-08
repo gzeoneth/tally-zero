@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { batchQueryWithRateLimit } from "@/lib/rpc-utils";
 import { ParsedProposal, Proposal } from "@/types/proposal";
+import { BLOCKS_PER_DAY } from "@config/arbitrum-governance";
 import {
   ARBITRUM_CHAIN_ID,
   ARBITRUM_GOVERNORS,
@@ -28,8 +29,6 @@ interface UseMultiGovernorSearchResult {
   isProviderReady: boolean;
 }
 
-// Arbitrum produces ~345600 blocks per day (0.25s block time)
-const ARBITRUM_BLOCKS_PER_DAY = 345600;
 const DEFAULT_BLOCK_RANGE = 10000000;
 
 async function searchGovernor(
@@ -46,7 +45,7 @@ async function searchGovernor(
   );
 
   const currentBlock = await provider.getBlockNumber();
-  const blocksToSearch = ARBITRUM_BLOCKS_PER_DAY * daysToSearch;
+  const blocksToSearch = BLOCKS_PER_DAY.arbitrum * daysToSearch;
   const startBlock = Math.max(currentBlock - blocksToSearch, 0);
 
   const proposalCreatedFilter = contract.filters.ProposalCreated();
