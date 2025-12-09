@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { useContractWrite, usePrepareContractWrite } from "wagmi";
+import { useSimulateContract, useWriteContract } from "wagmi";
 
 import { Button } from "@components/ui/Button";
 import { Card, CardContent } from "@components/ui/Card";
@@ -25,6 +25,7 @@ import { proposalSchema, voteSchema } from "@config/schema";
 import { toast } from "sonner";
 
 import OZ_Governor_ABI from "@data/OzGovernor_ABI.json";
+import { useEffect } from "react";
 
 export default function VoteForm({
   proposal,
@@ -35,26 +36,43 @@ export default function VoteForm({
     resolver: zodResolver(voteSchema),
   });
 
+  const voteValue = form.watch("vote");
+
+  // Wagmi v2: useSimulateContract instead of usePrepareContractWrite
   const {
-    config,
+    data: simulateData,
     error: prepareError,
     isError: isPrepareError,
-  } = usePrepareContractWrite({
+  } = useSimulateContract({
     abi: OZ_Governor_ABI,
-    address: `0x${proposal.contractAddress.slice(2)}`,
+    address: `0x${proposal.contractAddress.slice(2)}` as `0x${string}`,
     functionName: "castVote",
-    args: [proposal.id, form.getValues("vote")],
+    args: [BigInt(proposal.id), voteValue ? parseInt(voteValue) : 0],
+    query: {
+      enabled: !!voteValue,
+    },
   });
 
-  const { data, isLoading, isSuccess, write } = useContractWrite(config);
-  if (data) {
-    toast("Your vote has been submitted.");
-  }
+  // Wagmi v2: useWriteContract instead of useContractWrite
+  const {
+    data: hash,
+    isPending: isLoading,
+    isSuccess,
+    writeContract,
+  } = useWriteContract();
+
+  useEffect(() => {
+    if (hash) {
+      toast("Your vote has been submitted.");
+    }
+  }, [hash]);
 
   async function onSubmit(values: z.infer<typeof voteSchema>) {
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      write?.();
+      if (simulateData?.request) {
+        writeContract(simulateData.request);
+      }
     } catch {
       // Vote submission error handled by wagmi
     }
@@ -134,7 +152,9 @@ export default function VoteForm({
                   Voted
                 </Button>
               ) : (
-                <Button type="submit">Vote</Button>
+                <Button type="submit" disabled={!simulateData?.request}>
+                  Vote
+                </Button>
               )
             ) : (
               <Button variant="destructive" disabled>

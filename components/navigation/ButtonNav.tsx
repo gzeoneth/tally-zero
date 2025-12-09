@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { cn } from "@lib/utils";
-import { Web3Button, Web3NetworkSwitch } from "@web3modal/react";
 
 import { Icons } from "@components/Icons";
 import { buttonVariants } from "@components/ui/Button";
@@ -51,8 +50,8 @@ export function ButtonNav() {
             </div>
           ) : (
             <>
-              <Web3NetworkSwitch />
-              <Web3Button />
+              <appkit-network-button />
+              <appkit-button />
             </>
           )}
         </div>

@@ -1,35 +1,81 @@
 "use client";
 
+import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import {
-  EthereumClient,
-  w3mConnectors,
-  w3mProvider,
-} from "@web3modal/ethereum";
-import { Web3Modal } from "@web3modal/react";
-import { WagmiConfig, configureChains, createClient } from "wagmi";
+  arbitrum,
+  arbitrumNova,
+  avalanche,
+  bsc,
+  fantom,
+  mainnet,
+  optimism,
+  polygon,
+  sepolia,
+  type AppKitNetwork,
+} from "@reown/appkit/networks";
+import { createAppKit } from "@reown/appkit/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type ReactNode } from "react";
+import { WagmiProvider, type Config } from "wagmi";
+
 import { env } from "../env";
 
-import { chains } from "@config/chains";
+// Setup queryClient
+const queryClient = new QueryClient();
 
-export function Web3ModalProvider({ children }: { children: React.ReactNode }) {
-  const projectId = env.NEXT_PUBLIC_WEB3STORAGE_PROJECT_ID;
-  if (projectId === undefined) {
-    throw new Error("NEXT_PUBLIC_WEB3STORAGE_PROJECT_ID is undefined");
-  }
+// Get project ID from environment
+const projectId = env.NEXT_PUBLIC_WEB3STORAGE_PROJECT_ID;
 
-  const { provider } = configureChains(chains, [w3mProvider({ projectId })]);
-  const wagmiClient = createClient({
-    autoConnect: true,
-    connectors: w3mConnectors({ projectId, chains }),
-    provider,
-  });
+if (!projectId) {
+  throw new Error("NEXT_PUBLIC_WEB3STORAGE_PROJECT_ID is not defined");
+}
 
-  const ethereumClient = new EthereumClient(wagmiClient, chains);
+// Define networks
+const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
+  mainnet,
+  arbitrum,
+  arbitrumNova,
+  optimism,
+  polygon,
+  avalanche,
+  fantom,
+  bsc,
+  sepolia,
+];
 
+// Metadata for your app
+const metadata = {
+  name: "Arbitrum Governance",
+  description: "Decentralized voting platform for onchain governance",
+  url: "https://zero.tally.xyz",
+  icons: ["/favicon/favicon.ico"],
+};
+
+// Configure Wagmi Adapter
+const wagmiAdapter = new WagmiAdapter({
+  projectId,
+  networks,
+});
+
+// Create modal instance
+createAppKit({
+  adapters: [wagmiAdapter],
+  projectId,
+  networks,
+  defaultNetwork: arbitrum,
+  metadata,
+  features: {
+    analytics: true,
+  },
+});
+
+export function Web3ModalProvider({ children }: { children: ReactNode }) {
   return (
-    <>
-      <WagmiConfig client={wagmiClient}>{children}</WagmiConfig>
-      <Web3Modal projectId={projectId} ethereumClient={ethereumClient} />
-    </>
+    <WagmiProvider config={wagmiAdapter.wagmiConfig as Config}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </WagmiProvider>
   );
 }
+
+// Export wagmi config for use elsewhere
+export const wagmiConfig = wagmiAdapter.wagmiConfig;

@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { useEffect, useRef, useState } from "react";
-import { useProvider } from "wagmi";
+import { usePublicClient } from "wagmi";
 
 import { useFormattedProposals } from "@/hooks/use-formatted-proposals";
 import { useParseProposals } from "@hooks/use-parse-proposals";
@@ -9,6 +9,7 @@ import { useSearchProposals } from "@hooks/use-search-proposals";
 import { ContractParams, State } from "@/types/search";
 
 import { getBlockRange, selectDAOByGovernorAddress } from "@/lib/dao";
+import { publicClientToProvider } from "@/lib/ethers";
 import GovernorABI from "@data/OzGovernor_ABI.json";
 
 export function useGovernorContract({
@@ -22,8 +23,8 @@ export function useGovernorContract({
 }) {
   const [overallProgress, setOverallProgress] = useState(0);
 
-  // Use custom RPC if provided, otherwise use wagmi provider
-  const wagmiProvider = useProvider({
+  // Wagmi v2: usePublicClient instead of useProvider
+  const publicClient = usePublicClient({
     chainId: parseInt(values.networkId?.toString() as string),
   });
 
@@ -51,17 +52,37 @@ export function useGovernorContract({
         } catch (error) {
           console.error("Failed to create custom provider:", error);
           // Fall back to wagmi provider
-          setProvider(wagmiProvider);
+          if (publicClient) {
+            try {
+              const ethersProvider = publicClientToProvider(publicClient);
+              setProvider(ethersProvider);
+            } catch (e) {
+              console.error(
+                "Failed to create ethers provider from publicClient:",
+                e
+              );
+            }
+          }
           setProviderReady(true);
         }
       } else {
-        setProvider(wagmiProvider);
+        if (publicClient) {
+          try {
+            const ethersProvider = publicClientToProvider(publicClient);
+            setProvider(ethersProvider);
+          } catch (e) {
+            console.error(
+              "Failed to create ethers provider from publicClient:",
+              e
+            );
+          }
+        }
         setProviderReady(true);
       }
     };
 
     initProvider();
-  }, [values.rpcUrl, values.networkId, wagmiProvider]);
+  }, [values.rpcUrl, values.networkId, publicClient]);
 
   const dao = selectDAOByGovernorAddress(values.contractAddress);
 
