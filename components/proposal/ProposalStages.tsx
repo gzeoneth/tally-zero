@@ -74,18 +74,11 @@ function formatEta(eta?: string): string {
   });
 }
 
-/**
- * Estimated completion time range
- */
 interface EstimatedTimeRange {
   minDate: Date;
   maxDate: Date;
 }
 
-/**
- * Parse estimated duration string (e.g., "14-16 days", "~7 days", "3 days") into a range of days
- * Returns { min, max } for the duration range
- */
 function parseEstimatedDurationRange(duration?: string): {
   min: number;
   max: number;
@@ -114,14 +107,8 @@ function parseEstimatedDurationRange(duration?: string): {
   return { min: 0, max: 0 };
 }
 
-// Voting can have a 2-day extension
 const VOTING_EXTENSION_DAYS = 2;
 
-/**
- * Calculate cumulative estimated completion time ranges for all stages
- * Returns a map of stage type to estimated completion time range
- * Accounts for voting potentially having a 2-day extension
- */
 function calculateEstimatedCompletionTimes(
   allStageTypes: Array<{ type: StageType; estimatedDuration?: string }>,
   stages: ProposalStage[],

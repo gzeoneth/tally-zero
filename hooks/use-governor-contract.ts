@@ -23,7 +23,6 @@ export function useGovernorContract({
 }) {
   const [overallProgress, setOverallProgress] = useState(0);
 
-  // Wagmi v2: usePublicClient instead of useProvider
   const publicClient = usePublicClient({
     chainId: parseInt(values.networkId?.toString() as string),
   });
@@ -51,31 +50,14 @@ export function useGovernorContract({
           setProviderReady(true);
         } catch (error) {
           console.error("Failed to create custom provider:", error);
-          // Fall back to wagmi provider
           if (publicClient) {
-            try {
-              const ethersProvider = publicClientToProvider(publicClient);
-              setProvider(ethersProvider);
-            } catch (e) {
-              console.error(
-                "Failed to create ethers provider from publicClient:",
-                e
-              );
-            }
+            setProvider(publicClientToProvider(publicClient));
           }
           setProviderReady(true);
         }
       } else {
         if (publicClient) {
-          try {
-            const ethersProvider = publicClientToProvider(publicClient);
-            setProvider(ethersProvider);
-          } catch (e) {
-            console.error(
-              "Failed to create ethers provider from publicClient:",
-              e
-            );
-          }
+          setProvider(publicClientToProvider(publicClient));
         }
         setProviderReady(true);
       }

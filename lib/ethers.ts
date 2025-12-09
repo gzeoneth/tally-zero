@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
 import { type PublicClient } from "viem";
 
-// Convert Viem PublicClient to Ethers Provider
 export function publicClientToProvider(publicClient: PublicClient) {
   const { chain, transport } = publicClient;
 

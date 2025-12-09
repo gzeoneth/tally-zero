@@ -34,7 +34,6 @@ import { toast } from "sonner";
 import OZ_Governor_ABI from "@data/OzGovernor_ABI.json";
 import { useEffect } from "react";
 
-// ERC20Votes getPastVotes ABI fragment
 const ERC20_VOTES_ABI = [
   {
     inputs: [
@@ -48,7 +47,6 @@ const ERC20_VOTES_ABI = [
   },
 ] as const;
 
-// Format voting power with appropriate decimals
 function formatVotingPower(value: bigint): string {
   const formatted = formatUnits(value, 18);
   const num = parseFloat(formatted);
@@ -72,7 +70,6 @@ export default function VoteForm({
 
   const voteValue = form.watch("vote");
 
-  // Fetch user's voting power from ARB token at the proposal's start block
   const startBlock = proposal.startBlock
     ? BigInt(proposal.startBlock)
     : undefined;
@@ -87,7 +84,6 @@ export default function VoteForm({
       },
     });
 
-  // Wagmi v2: useSimulateContract instead of usePrepareContractWrite
   const {
     data: simulateData,
     error: prepareError,
@@ -102,7 +98,6 @@ export default function VoteForm({
     },
   });
 
-  // Wagmi v2: useWriteContract instead of useContractWrite
   const {
     data: hash,
     isPending: isLoading,

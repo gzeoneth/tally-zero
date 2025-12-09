@@ -54,12 +54,10 @@ export default function Search() {
   // RPC from URL takes precedence over stored value
   const customRpc = rpcFromUrl || storedL2Rpc;
 
-  // Track applied RPC values - only updates on form submit, not on every keystroke
   const [appliedL2Rpc, setAppliedL2Rpc] = useState(customRpc);
   const [appliedL1Rpc, setAppliedL1Rpc] = useState(l1Rpc);
   const [appliedBlockRange, setAppliedBlockRange] = useState(blockRange);
 
-  // Initialize form first so we can watch values
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -74,7 +72,6 @@ export default function Search() {
     },
   });
 
-  // Update form defaults when localStorage hydrates
   useEffect(() => {
     if (isL1RpcHydrated && l1Rpc) {
       form.setValue("l1RpcUrl", l1Rpc);
@@ -95,7 +92,6 @@ export default function Search() {
     }
   }, [isBlockRangeHydrated, blockRange]);
 
-  // Memoize custom RPC URLs for health check - use applied values only (not watched)
   const customRpcUrls = useMemo(
     () => ({
       arb1: appliedL2Rpc || customRpc || undefined,
@@ -138,13 +134,11 @@ export default function Search() {
 
   const onSubmit = useCallback(
     (values: z.infer<typeof formSchema>) => {
-      // Save to localStorage for persistence using the hook setters
       setStoredL2Rpc(values.rpcUrl || "");
       setL1Rpc(values.l1RpcUrl || "");
       setBlockRange(values.blockRange || DEFAULT_FORM_VALUES.blockRange);
       setL1BlockRange(values.l1BlockRange || DEFAULT_FORM_VALUES.l1BlockRange);
 
-      // Update applied values - these are used by hooks and RPC health checks
       setAppliedL2Rpc(values.rpcUrl || "");
       setAppliedL1Rpc(values.l1RpcUrl || "");
       setAppliedBlockRange(values.blockRange || DEFAULT_FORM_VALUES.blockRange);
