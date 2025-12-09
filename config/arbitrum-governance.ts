@@ -12,7 +12,7 @@ export const ETHEREUM_CHAIN_ID = 1;
 // RPC URLs
 export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
 export const ARBITRUM_NOVA_RPC_URL = "https://nova.arbitrum.io/rpc";
-export const ETHEREUM_RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/demo";
+export const ETHEREUM_RPC_URL = "https://1rpc.io/eth";
 
 /**
  * Core Governor Contract (Constitutional Proposals)
@@ -83,6 +83,16 @@ export const ARB_TOKEN = {
   name: "ARB Token",
 } as const;
 
+/**
+ * Combined list of all Arbitrum governors
+ */
+export const ARBITRUM_GOVERNORS = [
+  { id: "core" as const, ...CORE_GOVERNOR },
+  { id: "treasury" as const, ...TREASURY_GOVERNOR },
+] as const;
+
+export type GovernorId = (typeof ARBITRUM_GOVERNORS)[number]["id"];
+
 // Delayed Inbox addresses for detecting target L2 chain
 export const DELAYED_INBOX = {
   ARB1: "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f",
@@ -96,12 +106,22 @@ export const ARBITRUM_BRIDGE = {
 } as const;
 
 /**
+ * Default form values for search configuration
+ * These are the single source of truth for form defaults and placeholders
+ */
+export const DEFAULT_FORM_VALUES = {
+  daysToSearch: 120,
+  blockRange: 10000000, // arb1.arbitrum.io/rpc can handle 10M block ranges
+  l1BlockRange: 1000, // public L1 RPCs have stricter limits
+} as const;
+
+/**
  * Default chunking configuration for event searches
  * Optimized for default public RPCs (arb1.arbitrum.io, eth.llamarpc.com)
  */
 export const DEFAULT_CHUNKING_CONFIG: ChunkingConfig = {
-  l2ChunkSize: 10000000, // arb1.arbitrum.io/rpc can handle 10M block ranges
-  l1ChunkSize: 1000, // public RPCs have stricter limits
+  l2ChunkSize: DEFAULT_FORM_VALUES.blockRange,
+  l1ChunkSize: DEFAULT_FORM_VALUES.l1BlockRange,
   delayBetweenChunks: 100, // ms delay between chunk queries
 };
 

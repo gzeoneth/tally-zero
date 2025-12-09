@@ -18,6 +18,11 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Button } from "@components/ui/Button";
 
+import {
+  ARBITRUM_RPC_URL,
+  DEFAULT_FORM_VALUES,
+  ETHEREUM_RPC_URL,
+} from "@config/arbitrum-governance";
 import { formSchema } from "@config/schema";
 
 interface ContractFormProps {
@@ -59,12 +64,15 @@ export default function ContractForm({
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="120"
+                    placeholder={String(DEFAULT_FORM_VALUES.daysToSearch)}
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
                     onChange={(e) =>
-                      field.onChange(parseInt(e.target.value) || 120)
+                      field.onChange(
+                        parseInt(e.target.value) ||
+                          DEFAULT_FORM_VALUES.daysToSearch
+                      )
                     }
                   />
                 </FormControl>
@@ -81,7 +89,7 @@ export default function ContractForm({
                 <FormLabel>Arbitrum RPC URL (optional)</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="https://arb1.arbitrum.io/rpc"
+                    placeholder={ARBITRUM_RPC_URL}
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
@@ -100,7 +108,7 @@ export default function ContractForm({
                 <FormLabel>Ethereum L1 RPC URL (optional)</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="https://eth-mainnet.g.alchemy.com/v2/demo"
+                    placeholder={ETHEREUM_RPC_URL}
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
@@ -120,12 +128,15 @@ export default function ContractForm({
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="10000000"
+                    placeholder={String(DEFAULT_FORM_VALUES.blockRange)}
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
                     onChange={(e) =>
-                      field.onChange(parseInt(e.target.value) || 10000000)
+                      field.onChange(
+                        parseInt(e.target.value) ||
+                          DEFAULT_FORM_VALUES.blockRange
+                      )
                     }
                   />
                 </FormControl>
@@ -143,12 +154,15 @@ export default function ContractForm({
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="1000"
+                    placeholder={String(DEFAULT_FORM_VALUES.l1BlockRange)}
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
                     onChange={(e) =>
-                      field.onChange(parseInt(e.target.value) || 1000)
+                      field.onChange(
+                        parseInt(e.target.value) ||
+                          DEFAULT_FORM_VALUES.l1BlockRange
+                      )
                     }
                   />
                 </FormControl>

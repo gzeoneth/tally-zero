@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 
 import { batchQueryWithRateLimit } from "@/lib/rpc-utils";
 import { ParsedProposal, Proposal } from "@/types/proposal";
-import { BLOCKS_PER_DAY } from "@config/arbitrum-governance";
 import {
   ARBITRUM_CHAIN_ID,
   ARBITRUM_GOVERNORS,
   ARBITRUM_RPC_URL,
-} from "@config/arbitrum-governors";
+  BLOCKS_PER_DAY,
+} from "@config/arbitrum-governance";
 import { ProposalState } from "@config/intial-state";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 

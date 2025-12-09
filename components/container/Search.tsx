@@ -15,6 +15,7 @@ import { columns } from "@/components/table/ColumnsProposals";
 import { DataTable } from "@/components/table/DataTable";
 import { Progress } from "@/components/ui/Progress";
 
+import { DEFAULT_FORM_VALUES } from "@config/arbitrum-governance";
 import { STORAGE_KEYS } from "@config/storage-keys";
 import { useLocalStorage } from "@hooks/use-local-storage";
 import { useMultiGovernorSearch } from "@hooks/use-multi-governor-search";
@@ -25,7 +26,9 @@ export default function Search() {
   const [autoStarted, setAutoStarted] = useState(false);
   const [rpcHealthy, setRpcHealthy] = useState<boolean | null>(null);
 
-  const daysToSearch = parseInt(searchParams.get("days") || "120");
+  const daysToSearch = parseInt(
+    searchParams.get("days") || String(DEFAULT_FORM_VALUES.daysToSearch)
+  );
   const rpcFromUrl = searchParams.get("rpc") || "";
 
   // Load saved settings from localStorage using the hook
@@ -37,12 +40,16 @@ export default function Search() {
     STORAGE_KEYS.L1_RPC,
     ""
   );
-  const [blockRange, setBlockRange, isBlockRangeHydrated] = useLocalStorage(
-    STORAGE_KEYS.BLOCK_RANGE,
-    10000000
-  );
+  const [blockRange, setBlockRange, isBlockRangeHydrated] =
+    useLocalStorage<number>(
+      STORAGE_KEYS.BLOCK_RANGE,
+      DEFAULT_FORM_VALUES.blockRange
+    );
   const [l1BlockRange, setL1BlockRange, isL1BlockRangeHydrated] =
-    useLocalStorage(STORAGE_KEYS.L1_BLOCK_RANGE, 100000);
+    useLocalStorage<number>(
+      STORAGE_KEYS.L1_BLOCK_RANGE,
+      DEFAULT_FORM_VALUES.l1BlockRange
+    );
 
   // RPC from URL takes precedence over stored value
   const customRpc = rpcFromUrl || storedL2Rpc;
@@ -125,10 +132,13 @@ export default function Search() {
       // Save to localStorage for persistence using the hook setters
       setStoredL2Rpc(values.rpcUrl || "");
       setL1Rpc(values.l1RpcUrl || "");
-      setBlockRange(values.blockRange || 10000000);
-      setL1BlockRange(values.l1BlockRange || 100000);
+      setBlockRange(values.blockRange || DEFAULT_FORM_VALUES.blockRange);
+      setL1BlockRange(values.l1BlockRange || DEFAULT_FORM_VALUES.l1BlockRange);
 
-      updateURL(values.daysToSearch || 120, values.rpcUrl);
+      updateURL(
+        values.daysToSearch || DEFAULT_FORM_VALUES.daysToSearch,
+        values.rpcUrl
+      );
       setAutoStarted(true);
     },
     [updateURL, setStoredL2Rpc, setL1Rpc, setBlockRange, setL1BlockRange]
