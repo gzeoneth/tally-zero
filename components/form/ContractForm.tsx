@@ -143,12 +143,12 @@ export default function ContractForm({
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="100000"
+                    placeholder="1000"
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
                     onChange={(e) =>
-                      field.onChange(parseInt(e.target.value) || 100000)
+                      field.onChange(parseInt(e.target.value) || 1000)
                     }
                   />
                 </FormControl>
