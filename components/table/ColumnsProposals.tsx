@@ -6,7 +6,7 @@ import { ProposerCell } from "@components/container/ProposerCell";
 import { DataTableColumnHeader } from "@components/table/ColumnHeader";
 import { DataTableRowActions } from "@components/table/RowActions";
 import { Badge } from "@components/ui/Badge";
-import { DescriptionCell } from "@components/ui/DescriptionCell";
+import { ClickableDescriptionCell } from "@components/ui/DescriptionCell";
 import {
   HoverCard,
   HoverCardContent,
@@ -60,10 +60,10 @@ export const columns: ColumnDef<ParsedProposal>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Proposal" />
     ),
-    cell: ({ row }) => {
+    cell: ({ row }: { row: Row<ParsedProposal> }) => {
       return (
         <div className="flex space-x-2 max-w-[225px] lg:max-w-[400px] truncate">
-          <DescriptionCell mdxContent={row.getValue("description")} />
+          <ClickableDescriptionCell proposal={row.original} />
         </div>
       );
     },
