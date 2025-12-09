@@ -1,18 +1,7 @@
 "use client";
 
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import {
-  arbitrum,
-  arbitrumNova,
-  avalanche,
-  bsc,
-  fantom,
-  mainnet,
-  optimism,
-  polygon,
-  sepolia,
-  type AppKitNetwork,
-} from "@reown/appkit/networks";
+import { arbitrum, type AppKitNetwork } from "@reown/appkit/networks";
 import { createAppKit } from "@reown/appkit/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode } from "react";
@@ -30,18 +19,8 @@ if (!projectId) {
   throw new Error("NEXT_PUBLIC_WEB3STORAGE_PROJECT_ID is not defined");
 }
 
-// Define networks
-const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
-  mainnet,
-  arbitrum,
-  arbitrumNova,
-  optimism,
-  polygon,
-  avalanche,
-  fantom,
-  bsc,
-  sepolia,
-];
+// Define networks - only Arbitrum One
+const networks: [AppKitNetwork, ...AppKitNetwork[]] = [arbitrum];
 
 // Metadata for your app
 const metadata = {

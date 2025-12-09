@@ -11,6 +11,10 @@ export function ProposerCell({ proposer }: { proposer: string }) {
         // @ts-ignore: It's already 0x-prefixed
         address={`${proposer}`}
         theme={theme === "dark" ? "dark" : "light"}
+        explorer={(address) => ({
+          name: "Arbiscan",
+          accountUrl: `https://arbiscan.io/address/${address}`,
+        })}
       />
     </AddrethConfig>
   );

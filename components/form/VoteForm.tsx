@@ -4,7 +4,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { useSimulateContract, useWriteContract } from "wagmi";
+import { formatUnits } from "viem";
+import {
+  useAccount,
+  useReadContract,
+  useSimulateContract,
+  useWriteContract,
+} from "wagmi";
 
 import { Button } from "@components/ui/Button";
 import { Card, CardContent } from "@components/ui/Card";
@@ -21,22 +27,65 @@ import {
 import { RadioGroup, RadioGroupItem } from "@components/ui/RadioGroup";
 import { ReloadIcon } from "@radix-ui/react-icons";
 
+import { ARB_TOKEN } from "@config/arbitrum-governance";
 import { proposalSchema, voteSchema } from "@config/schema";
 import { toast } from "sonner";
 
 import OZ_Governor_ABI from "@data/OzGovernor_ABI.json";
 import { useEffect } from "react";
 
+// ERC20Votes getPastVotes ABI fragment
+const ERC20_VOTES_ABI = [
+  {
+    inputs: [
+      { name: "account", type: "address" },
+      { name: "blockNumber", type: "uint256" },
+    ],
+    name: "getPastVotes",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+// Format voting power with appropriate decimals
+function formatVotingPower(value: bigint): string {
+  const formatted = formatUnits(value, 18);
+  const num = parseFloat(formatted);
+  if (num === 0) return "0";
+  if (num < 0.01) return "< 0.01";
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
+  return num.toFixed(2);
+}
+
 export default function VoteForm({
   proposal,
 }: {
   proposal: z.infer<typeof proposalSchema>;
 }) {
+  const { address, isConnected } = useAccount();
+
   const form = useForm<z.infer<typeof voteSchema>>({
     resolver: zodResolver(voteSchema),
   });
 
   const voteValue = form.watch("vote");
+
+  // Fetch user's voting power from ARB token at the proposal's start block
+  const startBlock = proposal.startBlock
+    ? BigInt(proposal.startBlock)
+    : undefined;
+  const { data: votingPower, isLoading: isLoadingVotingPower } =
+    useReadContract({
+      address: ARB_TOKEN.address as `0x${string}`,
+      abi: ERC20_VOTES_ABI,
+      functionName: "getPastVotes",
+      args: address && startBlock ? [address, startBlock] : undefined,
+      query: {
+        enabled: isConnected && !!address && !!startBlock,
+      },
+    });
 
   // Wagmi v2: useSimulateContract instead of usePrepareContractWrite
   const {
@@ -83,6 +132,32 @@ export default function VoteForm({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="grid gap-1">
+            {/* Voting Power Display */}
+            {isConnected && (
+              <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Your Voting Power (at snapshot)
+                  </span>
+                  <span className="text-sm font-semibold">
+                    {isLoadingVotingPower ? (
+                      <span className="text-muted-foreground">Loading...</span>
+                    ) : votingPower !== undefined ? (
+                      <span>{formatVotingPower(votingPower)} ARB</span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </span>
+                </div>
+                {votingPower !== undefined && votingPower === BigInt(0) && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You need to delegate ARB tokens to yourself or receive
+                    delegation to vote.
+                  </p>
+                )}
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="vote"
