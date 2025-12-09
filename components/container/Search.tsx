@@ -54,6 +54,11 @@ export default function Search() {
   // RPC from URL takes precedence over stored value
   const customRpc = rpcFromUrl || storedL2Rpc;
 
+  // Track applied RPC values - only updates on form submit, not on every keystroke
+  const [appliedL2Rpc, setAppliedL2Rpc] = useState(customRpc);
+  const [appliedL1Rpc, setAppliedL1Rpc] = useState(l1Rpc);
+  const [appliedBlockRange, setAppliedBlockRange] = useState(blockRange);
+
   // Initialize form first so we can watch values
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -69,30 +74,34 @@ export default function Search() {
     },
   });
 
-  // Watch form values to sync with RPC health check
-  const watchedL2Rpc = form.watch("rpcUrl");
-  const watchedL1Rpc = form.watch("l1RpcUrl");
-
   // Update form defaults when localStorage hydrates
   useEffect(() => {
     if (isL1RpcHydrated && l1Rpc) {
       form.setValue("l1RpcUrl", l1Rpc);
+      setAppliedL1Rpc(l1Rpc);
     }
   }, [isL1RpcHydrated, l1Rpc, form]);
 
   useEffect(() => {
     if (isL2RpcHydrated && storedL2Rpc) {
       form.setValue("rpcUrl", storedL2Rpc);
+      setAppliedL2Rpc(storedL2Rpc);
     }
   }, [isL2RpcHydrated, storedL2Rpc, form]);
 
-  // Memoize custom RPC URLs for health check - use watched form values
+  useEffect(() => {
+    if (isBlockRangeHydrated && blockRange) {
+      setAppliedBlockRange(blockRange);
+    }
+  }, [isBlockRangeHydrated, blockRange]);
+
+  // Memoize custom RPC URLs for health check - use applied values only (not watched)
   const customRpcUrls = useMemo(
     () => ({
-      arb1: watchedL2Rpc || customRpc || undefined,
-      l1: watchedL1Rpc || l1Rpc || undefined,
+      arb1: appliedL2Rpc || customRpc || undefined,
+      l1: appliedL1Rpc || l1Rpc || undefined,
     }),
-    [watchedL2Rpc, watchedL1Rpc, customRpc, l1Rpc]
+    [appliedL2Rpc, appliedL1Rpc, customRpc, l1Rpc]
   );
 
   // Handle RPC health check results
@@ -107,8 +116,8 @@ export default function Search() {
     useMultiGovernorSearch({
       daysToSearch,
       enabled: autoStarted && rpcHealthy === true,
-      customRpcUrl: watchedL2Rpc || customRpc || undefined,
-      blockRange,
+      customRpcUrl: appliedL2Rpc || customRpc || undefined,
+      blockRange: appliedBlockRange,
     });
 
   useEffect(() => {
@@ -134,6 +143,11 @@ export default function Search() {
       setL1Rpc(values.l1RpcUrl || "");
       setBlockRange(values.blockRange || DEFAULT_FORM_VALUES.blockRange);
       setL1BlockRange(values.l1BlockRange || DEFAULT_FORM_VALUES.l1BlockRange);
+
+      // Update applied values - these are used by hooks and RPC health checks
+      setAppliedL2Rpc(values.rpcUrl || "");
+      setAppliedL1Rpc(values.l1RpcUrl || "");
+      setAppliedBlockRange(values.blockRange || DEFAULT_FORM_VALUES.blockRange);
 
       updateURL(
         values.daysToSearch || DEFAULT_FORM_VALUES.daysToSearch,
