@@ -74,6 +74,174 @@ function formatEta(eta?: string): string {
   });
 }
 
+/**
+ * Estimated completion time range
+ */
+interface EstimatedTimeRange {
+  minDate: Date;
+  maxDate: Date;
+}
+
+/**
+ * Parse estimated duration string (e.g., "14-16 days", "~7 days", "3 days") into a range of days
+ * Returns { min, max } for the duration range
+ */
+function parseEstimatedDurationRange(duration?: string): {
+  min: number;
+  max: number;
+} {
+  if (!duration) return { min: 0, max: 0 };
+
+  // Remove ~ prefix if present
+  const cleaned = duration.replace(/^~/, "").trim();
+
+  // Check for range (e.g., "14-16 days")
+  const rangeMatch = cleaned.match(/(\d+)-(\d+)\s*days?/i);
+  if (rangeMatch) {
+    return {
+      min: parseInt(rangeMatch[1], 10),
+      max: parseInt(rangeMatch[2], 10),
+    };
+  }
+
+  // Check for single value (e.g., "3 days")
+  const singleMatch = cleaned.match(/(\d+)\s*days?/i);
+  if (singleMatch) {
+    const days = parseInt(singleMatch[1], 10);
+    return { min: days, max: days };
+  }
+
+  return { min: 0, max: 0 };
+}
+
+// Voting can have a 2-day extension
+const VOTING_EXTENSION_DAYS = 2;
+
+/**
+ * Calculate cumulative estimated completion time ranges for all stages
+ * Returns a map of stage type to estimated completion time range
+ * Accounts for voting potentially having a 2-day extension
+ */
+function calculateEstimatedCompletionTimes(
+  allStageTypes: Array<{ type: StageType; estimatedDuration?: string }>,
+  stages: ProposalStage[],
+  stageMap: Map<StageType, ProposalStage>
+): Map<StageType, EstimatedTimeRange> {
+  const estimatedTimes = new Map<StageType, EstimatedTimeRange>();
+
+  // Find the last completed stage to use as a reference point
+  let referenceTime: Date | null = null;
+  let startFromIndex = 0;
+
+  for (let i = allStageTypes.length - 1; i >= 0; i--) {
+    const stageType = allStageTypes[i].type;
+    const stage = stageMap.get(stageType);
+
+    if (stage?.status === "COMPLETED" && stage.transactions?.[0]?.timestamp) {
+      referenceTime = new Date(stage.transactions[0].timestamp * 1000);
+      startFromIndex = i + 1;
+      break;
+    }
+  }
+
+  // If no completed stage found, use current time
+  if (!referenceTime) {
+    referenceTime = new Date();
+  }
+
+  // Calculate cumulative time ranges for each pending stage
+  let cumulativeMinMs = referenceTime.getTime();
+  let cumulativeMaxMs = referenceTime.getTime();
+
+  for (let i = startFromIndex; i < allStageTypes.length; i++) {
+    const meta = allStageTypes[i];
+    const stage = stageMap.get(meta.type);
+
+    // Skip completed stages
+    if (stage?.status === "COMPLETED") continue;
+
+    // Add the duration of this stage
+    const durationRange = parseEstimatedDurationRange(meta.estimatedDuration);
+    cumulativeMinMs += durationRange.min * 24 * 60 * 60 * 1000;
+    cumulativeMaxMs += durationRange.max * 24 * 60 * 60 * 1000;
+
+    // Voting can have a 2-day extension, which affects all subsequent stages
+    if (meta.type === "VOTING_ACTIVE") {
+      cumulativeMaxMs += VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
+    }
+
+    estimatedTimes.set(meta.type, {
+      minDate: new Date(cumulativeMinMs),
+      maxDate: new Date(cumulativeMaxMs),
+    });
+  }
+
+  return estimatedTimes;
+}
+
+function formatEstimatedCompletion(range: EstimatedTimeRange): string {
+  const now = new Date();
+  const minDiffMs = range.minDate.getTime() - now.getTime();
+  const maxDiffMs = range.maxDate.getTime() - now.getTime();
+  const minDiffDays = Math.ceil(minDiffMs / (1000 * 60 * 60 * 24));
+  const maxDiffDays = Math.ceil(maxDiffMs / (1000 * 60 * 60 * 24));
+
+  // If both dates are in the past
+  if (maxDiffDays <= 0) {
+    return "Expected soon";
+  }
+
+  // If dates are the same (no range needed)
+  const isSameDay =
+    range.minDate.toDateString() === range.maxDate.toDateString();
+
+  // For near-term dates, show relative days
+  if (maxDiffDays < 7) {
+    if (minDiffDays <= 0) {
+      return `Expected soon - ${maxDiffDays} days`;
+    }
+    if (isSameDay || minDiffDays === maxDiffDays) {
+      return `~${minDiffDays} days from now`;
+    }
+    return `~${minDiffDays}-${maxDiffDays} days from now`;
+  }
+
+  // For longer-term dates, show calendar dates
+  const formatDate = (date: Date) =>
+    date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year:
+        date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+    });
+
+  if (isSameDay) {
+    return formatDate(range.minDate);
+  }
+
+  // Check if same month and year
+  const sameMonth =
+    range.minDate.getMonth() === range.maxDate.getMonth() &&
+    range.minDate.getFullYear() === range.maxDate.getFullYear();
+
+  if (sameMonth) {
+    // Show "Dec 16-18" format
+    const month = range.minDate.toLocaleDateString(undefined, {
+      month: "short",
+    });
+    const minDay = range.minDate.getDate();
+    const maxDay = range.maxDate.getDate();
+    const year =
+      range.minDate.getFullYear() !== new Date().getFullYear()
+        ? `, ${range.minDate.getFullYear()}`
+        : "";
+    return `${month} ${minDay}-${maxDay}${year}`;
+  }
+
+  // Different months - show full range
+  return `${formatDate(range.minDate)} - ${formatDate(range.maxDate)}`;
+}
+
 function StatusIcon({ status }: { status: StageStatus }) {
   switch (status) {
     case "COMPLETED":
@@ -99,6 +267,7 @@ function StageItem({
   isLoading,
   isRefreshing,
   onRefresh,
+  estimatedCompletion,
 }: {
   stage?: ProposalStage;
   stageType: StageType;
@@ -108,6 +277,7 @@ function StageItem({
   isLoading: boolean;
   isRefreshing: boolean;
   onRefresh: (index: number) => void;
+  estimatedCompletion?: EstimatedTimeRange;
 }) {
   const metadata = getStageMetadata(stageType);
   const status = stage?.status || "NOT_STARTED";
@@ -182,11 +352,20 @@ function StageItem({
           {metadata?.description}
         </p>
 
-        {metadata?.estimatedDuration && status !== "COMPLETED" && (
-          <p className="text-xs text-muted-foreground mt-1 italic">
-            Est. duration: {metadata.estimatedDuration}
-          </p>
-        )}
+        {status !== "COMPLETED" &&
+          (estimatedCompletion || metadata?.estimatedDuration) && (
+            <div className="text-xs text-muted-foreground mt-1 italic space-y-0.5">
+              {metadata?.estimatedDuration && (
+                <p>Est. duration: {metadata.estimatedDuration}</p>
+              )}
+              {estimatedCompletion && (
+                <p className="text-blue-600 dark:text-blue-400">
+                  Est. completion:{" "}
+                  {formatEstimatedCompletion(estimatedCompletion)}
+                </p>
+              )}
+            </div>
+          )}
 
         {/* Transactions */}
         {stage?.transactions && stage.transactions.length > 0 && (
@@ -409,17 +588,12 @@ export default function ProposalStages({
     stageMap.set(stage.type, stage);
   }
 
-  const lastTrackedIndex =
-    stages.length > 0
-      ? allStageTypes.findIndex(
-          (s) => s.type === stages[stages.length - 1]?.type
-        )
-      : -1;
-
-  const stagesToShow =
-    lastTrackedIndex >= 0
-      ? allStageTypes.slice(0, Math.max(lastTrackedIndex + 2, 4))
-      : allStageTypes.slice(0, 4);
+  // Calculate estimated completion times for all pending stages
+  const estimatedCompletionTimes = calculateEstimatedCompletionTimes(
+    allStageTypes,
+    stages,
+    stageMap
+  );
 
   if (error) {
     return (
@@ -465,14 +639,15 @@ export default function ProposalStages({
         )}
       </div>
 
-      {/* Timeline */}
+      {/* Timeline - show all stages */}
       <div className="relative">
-        {stagesToShow.map((meta, idx) => {
+        {allStageTypes.map((meta, idx) => {
           const stage = stageMap.get(meta.type);
           const isTrackingThis =
             isLoading && !isComplete && idx === currentStageIndex + 1;
           const isRefreshingThis =
             refreshingFromIndex !== null && idx >= refreshingFromIndex;
+          const estimatedCompletion = estimatedCompletionTimes.get(meta.type);
 
           return (
             <StageItem
@@ -480,24 +655,16 @@ export default function ProposalStages({
               stage={stage}
               stageType={meta.type}
               stageIndex={idx}
-              isLast={idx === stagesToShow.length - 1}
+              isLast={idx === allStageTypes.length - 1}
               isTracking={isTrackingThis}
               isLoading={isLoading}
               isRefreshing={isRefreshingThis && isLoading}
               onRefresh={refetchFromStage}
+              estimatedCompletion={estimatedCompletion}
             />
           );
         })}
       </div>
-
-      {/* Show more stages hint if not complete */}
-      {!isComplete && lastTrackedIndex < allStageTypes.length - 1 && (
-        <p className="text-xs text-muted-foreground text-center mt-2">
-          {isLoading
-            ? "Tracking additional stages..."
-            : `${allStageTypes.length - lastTrackedIndex - 1} more stages in full lifecycle`}
-        </p>
-      )}
     </div>
   );
 }
