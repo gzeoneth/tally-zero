@@ -100,7 +100,7 @@ export default function ContractForm({
                 <FormLabel>Ethereum L1 RPC URL (optional)</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="https://eth.llamarpc.com"
+                    placeholder="https://eth-mainnet.g.alchemy.com/v2/demo"
                     autoComplete="off"
                     disabled={progress > 0 && progress < 100}
                     {...field}
