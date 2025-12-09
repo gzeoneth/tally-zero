@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import { TREASURY_GOVERNOR } from "@/config/arbitrum-governance";
 import {
   getAllStageTypes,
   useProposalStages,
@@ -575,9 +576,30 @@ export default function ProposalStages({
     stageMap.set(stage.type, stage);
   }
 
-  // Calculate estimated completion times for all pending stages
+  const isTreasuryProposal =
+    governorAddress.toLowerCase() === TREASURY_GOVERNOR.address.toLowerCase();
+  const isDefeated = result?.currentState === "Defeated";
+
+  const relevantStageTypes = allStageTypes.filter((meta) => {
+    if (isDefeated) {
+      const votingIdx = allStageTypes.findIndex(
+        (s) => s.type === "VOTING_ACTIVE"
+      );
+      const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
+      return currentIdx <= votingIdx;
+    }
+    if (isTreasuryProposal) {
+      const l2ExecutedIdx = allStageTypes.findIndex(
+        (s) => s.type === "L2_TIMELOCK_EXECUTED"
+      );
+      const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
+      return currentIdx <= l2ExecutedIdx;
+    }
+    return true;
+  });
+
   const estimatedCompletionTimes = calculateEstimatedCompletionTimes(
-    allStageTypes,
+    relevantStageTypes,
     stages,
     stageMap
   );
@@ -626,9 +648,8 @@ export default function ProposalStages({
         )}
       </div>
 
-      {/* Timeline - show all stages */}
       <div className="relative">
-        {allStageTypes.map((meta, idx) => {
+        {relevantStageTypes.map((meta, idx) => {
           const stage = stageMap.get(meta.type);
           const isTrackingThis =
             isLoading && !isComplete && idx === currentStageIndex + 1;
@@ -642,7 +663,7 @@ export default function ProposalStages({
               stage={stage}
               stageType={meta.type}
               stageIndex={idx}
-              isLast={idx === allStageTypes.length - 1}
+              isLast={idx === relevantStageTypes.length - 1}
               isTracking={isTrackingThis}
               isLoading={isLoading}
               isRefreshing={isRefreshingThis && isLoading}

@@ -130,30 +130,23 @@ export const useSearchProposals = ({
 
         for (const events of allEvents) {
           const newProposals = events.map((event) => {
-            const {
-              proposalId,
-              proposer,
-              targets,
-              values,
-              signatures,
-              calldatas,
-              startBlock,
-              endBlock,
-              description,
-            } = event.args as ethers.utils.Result;
+            const args = event.args!;
+            // Access values by index (3) to avoid conflict with Array.prototype.values
+            // Event args order: proposalId, proposer, targets, values, signatures, calldatas, startBlock, endBlock, description
+            const proposalValues = args[3] as ethers.BigNumber[];
             return {
-              id: proposalId.toString(),
+              id: args.proposalId.toString(),
               contractAddress: contractAddress,
-              proposer,
-              targets,
-              values: Array.isArray(values)
-                ? values.map((value) => value.toString())
+              proposer: args.proposer,
+              targets: args.targets,
+              values: Array.isArray(proposalValues)
+                ? proposalValues.map((value) => value.toString())
                 : [],
-              signatures,
-              calldatas,
-              startBlock: startBlock.toString(),
-              endBlock: endBlock.toString(),
-              description,
+              signatures: args.signatures,
+              calldatas: args.calldatas,
+              startBlock: args.startBlock.toString(),
+              endBlock: args.endBlock.toString(),
+              description: args.description,
               state: 0,
               creationTxHash: event.transactionHash,
             } as Proposal;

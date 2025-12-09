@@ -87,29 +87,24 @@ async function searchGovernor(
 
   for (const events of allEvents) {
     for (const event of events) {
-      const {
-        proposalId,
-        proposer,
-        targets,
-        values,
-        signatures,
-        calldatas,
-        startBlock,
-        endBlock,
-        description,
-      } = event.args as ethers.utils.Result;
+      const args = event.args!;
+      // Access values by index (3) to avoid conflict with Array.prototype.values
+      // Event args order: proposalId, proposer, targets, values, signatures, calldatas, startBlock, endBlock, description
+      const proposalValues = args[3] as ethers.BigNumber[];
 
       proposals.push({
-        id: proposalId.toString(),
+        id: args.proposalId.toString(),
         contractAddress: contractAddress,
-        proposer,
-        targets,
-        values: Array.isArray(values) ? values.map((v) => v.toString()) : [],
-        signatures,
-        calldatas,
-        startBlock: startBlock.toString(),
-        endBlock: endBlock.toString(),
-        description,
+        proposer: args.proposer,
+        targets: args.targets,
+        values: Array.isArray(proposalValues)
+          ? proposalValues.map((v) => v.toString())
+          : [],
+        signatures: args.signatures,
+        calldatas: args.calldatas,
+        startBlock: args.startBlock.toString(),
+        endBlock: args.endBlock.toString(),
+        description: args.description,
         state: 0,
         creationTxHash: event.transactionHash,
       } as Proposal);

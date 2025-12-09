@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 import { CORE_GOVERNOR, TREASURY_GOVERNOR } from "@config/arbitrum-governance";
 import { proposalSchema } from "@config/schema";
 import { cn } from "@lib/utils";
+import { formatEther } from "viem";
 
 // Check if this is an Arbitrum Governor (Core or Treasury)
 function isArbitrumGovernor(contractAddress: string): boolean {
@@ -31,6 +32,78 @@ function isArbitrumGovernor(contractAddress: string): boolean {
   return (
     lowerAddress === CORE_GOVERNOR.address.toLowerCase() ||
     lowerAddress === TREASURY_GOVERNOR.address.toLowerCase()
+  );
+}
+
+function PayloadView({
+  targets,
+  values,
+  calldatas,
+}: {
+  targets: string[];
+  values: string[];
+  calldatas: string[];
+}) {
+  if (targets.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No actions in this proposal.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {targets.map((target, idx) => {
+        const value = values[idx] || "0";
+        const calldata = calldatas[idx] || "0x";
+        const ethValue = formatEther(BigInt(value));
+        const hasValue = ethValue !== "0";
+        const hasCalldata = calldata !== "0x" && calldata !== "";
+
+        return (
+          <div
+            key={idx}
+            className="border border-border rounded-lg p-3 space-y-2 text-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">
+                Action {idx + 1}
+              </span>
+              {hasValue && (
+                <span className="text-xs font-semibold text-green-600 dark:text-green-400">
+                  {ethValue} ETH
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground shrink-0">
+                To:
+              </span>
+              <code className="text-xs font-mono truncate">{target}</code>
+            </div>
+
+            {hasCalldata && (
+              <details className="group">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                  Calldata ({calldata.length} bytes)
+                </summary>
+                <code className="text-xs font-mono break-all block bg-muted/50 p-2 rounded mt-1 max-h-24 overflow-y-auto">
+                  {calldata}
+                </code>
+              </details>
+            )}
+
+            {!hasCalldata && (
+              <span className="text-xs text-muted-foreground italic">
+                No calldata
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -53,7 +126,7 @@ export default function VoteModel({
   proposal: z.infer<typeof proposalSchema>;
   stateValue: StateValue;
   isDesktop: boolean;
-  defaultTab?: "description" | "stages" | "vote";
+  defaultTab?: "description" | "payload" | "stages" | "vote";
 }) {
   const showStagesTab = isArbitrumGovernor(proposal.contractAddress);
 
@@ -86,6 +159,7 @@ export default function VoteModel({
         >
           <TabsList className="flex-shrink-0 w-full justify-start">
             <TabsTrigger value="description">Description</TabsTrigger>
+            <TabsTrigger value="payload">Payload</TabsTrigger>
             {showStagesTab && (
               <TabsTrigger value="stages">Lifecycle</TabsTrigger>
             )}
@@ -108,6 +182,22 @@ export default function VoteModel({
                 </div>
               </div>
             </DialogDescription>
+          </TabsContent>
+
+          <TabsContent
+            value="payload"
+            className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+          >
+            <div className="max-h-[50vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
+              <h3 className="text-sm font-semibold mb-3 text-foreground">
+                Proposal Actions ({proposal.targets.length})
+              </h3>
+              <PayloadView
+                targets={proposal.targets}
+                values={proposal.values}
+                calldatas={proposal.calldatas}
+              />
+            </div>
           </TabsContent>
 
           {showStagesTab && proposal.creationTxHash && (
@@ -184,6 +274,7 @@ export default function VoteModel({
         <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col">
           <TabsList className="flex-shrink-0 w-full justify-start">
             <TabsTrigger value="description">Description</TabsTrigger>
+            <TabsTrigger value="payload">Payload</TabsTrigger>
             {showStagesTab && (
               <TabsTrigger value="stages">Lifecycle</TabsTrigger>
             )}
@@ -203,6 +294,19 @@ export default function VoteModel({
                 </div>
               </div>
             </DrawerDescription>
+          </TabsContent>
+
+          <TabsContent value="payload" className="flex-1 min-h-0">
+            <div className="max-h-[40vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
+              <h3 className="text-sm font-semibold mb-3 text-foreground">
+                Proposal Actions ({proposal.targets.length})
+              </h3>
+              <PayloadView
+                targets={proposal.targets}
+                values={proposal.values}
+                calldatas={proposal.calldatas}
+              />
+            </div>
           </TabsContent>
 
           {showStagesTab && proposal.creationTxHash && (
