@@ -71,8 +71,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Web3ModalProvider>
-            <header className="container z-40">
-              <div className="flex h-20 items-center justify-between py-6">
+            <header className="container z-40 px-4 sm:px-6 lg:px-8">
+              <div className="flex h-16 sm:h-20 items-center justify-between py-4 sm:py-6 gap-2">
                 <MainNav items={marketingConfig.mainNav} />
                 <ButtonNav />
               </div>

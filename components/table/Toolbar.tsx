@@ -31,15 +31,15 @@ export function DataTableToolbar<TData>({
   };
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-1 items-center space-x-2">
-        <div className="relative">
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-1 items-center gap-2 sm:space-x-2">
+        <div className="relative flex-1 sm:flex-initial">
           <SearchIcon className="absolute top-1/2 left-3 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search ..."
             value={searchValue}
             onChange={handleSearchChange}
-            className="pl-12 h-12 w-[150px] lg:w-[450px]"
+            className="pl-10 h-11 sm:h-12 w-full sm:w-[150px] lg:w-[450px] text-base"
           />
         </div>
 
@@ -55,14 +55,16 @@ export function DataTableToolbar<TData>({
           <Button
             variant="ghost"
             onClick={() => table.resetColumnFilters()}
-            className="h-12 px-2 lg:px-3 hover:bg-red-500"
+            className="h-11 sm:h-12 px-2 lg:px-3 hover:bg-red-500 min-w-[44px]"
           >
-            Reset
-            <Cross2Icon className="ml-2 h-4 w-4" />
+            <span className="hidden sm:inline">Reset</span>
+            <Cross2Icon className="sm:ml-2 h-4 w-4" />
           </Button>
         )}
       </div>
-      <DataTableViewOptions table={table} />
+      <div className="hidden sm:block">
+        <DataTableViewOptions table={table} />
+      </div>
     </div>
   );
 }

@@ -18,12 +18,15 @@ const Skeleton = ({ className }: { className?: string }) => (
   </div>
 );
 
-const LoadingSkeleton = () => (
-  <>
-    <div className="inline-flex items-center justify-center transition-colors h-10 px-4 py-2">
-      <Skeleton className="w-[158px]  max-w-full" />
-    </div>
-  </>
+const LoadingSkeleton = ({ compact = false }: { compact?: boolean }) => (
+  <div className="inline-flex items-center justify-center transition-colors h-10 px-2 sm:px-4 py-2">
+    <Skeleton
+      className={cn(
+        "max-w-full",
+        compact ? "w-[80px]" : "w-[120px] sm:w-[158px]"
+      )}
+    />
+  </div>
 );
 
 export function ButtonNav() {
@@ -40,13 +43,13 @@ export function ButtonNav() {
   }, []);
 
   return (
-    <nav>
+    <nav className="flex-shrink-0">
       {isExplore ? (
-        <div className="flex items-center gap-2 px-4 py-2">
+        <div className="flex items-center gap-1 sm:gap-2 px-0 sm:px-4 py-2">
           {loading ? (
-            <div className="px-0">
-              <LoadingSkeleton />
-              <LoadingSkeleton />
+            <div className="flex items-center gap-1 sm:gap-2">
+              <LoadingSkeleton compact />
+              <LoadingSkeleton compact />
             </div>
           ) : (
             <>
@@ -60,11 +63,11 @@ export function ButtonNav() {
           href="/explore"
           className={cn(
             buttonVariants({ variant: "default", size: "sm" }),
-            "px-4"
+            "px-3 sm:px-4 min-h-[44px]"
           )}
         >
-          <Icons.search className="w-4 h-4 mr-2" />
-          Start exploring
+          <Icons.search className="w-4 h-4 sm:mr-2" />
+          <span className="hidden sm:inline">Start exploring</span>
         </Link>
       )}
     </nav>

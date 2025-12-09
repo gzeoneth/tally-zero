@@ -25,6 +25,8 @@ import {
   TableRow,
 } from "@components/ui/Table";
 
+import { ParsedProposal } from "@/types/proposal";
+import { MobileProposalList } from "@components/table/MobileProposalCard";
 import { DataTablePagination } from "@components/table/Pagination";
 import { DataTableToolbar } from "@components/table/Toolbar";
 
@@ -47,18 +49,27 @@ export function DataTable<TData, TValue>({
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
+  const [isMobileView, setIsMobileView] = React.useState(false);
+
   // Show/hide columns based on screen size
   React.useEffect(() => {
     const handleResize = () => {
       const isXLScreen = window.innerWidth >= 1280;
       const isLargeScreen = window.innerWidth >= 1024;
       const isMediumScreen = window.innerWidth >= 768;
+      const isSmallScreen = window.innerWidth >= 640;
+      const isMobile = window.innerWidth < 640;
+
+      setIsMobileView(isMobile);
 
       setColumnVisibility((prev) => ({
         ...prev,
         proposer: isXLScreen,
         votes: isLargeScreen,
         governorName: isMediumScreen,
+        id: isSmallScreen,
+        state: isSmallScreen,
+        lifecycle: isSmallScreen,
       }));
     };
 
@@ -89,61 +100,73 @@ export function DataTable<TData, TValue>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
+  const filteredData = table
+    .getFilteredRowModel()
+    .rows.map((row) => row.original);
+
   return (
     <div className="space-y-4 overflow-hidden">
       <DataTableToolbar table={table} />
-      <div className="rounded-2xl border bg-white dark:bg-zinc-950 dark:border-zinc-800 overflow-x-auto">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No proposals found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
 
-      {isPaginated && <DataTablePagination table={table} />}
+      {isMobileView ? (
+        <MobileProposalList proposals={filteredData as ParsedProposal[]} />
+      ) : (
+        <div className="relative">
+          <div className="rounded-2xl border bg-white dark:bg-zinc-950 dark:border-zinc-800 overflow-x-auto scrollbar-thin">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} colSpan={header.colSpan}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center"
+                    >
+                      No proposals found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="hidden sm:block md:hidden absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none rounded-r-2xl" />
+        </div>
+      )}
+
+      {isPaginated && !isMobileView && <DataTablePagination table={table} />}
     </div>
   );
 }
