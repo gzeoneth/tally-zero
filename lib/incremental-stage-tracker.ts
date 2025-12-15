@@ -545,6 +545,58 @@ export class IncrementalStageTracker {
       else if (state === 2 || state === 3 || state === 6) status = "FAILED";
       else status = "COMPLETED";
 
+      let extensionPossible = true;
+      let wasExtended = false;
+      let extendedDeadline: string | undefined;
+
+      const proposalExtendedTopic =
+        ctx.governorInterface.getEventTopic("ProposalExtended");
+      const proposalIdBN = ethers.BigNumber.from(ctx.proposalId);
+      const currentBlock = await ctx.l2Provider.getBlockNumber();
+
+      try {
+        const extendedLogs = await searchLogsInChunks(
+          ctx.l2Provider,
+          {
+            address: ctx.governorAddress,
+            topics: [
+              proposalExtendedTopic,
+              ethers.utils.hexZeroPad(proposalIdBN.toHexString(), 32),
+            ],
+          },
+          ctx.creationReceipt!.blockNumber,
+          currentBlock,
+          ctx.chunkingConfig.l2ChunkSize,
+          ctx.chunkingConfig.delayBetweenChunks,
+          (chunkLogs) => (chunkLogs.length > 0 ? chunkLogs[0] : null)
+        );
+
+        if (extendedLogs.length > 0) {
+          wasExtended = true;
+          extensionPossible = false;
+          const parsed = ctx.governorInterface.parseLog(extendedLogs[0]);
+          extendedDeadline = parsed.args.extendedDeadline?.toString();
+        }
+      } catch {
+        // Ignore - continue without extension info
+      }
+
+      let quorumReached = false;
+      if (!wasExtended) {
+        try {
+          const snapshotBlock = await governor.proposalSnapshot(ctx.proposalId);
+          const quorumAmount = await governor.quorum(snapshotBlock);
+          const totalVotesForQuorum = forVotes.add(abstainVotes);
+
+          quorumReached = totalVotesForQuorum.gte(quorumAmount);
+          if (quorumReached) {
+            extensionPossible = false;
+          }
+        } catch {
+          // Ignore - continue without quorum info
+        }
+      }
+
       return {
         type: "VOTING_ACTIVE",
         status,
@@ -561,6 +613,10 @@ export class IncrementalStageTracker {
           forVotes: ethers.utils.formatEther(forVotes),
           againstVotes: ethers.utils.formatEther(againstVotes),
           abstainVotes: ethers.utils.formatEther(abstainVotes),
+          extensionPossible,
+          wasExtended,
+          extendedDeadline,
+          quorumReached,
         },
       };
     } catch (error) {

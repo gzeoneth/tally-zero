@@ -162,7 +162,15 @@ function calculateEstimatedCompletionTimes(
 
   // Extract block data from PROPOSAL_CREATED stage if available
   const proposalCreatedStage = stageMap.get("PROPOSAL_CREATED");
+  const votingStage = stageMap.get("VOTING_ACTIVE");
   let blockBasedTiming: BlockBasedTiming | null = null;
+
+  // Check if extension is still possible and if it was extended
+  const extensionPossible = votingStage?.data?.extensionPossible !== false;
+  const wasExtended = Boolean(votingStage?.data?.wasExtended);
+  const extendedDeadline = votingStage?.data?.extendedDeadline
+    ? Number(votingStage.data.extendedDeadline)
+    : null;
 
   if (
     currentL1Block &&
@@ -183,13 +191,21 @@ function calculateEstimatedCompletionTimes(
       // Calculate voting start and end times
       const now = Date.now();
       const blocksUntilStart = startBlock - currentL1Block;
-      const blocksUntilEnd = endBlock - currentL1Block;
+
+      // If proposal was extended, use the extended deadline
+      const actualEndBlock =
+        wasExtended && extendedDeadline && !isNaN(extendedDeadline)
+          ? extendedDeadline
+          : endBlock;
+      const blocksUntilEnd = actualEndBlock - currentL1Block;
 
       const votingStartMs =
         now + blocksUntilStart * L1_SECONDS_PER_BLOCK * 1000;
       const votingEndMinMs = now + blocksUntilEnd * L1_SECONDS_PER_BLOCK * 1000;
-      const votingEndMaxMs =
-        votingEndMinMs + VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
+      // Only add extension time if extension is still possible (not extended and quorum not reached)
+      const votingEndMaxMs = extensionPossible
+        ? votingEndMinMs + VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000
+        : votingEndMinMs;
 
       votingTimeRange = {
         votingStartDate: new Date(votingStartMs),
@@ -227,7 +243,8 @@ function calculateEstimatedCompletionTimes(
       cumulativeMaxMs += durationRange.max * 24 * 60 * 60 * 1000;
 
       // Voting can have a 2-day extension, which affects all subsequent stages
-      if (meta.type === "VOTING_ACTIVE") {
+      // Only add if extension is still possible
+      if (meta.type === "VOTING_ACTIVE" && extensionPossible) {
         cumulativeMaxMs += VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
       }
 
@@ -504,14 +521,29 @@ function StageItem({
                   <p>
                     Voting ends:{" "}
                     <span className="text-foreground not-italic">
-                      {formatDateRange(
-                        votingTimeRange.votingEndMinDate,
-                        votingTimeRange.votingEndMaxDate
+                      {stage?.data?.extensionPossible === false
+                        ? formatDateShort(votingTimeRange.votingEndMaxDate)
+                        : formatDateRange(
+                            votingTimeRange.votingEndMinDate,
+                            votingTimeRange.votingEndMaxDate
+                          )}
+                    </span>
+                    {stage?.data?.extensionPossible !== false && (
+                      <span className="text-muted-foreground ml-1">
+                        (+2 days possible extension)
+                      </span>
+                    )}
+                    {Boolean(stage?.data?.wasExtended) && (
+                      <span className="text-green-600 dark:text-green-400 ml-1">
+                        (extended)
+                      </span>
+                    )}
+                    {Boolean(stage?.data?.quorumReached) &&
+                      !stage?.data?.wasExtended && (
+                        <span className="text-green-600 dark:text-green-400 ml-1">
+                          (quorum reached)
+                        </span>
                       )}
-                    </span>
-                    <span className="text-muted-foreground ml-1">
-                      (+2 days possible extension)
-                    </span>
                   </p>
                 </>
               )}
