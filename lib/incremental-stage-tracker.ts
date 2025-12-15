@@ -34,6 +34,22 @@ import { ethers } from "ethers";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Type-safe representation of ProposalCreated event arguments
+ * Maps to the ProposalCreated event in the OpenZeppelin Governor contract
+ */
+interface ProposalCreatedEventArgs {
+  proposalId: ethers.BigNumber;
+  proposer: string;
+  targets: string[];
+  values: ethers.BigNumber[];
+  signatures: string[];
+  calldatas: string[];
+  startBlock: ethers.BigNumber;
+  endBlock: ethers.BigNumber;
+  description: string;
+}
+
 export type StageProgressCallback = (
   stage: ProposalStage,
   stageIndex: number,
@@ -744,20 +760,12 @@ export class IncrementalStageTracker {
     for (const log of logs) {
       const parsed = ctx.governorInterface.parseLog(log);
       if (parsed.args.proposalId.eq(proposalIdBN)) {
-        const args = parsed.args as unknown as [
-          ethers.BigNumber,
-          string,
-          string[],
-          ethers.BigNumber[],
-          string[],
-          string[],
-          ...unknown[],
-        ];
+        const args = parsed.args as unknown as ProposalCreatedEventArgs;
         return {
-          targets: args[2],
-          values: args[3],
-          calldatas: args[5],
-          description: parsed.args.description,
+          targets: args.targets,
+          values: args.values,
+          calldatas: args.calldatas,
+          description: args.description,
         };
       }
     }

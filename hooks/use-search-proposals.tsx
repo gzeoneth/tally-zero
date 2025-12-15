@@ -1,5 +1,5 @@
 import { Contract, ethers } from "ethers";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { getBlocksPerDay } from "@/config/block-times";
 import { Proposal } from "@/types/proposal";
@@ -27,13 +27,14 @@ export const useSearchProposals = ({
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || !provider || !contractAddress) return;
 
     const contract = new Contract(contractAddress, OZGovernor_ABI, provider);
 
-    let cancelled = false;
+    cancelledRef.current = false;
 
     const fetchProposals = async () => {
       try {
@@ -76,7 +77,7 @@ export const useSearchProposals = ({
               );
 
               // Update progress
-              if (!cancelled) {
+              if (!cancelledRef.current) {
                 processedBlocks += queryToBlock - queryFromBlock;
                 const progress = Math.min(
                   (processedBlocks / totalBlocks) * 100,
@@ -104,7 +105,7 @@ export const useSearchProposals = ({
           1000 // 1 second delay between batches
         );
 
-        if (cancelled) return;
+        if (cancelledRef.current) return;
 
         // Process all events
         const allProposals: Proposal[] = [];
@@ -112,22 +113,32 @@ export const useSearchProposals = ({
         for (const events of allEvents) {
           const newProposals = events.map((event) => {
             const args = event.args!;
-            // Access values by index (3) to avoid conflict with Array.prototype.values
-            // Event args order: proposalId, proposer, targets, values, signatures, calldatas, startBlock, endBlock, description
+            // Destructure event args to avoid Array.prototype.values collision
+            const {
+              proposalId,
+              proposer,
+              targets,
+              signatures,
+              calldatas,
+              startBlock,
+              endBlock,
+              description,
+            } = args;
             const proposalValues = args[3] as ethers.BigNumber[];
+
             return {
-              id: args.proposalId.toString(),
+              id: proposalId.toString(),
               contractAddress: contractAddress,
-              proposer: args.proposer,
-              targets: args.targets,
+              proposer,
+              targets,
               values: Array.isArray(proposalValues)
                 ? proposalValues.map((value) => value.toString())
                 : [],
-              signatures: args.signatures,
-              calldatas: args.calldatas,
-              startBlock: args.startBlock.toString(),
-              endBlock: args.endBlock.toString(),
-              description: args.description,
+              signatures,
+              calldatas,
+              startBlock: startBlock.toString(),
+              endBlock: endBlock.toString(),
+              description,
               state: 0,
               creationTxHash: event.transactionHash,
             } as Proposal;
@@ -136,14 +147,14 @@ export const useSearchProposals = ({
           allProposals.push(...newProposals);
         }
 
-        if (!cancelled) {
+        if (!cancelledRef.current) {
           setProposals(allProposals);
           setSearchProgress(100);
           setIsSearching(false);
         }
       } catch (error) {
         console.error("Error fetching proposals:", error);
-        if (!cancelled) {
+        if (!cancelledRef.current) {
           setError(error as Error);
           setIsSearching(false);
         }
@@ -153,7 +164,7 @@ export const useSearchProposals = ({
     fetchProposals();
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
   }, [
     provider,

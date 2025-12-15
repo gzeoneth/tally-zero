@@ -62,11 +62,11 @@ function fetchOrganizations(firstCursor: string | null = null) {
       },
     },
   });
-  const requestOptions = {
+  const requestOptions: RequestInit = {
     method: "POST",
     headers: myHeaders,
     body: graphql,
-  } as any;
+  };
   return fetch("https://api.tally.xyz/query", requestOptions)
     .then((response) => response.json())
     .then((res) => res.data.organizations)

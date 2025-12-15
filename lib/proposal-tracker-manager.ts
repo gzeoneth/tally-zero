@@ -49,6 +49,9 @@ function getSessionKey(
 const MAX_CONCURRENT_TRACKING = 2;
 
 class ProposalTrackerManager {
+  private static readonly MAX_SESSIONS = 100;
+  private static readonly CLEANUP_THRESHOLD = 50;
+
   private sessions: Map<SessionKey, TrackingSession> = new Map();
   private queue: QueuedItem[] = [];
   private activeCount = 0;
@@ -75,8 +78,8 @@ class ProposalTrackerManager {
   }
 
   createSession(proposalId: string, governorAddress: string): TrackingSession {
-    // Cleanup old sessions periodically (every 50 creates)
-    if (this.sessions.size > 0 && this.sessions.size % 50 === 0) {
+    // Cleanup stale sessions when we exceed the threshold
+    if (this.sessions.size >= ProposalTrackerManager.CLEANUP_THRESHOLD) {
       this.cleanupStaleSessions();
     }
 

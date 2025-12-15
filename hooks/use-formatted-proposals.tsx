@@ -1,5 +1,5 @@
 import { EnrichedProposal, ParsedProposal } from "@/types/proposal";
-import { ProposalState } from "@config/intial-state";
+import { ProposalState } from "@config/initial-state";
 import { useMemo } from "react";
 
 export function useFormattedProposals(

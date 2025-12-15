@@ -11,7 +11,7 @@ import {
   ARBITRUM_RPC_URL,
   BLOCKS_PER_DAY,
 } from "@config/arbitrum-governance";
-import { ProposalState } from "@config/intial-state";
+import { ProposalState } from "@config/initial-state";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 interface UseMultiGovernorSearchOptions {
@@ -88,23 +88,32 @@ async function searchGovernor(
   for (const events of allEvents) {
     for (const event of events) {
       const args = event.args!;
-      // Access values by index (3) to avoid conflict with Array.prototype.values
-      // Event args order: proposalId, proposer, targets, values, signatures, calldatas, startBlock, endBlock, description
+      // Destructure event args to avoid Array.prototype.values collision
+      const {
+        proposalId,
+        proposer,
+        targets,
+        signatures,
+        calldatas,
+        startBlock,
+        endBlock,
+        description,
+      } = args;
       const proposalValues = args[3] as ethers.BigNumber[];
 
       proposals.push({
-        id: args.proposalId.toString(),
+        id: proposalId.toString(),
         contractAddress: contractAddress,
-        proposer: args.proposer,
-        targets: args.targets,
+        proposer,
+        targets,
         values: Array.isArray(proposalValues)
           ? proposalValues.map((v) => v.toString())
           : [],
-        signatures: args.signatures,
-        calldatas: args.calldatas,
-        startBlock: args.startBlock.toString(),
-        endBlock: args.endBlock.toString(),
-        description: args.description,
+        signatures,
+        calldatas,
+        startBlock: startBlock.toString(),
+        endBlock: endBlock.toString(),
+        description,
         state: 0,
         creationTxHash: event.transactionHash,
       } as Proposal);
