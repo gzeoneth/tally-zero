@@ -19,7 +19,11 @@ import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
-import { CACHE_VERSION, STORAGE_KEYS } from "@config/storage-keys";
+import {
+  CACHE_TTL_MS,
+  CACHE_VERSION,
+  STORAGE_KEYS,
+} from "@config/storage-keys";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface CachedResult {
@@ -32,20 +36,47 @@ function getCacheKey(proposalId: string, governorAddress: string): string {
   return `${STORAGE_KEYS.STAGES_CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
 }
 
+interface CacheLoadResult {
+  result: ProposalTrackingResult | null;
+  isExpired: boolean;
+  allStagesCompleted: boolean;
+}
+
+function areAllStagesCompleted(result: ProposalTrackingResult): boolean {
+  if (!result.stages || result.stages.length === 0) return false;
+  const lastStage = result.stages[result.stages.length - 1];
+  return lastStage.status === "COMPLETED";
+}
+
 function loadCachedResult(
   proposalId: string,
-  governorAddress: string
-): ProposalTrackingResult | null {
-  if (typeof window === "undefined") return null;
+  governorAddress: string,
+  ttlMs: number = CACHE_TTL_MS
+): CacheLoadResult {
+  if (typeof window === "undefined") {
+    return { result: null, isExpired: false, allStagesCompleted: false };
+  }
   try {
     const key = getCacheKey(proposalId, governorAddress);
     const cached = localStorage.getItem(key);
-    if (!cached) return null;
+    if (!cached) {
+      return { result: null, isExpired: false, allStagesCompleted: false };
+    }
     const parsed: CachedResult = JSON.parse(cached);
-    if (parsed.version !== CACHE_VERSION) return null;
-    return parsed.result;
+    if (parsed.version !== CACHE_VERSION) {
+      return { result: null, isExpired: false, allStagesCompleted: false };
+    }
+
+    const isExpired = Date.now() - parsed.timestamp > ttlMs;
+    const allStagesCompleted = areAllStagesCompleted(parsed.result);
+
+    return {
+      result: parsed.result,
+      isExpired,
+      allStagesCompleted,
+    };
   } catch {
-    return null;
+    return { result: null, isExpired: false, allStagesCompleted: false };
   }
 }
 
@@ -99,6 +130,7 @@ interface UseProposalStagesResult {
   refetchFromStage: (stageIndex: number) => void;
   refreshingFromIndex: number | null;
   currentL1Block: number | null;
+  isBackgroundRefreshing: boolean;
 }
 
 function getStoredRpc(key: string, defaultValue: string): string {
@@ -144,6 +176,7 @@ export function useProposalStages({
   const [isQueued, setIsQueued] = useState(false);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [currentL1Block, setCurrentL1Block] = useState<number | null>(null);
+  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
 
   const isMounted = useRef(true);
 
@@ -359,37 +392,54 @@ export function useProposalStages({
     );
 
     // Check if we need to start tracking
-    const shouldStartTracking = () => {
-      // Already tracking, queued, or complete
-      if (
-        session.status === "loading" ||
-        session.status === "queued" ||
-        session.status === "complete"
-      ) {
-        return false;
+    const checkAndStartTracking = () => {
+      // Already tracking or queued
+      if (session.status === "loading" || session.status === "queued") {
+        return;
       }
 
       // Check for cached result
-      const cached = loadCachedResult(proposalId, governorAddress);
+      const {
+        result: cached,
+        isExpired,
+        allStagesCompleted,
+      } = loadCachedResult(proposalId, governorAddress);
+
       if (cached) {
+        // Always load the cached data first
         trackerManager.updateSession(proposalId, governorAddress, {
           stages: cached.stages,
           currentStageIndex: cached.stages.length - 1,
           result: cached,
           status: "complete",
         });
-        return false;
+
+        // If cache is expired and not all stages are completed, do a background refresh
+        if (isExpired && !allStagesCompleted) {
+          setIsBackgroundRefreshing(true);
+          trackerManager.requestTracking(
+            proposalId,
+            governorAddress,
+            async () => {
+              await startTracking();
+              if (isMounted.current) {
+                setIsBackgroundRefreshing(false);
+              }
+            }
+          );
+        }
+        return;
       }
 
-      return true;
+      // No cache, start fresh tracking
+      if (session.status !== "complete") {
+        trackerManager.requestTracking(proposalId, governorAddress, () =>
+          startTracking()
+        );
+      }
     };
 
-    // Only start tracking if session is idle
-    if (shouldStartTracking()) {
-      trackerManager.requestTracking(proposalId, governorAddress, () =>
-        startTracking()
-      );
-    }
+    checkAndStartTracking();
 
     return () => {
       unsubscribe();
@@ -415,6 +465,7 @@ export function useProposalStages({
     refetchFromStage,
     refreshingFromIndex,
     currentL1Block,
+    isBackgroundRefreshing,
   };
 }
 

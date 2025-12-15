@@ -17,6 +17,7 @@ import { TailwindIndicator } from "@components/TailwindIndicator";
 import { ThemeProvider } from "@components/ThemeProvider";
 
 export const metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: {
     default: siteConfig.name,
     template: `%s | ${siteConfig.name}`,

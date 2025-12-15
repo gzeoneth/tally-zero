@@ -12,3 +12,9 @@ export const STORAGE_KEYS = {
 } as const;
 
 export const CACHE_VERSION = 1;
+
+/**
+ * Cache TTL in milliseconds (default: 1 hour)
+ * Cached lifecycle data will be refreshed in the background after this duration
+ */
+export const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
