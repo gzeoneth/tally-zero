@@ -8,8 +8,7 @@
     "start": "npx serve@latest out",
     "lint": "next lint --fix",
     "test": "npm run lint && tsc && vitest run",
-    "prepare": "husky install",
-    "track:proposal": "npx tsx scripts/track-proposal.ts"
+    "prepare": "husky install"
   },
   "prettier": {
     "semi": true,

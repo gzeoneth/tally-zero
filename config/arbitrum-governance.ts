@@ -7,7 +7,6 @@
 import type { ChunkingConfig } from "@/types/proposal-stage";
 
 export const ARBITRUM_CHAIN_ID = 42161;
-export const ETHEREUM_CHAIN_ID = 1;
 
 // RPC URLs
 export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
@@ -63,19 +62,6 @@ export const L1_TIMELOCK = {
 } as const;
 
 /**
- * Upgrade Executor Contracts
- */
-export const L1_EXECUTOR = {
-  address: "0x3ffFbAdAF827559da092217e474760E2b2c3CeDd",
-  name: "L1 Upgrade Executor",
-} as const;
-
-export const L2_EXECUTOR = {
-  address: "0xCF57572261c7c2BCF21ffD220ea7d1a27D40A827",
-  name: "L2 Upgrade Executor",
-} as const;
-
-/**
  * ARB Token Contract
  */
 export const ARB_TOKEN = {
@@ -97,12 +83,6 @@ export type GovernorId = (typeof ARBITRUM_GOVERNORS)[number]["id"];
 export const DELAYED_INBOX = {
   ARB1: "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f",
   NOVA: "0xc4448b71118c9071Bcb9734A0EAc55D18A153949",
-} as const;
-
-export const ARBITRUM_BRIDGE = {
-  inbox: "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f",
-  outbox: "0x0B9857ae2D4A3DBe74ffE1d7DF045bb7F96E4840",
-  bridge: "0x8315177aB297bA92A06054cE80a67Ed4DBd7ed3a",
 } as const;
 
 /**
