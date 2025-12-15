@@ -9,7 +9,6 @@
     "lint": "next lint --fix",
     "test": "npm run lint && tsc && vitest run",
     "prepare": "husky install",
-    "build:latest-daos": "npx tsx scripts/pull-daos/pull-daos.ts",
     "track:proposal": "npx tsx scripts/track-proposal.ts"
   },
   "prettier": {

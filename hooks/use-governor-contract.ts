@@ -8,8 +8,8 @@ import { useSearchProposals } from "@/hooks/use-search-proposals";
 
 import { ContractParams, State } from "@/types/search";
 
-import { getBlockRange, selectDAOByGovernorAddress } from "@/lib/dao";
 import { publicClientToProvider } from "@/lib/ethers";
+import { DEFAULT_MAX_BLOCK_RANGE } from "@/lib/rpc-utils";
 import GovernorABI from "@data/OzGovernor_ABI.json";
 
 export function useGovernorContract({
@@ -66,8 +66,6 @@ export function useGovernorContract({
     initProvider();
   }, [values.rpcUrl, values.networkId, publicClient]);
 
-  const dao = selectDAOByGovernorAddress(values.contractAddress);
-
   // Create governor contract instance when provider is ready
   useEffect(() => {
     if (
@@ -100,9 +98,7 @@ export function useGovernorContract({
   ]);
 
   // When governor contract is ready, find Proposals
-  // Use custom block range if provided, otherwise use DAO config or default
-  const defaultBlockRange = getBlockRange(dao) as number;
-  const blockRange = values.blockRange || defaultBlockRange || 10000;
+  const blockRange = values.blockRange || DEFAULT_MAX_BLOCK_RANGE;
 
   const shouldSearch = providerReady && !!provider && !!state.governor.contract;
   const { proposals, searchProgress, error, isSearching } = useSearchProposals({

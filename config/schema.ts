@@ -65,12 +65,3 @@ export const proposalSchema = z.object({
   state: z.string(),
   creationTxHash: z.string().optional(),
 });
-
-export const daoSchema = z.object({
-  name: z.string(),
-  networkId: z.number(),
-  imageUrl: z.string(),
-  ethAddresses: z.array(z.string().regex(ethAddressRegex)),
-  maxBlockRange: z.number(),
-});
-export type DAO = z.infer<typeof daoSchema>;

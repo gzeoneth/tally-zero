@@ -1,3 +1,5 @@
+export const DEFAULT_MAX_BLOCK_RANGE = 10_000_000;
+
 export interface RetryOptions {
   maxRetries?: number;
   initialDelay?: number;
