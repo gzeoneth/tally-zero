@@ -1,60 +1,27 @@
 "use client";
 
-import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { arbitrum, type AppKitNetwork } from "@reown/appkit/networks";
-import { createAppKit } from "@reown/appkit/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactNode } from "react";
-import { WagmiProvider, type Config } from "wagmi";
-
-import { env } from "../env";
+import dynamic from "next/dynamic";
+import { Suspense, type ReactNode } from "react";
 
 // Setup queryClient
 const queryClient = new QueryClient();
 
-// Get project ID from environment
-const projectId = env.NEXT_PUBLIC_WEB3STORAGE_PROJECT_ID;
-
-if (!projectId) {
-  throw new Error("NEXT_PUBLIC_WEB3STORAGE_PROJECT_ID is not defined");
-}
-
-// Define networks - only Arbitrum One
-const networks: [AppKitNetwork, ...AppKitNetwork[]] = [arbitrum];
-
-// Metadata for your app
-const metadata = {
-  name: "Arbitrum Governance",
-  description: "Decentralized voting platform for onchain governance",
-  url: "https://zero.tally.xyz",
-  icons: ["/favicon/favicon.ico"],
-};
-
-// Configure Wagmi Adapter
-const wagmiAdapter = new WagmiAdapter({
-  projectId,
-  networks,
-});
-
-// Create modal instance
-createAppKit({
-  adapters: [wagmiAdapter],
-  projectId,
-  networks,
-  defaultNetwork: arbitrum,
-  metadata,
-  features: {
-    analytics: true,
-  },
-});
+// Dynamically import the actual provider component to avoid SSR issues
+const Web3ModalProviderInner = dynamic(
+  () => import("./Web3ModalProviderInner").then((mod) => mod.default),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 export function Web3ModalProvider({ children }: { children: ReactNode }) {
   return (
-    <WagmiProvider config={wagmiAdapter.wagmiConfig as Config}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </WagmiProvider>
+    <QueryClientProvider client={queryClient}>
+      <Suspense fallback={children}>
+        <Web3ModalProviderInner>{children}</Web3ModalProviderInner>
+      </Suspense>
+    </QueryClientProvider>
   );
 }
-
-// Export wagmi config for use elsewhere
-export const wagmiConfig = wagmiAdapter.wagmiConfig;
