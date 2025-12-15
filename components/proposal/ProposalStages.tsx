@@ -1,7 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
-import { TREASURY_GOVERNOR } from "@/config/arbitrum-governance";
+import {
+  L1_SECONDS_PER_BLOCK,
+  TREASURY_GOVERNOR,
+} from "@/config/arbitrum-governance";
 import {
   getAllStageTypes,
   useProposalStages,
@@ -27,6 +30,7 @@ interface ProposalStagesProps {
   creationTxHash: string;
   governorAddress: string;
   l1RpcUrl?: string;
+  currentL1Block?: number;
 }
 
 function getExplorerUrl(
@@ -110,12 +114,31 @@ function parseEstimatedDurationRange(duration?: string): {
 
 const VOTING_EXTENSION_DAYS = 2;
 
+interface BlockBasedTiming {
+  startBlock: number;
+  endBlock: number;
+  currentL1Block: number;
+}
+
+interface VotingTimeRange {
+  votingStartDate: Date;
+  votingEndMinDate: Date;
+  votingEndMaxDate: Date;
+}
+
+interface EstimatedTimesResult {
+  estimatedTimes: Map<StageType, EstimatedTimeRange>;
+  votingTimeRange: VotingTimeRange | null;
+}
+
 function calculateEstimatedCompletionTimes(
   allStageTypes: Array<{ type: StageType; estimatedDuration?: string }>,
   stages: ProposalStage[],
-  stageMap: Map<StageType, ProposalStage>
-): Map<StageType, EstimatedTimeRange> {
+  stageMap: Map<StageType, ProposalStage>,
+  currentL1Block?: number
+): EstimatedTimesResult {
   const estimatedTimes = new Map<StageType, EstimatedTimeRange>();
+  let votingTimeRange: VotingTimeRange | null = null;
 
   // Find the last completed stage to use as a reference point
   let referenceTime: Date | null = null;
@@ -137,6 +160,45 @@ function calculateEstimatedCompletionTimes(
     referenceTime = new Date();
   }
 
+  // Extract block data from PROPOSAL_CREATED stage if available
+  const proposalCreatedStage = stageMap.get("PROPOSAL_CREATED");
+  let blockBasedTiming: BlockBasedTiming | null = null;
+
+  if (
+    currentL1Block &&
+    proposalCreatedStage?.data &&
+    "startBlock" in proposalCreatedStage.data &&
+    "endBlock" in proposalCreatedStage.data
+  ) {
+    const startBlock = Number(proposalCreatedStage.data.startBlock);
+    const endBlock = Number(proposalCreatedStage.data.endBlock);
+
+    if (!isNaN(startBlock) && !isNaN(endBlock)) {
+      blockBasedTiming = {
+        startBlock,
+        endBlock,
+        currentL1Block,
+      };
+
+      // Calculate voting start and end times
+      const now = Date.now();
+      const blocksUntilStart = startBlock - currentL1Block;
+      const blocksUntilEnd = endBlock - currentL1Block;
+
+      const votingStartMs =
+        now + blocksUntilStart * L1_SECONDS_PER_BLOCK * 1000;
+      const votingEndMinMs = now + blocksUntilEnd * L1_SECONDS_PER_BLOCK * 1000;
+      const votingEndMaxMs =
+        votingEndMinMs + VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
+
+      votingTimeRange = {
+        votingStartDate: new Date(votingStartMs),
+        votingEndMinDate: new Date(votingEndMinMs),
+        votingEndMaxDate: new Date(votingEndMaxMs),
+      };
+    }
+  }
+
   // Calculate cumulative time ranges for each pending stage
   let cumulativeMinMs = referenceTime.getTime();
   let cumulativeMaxMs = referenceTime.getTime();
@@ -148,23 +210,106 @@ function calculateEstimatedCompletionTimes(
     // Skip completed stages
     if (stage?.status === "COMPLETED") continue;
 
-    // Add the duration of this stage
-    const durationRange = parseEstimatedDurationRange(meta.estimatedDuration);
-    cumulativeMinMs += durationRange.min * 24 * 60 * 60 * 1000;
-    cumulativeMaxMs += durationRange.max * 24 * 60 * 60 * 1000;
+    // Use block-based timing for VOTING_ACTIVE if available
+    if (meta.type === "VOTING_ACTIVE" && blockBasedTiming && votingTimeRange) {
+      // Set cumulative to voting end time
+      cumulativeMinMs = votingTimeRange.votingEndMinDate.getTime();
+      cumulativeMaxMs = votingTimeRange.votingEndMaxDate.getTime();
 
-    // Voting can have a 2-day extension, which affects all subsequent stages
-    if (meta.type === "VOTING_ACTIVE") {
-      cumulativeMaxMs += VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
+      estimatedTimes.set(meta.type, {
+        minDate: votingTimeRange.votingEndMinDate,
+        maxDate: votingTimeRange.votingEndMaxDate,
+      });
+    } else {
+      // Fallback to duration-based calculation
+      const durationRange = parseEstimatedDurationRange(meta.estimatedDuration);
+      cumulativeMinMs += durationRange.min * 24 * 60 * 60 * 1000;
+      cumulativeMaxMs += durationRange.max * 24 * 60 * 60 * 1000;
+
+      // Voting can have a 2-day extension, which affects all subsequent stages
+      if (meta.type === "VOTING_ACTIVE") {
+        cumulativeMaxMs += VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
+      }
+
+      estimatedTimes.set(meta.type, {
+        minDate: new Date(cumulativeMinMs),
+        maxDate: new Date(cumulativeMaxMs),
+      });
     }
+  }
 
-    estimatedTimes.set(meta.type, {
-      minDate: new Date(cumulativeMinMs),
-      maxDate: new Date(cumulativeMaxMs),
+  return { estimatedTimes, votingTimeRange };
+}
+
+function formatDateShort(date: Date): string {
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  // If in the past
+  if (diffDays < 0) {
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }
 
-  return estimatedTimes;
+  // If today
+  if (diffDays === 0) {
+    return `Today at ${date.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
+  }
+
+  // If tomorrow
+  if (diffDays === 1) {
+    return `Tomorrow at ${date.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
+  }
+
+  // Within a week
+  if (diffDays < 7) {
+    return `${date.toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })}`;
+  }
+
+  // Further out
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
+}
+
+function formatDateRange(minDate: Date, maxDate: Date): string {
+  const minStr = formatDateShort(minDate);
+  const maxStr = formatDateShort(maxDate);
+
+  if (minDate.toDateString() === maxDate.toDateString()) {
+    return minStr;
+  }
+
+  // Simplify if same month
+  const sameMonth =
+    minDate.getMonth() === maxDate.getMonth() &&
+    minDate.getFullYear() === maxDate.getFullYear();
+
+  if (sameMonth) {
+    const month = minDate.toLocaleDateString(undefined, { month: "short" });
+    const minDay = minDate.getDate();
+    const maxDay = maxDate.getDate();
+    return `${month} ${minDay}-${maxDay}`;
+  }
+
+  return `${minStr} - ${maxStr}`;
 }
 
 function formatEstimatedCompletion(range: EstimatedTimeRange): string {
@@ -256,6 +401,7 @@ function StageItem({
   isRefreshing,
   onRefresh,
   estimatedCompletion,
+  votingTimeRange,
 }: {
   stage?: ProposalStage;
   stageType: StageType;
@@ -266,6 +412,7 @@ function StageItem({
   isRefreshing: boolean;
   onRefresh: (index: number) => void;
   estimatedCompletion?: EstimatedTimeRange;
+  votingTimeRange?: VotingTimeRange | null;
 }) {
   const metadata = getStageMetadata(stageType);
   const status = stage?.status || "NOT_STARTED";
@@ -341,11 +488,38 @@ function StageItem({
         </p>
 
         {status !== "COMPLETED" &&
-          (estimatedCompletion || metadata?.estimatedDuration) && (
+          (estimatedCompletion ||
+            metadata?.estimatedDuration ||
+            (stageType === "VOTING_ACTIVE" && votingTimeRange)) && (
             <div className="text-xs text-muted-foreground mt-1 italic space-y-0.5">
-              {metadata?.estimatedDuration && (
-                <p>Est. duration: {metadata.estimatedDuration}</p>
+              {/* Show voting timing for VOTING_ACTIVE stage */}
+              {stageType === "VOTING_ACTIVE" && votingTimeRange && (
+                <>
+                  <p>
+                    Voting starts:{" "}
+                    <span className="text-foreground not-italic">
+                      {formatDateShort(votingTimeRange.votingStartDate)}
+                    </span>
+                  </p>
+                  <p>
+                    Voting ends:{" "}
+                    <span className="text-foreground not-italic">
+                      {formatDateRange(
+                        votingTimeRange.votingEndMinDate,
+                        votingTimeRange.votingEndMaxDate
+                      )}
+                    </span>
+                    <span className="text-muted-foreground ml-1">
+                      (+2 days possible extension)
+                    </span>
+                  </p>
+                </>
               )}
+              {/* Fallback to duration-based display */}
+              {!(stageType === "VOTING_ACTIVE" && votingTimeRange) &&
+                metadata?.estimatedDuration && (
+                  <p>Est. duration: {metadata.estimatedDuration}</p>
+                )}
               {estimatedCompletion && (
                 <p className="text-blue-600 dark:text-blue-400">
                   Est. completion:{" "}
@@ -550,6 +724,7 @@ export default function ProposalStages({
   creationTxHash,
   governorAddress,
   l1RpcUrl,
+  currentL1Block: currentL1BlockProp,
 }: ProposalStagesProps) {
   const {
     stages,
@@ -562,6 +737,7 @@ export default function ProposalStages({
     result,
     refetchFromStage,
     refreshingFromIndex,
+    currentL1Block: currentL1BlockFromHook,
   } = useProposalStages({
     proposalId,
     creationTxHash,
@@ -569,6 +745,10 @@ export default function ProposalStages({
     enabled: true,
     l1RpcUrl,
   });
+
+  // Use prop override if provided, otherwise use hook value (convert null to undefined)
+  const currentL1Block =
+    currentL1BlockProp ?? currentL1BlockFromHook ?? undefined;
 
   const allStageTypes = getAllStageTypes();
   const stageMap = new Map<StageType, ProposalStage>();
@@ -598,10 +778,11 @@ export default function ProposalStages({
     return true;
   });
 
-  const estimatedCompletionTimes = calculateEstimatedCompletionTimes(
+  const { estimatedTimes, votingTimeRange } = calculateEstimatedCompletionTimes(
     relevantStageTypes,
     stages,
-    stageMap
+    stageMap,
+    currentL1Block
   );
 
   if (error) {
@@ -655,7 +836,7 @@ export default function ProposalStages({
             isLoading && !isComplete && idx === currentStageIndex + 1;
           const isRefreshingThis =
             refreshingFromIndex !== null && idx >= refreshingFromIndex;
-          const estimatedCompletion = estimatedCompletionTimes.get(meta.type);
+          const estimatedCompletion = estimatedTimes.get(meta.type);
 
           return (
             <StageItem
@@ -669,6 +850,7 @@ export default function ProposalStages({
               isRefreshing={isRefreshingThis && isLoading}
               onRefresh={refetchFromStage}
               estimatedCompletion={estimatedCompletion}
+              votingTimeRange={votingTimeRange}
             />
           );
         })}

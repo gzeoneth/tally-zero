@@ -98,6 +98,7 @@ interface UseProposalStagesResult {
   result: ProposalTrackingResult | null;
   refetchFromStage: (stageIndex: number) => void;
   refreshingFromIndex: number | null;
+  currentL1Block: number | null;
 }
 
 function getStoredRpc(key: string, defaultValue: string): string {
@@ -142,6 +143,7 @@ export function useProposalStages({
   );
   const [isQueued, setIsQueued] = useState(false);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [currentL1Block, setCurrentL1Block] = useState<number | null>(null);
 
   const isMounted = useRef(true);
 
@@ -306,6 +308,40 @@ export function useProposalStages({
     };
   }, []);
 
+  // Fetch current L1 block for timing calculations
+  useEffect(() => {
+    if (!enabled) return;
+
+    const fetchL1Block = async () => {
+      try {
+        const response = await fetch(effectiveL1RpcUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_blockNumber",
+            params: [],
+            id: 1,
+          }),
+        });
+        const data = await response.json();
+        if (data.result && isMounted.current) {
+          setCurrentL1Block(parseInt(data.result, 16));
+        }
+      } catch {
+        // Silently fail - timing will use fallback
+      }
+    };
+
+    // Fetch immediately
+    fetchL1Block();
+
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchL1Block, 60000);
+
+    return () => clearInterval(interval);
+  }, [enabled, effectiveL1RpcUrl]);
+
   // Subscribe to session and start tracking if needed
   useEffect(() => {
     if (!enabled || !proposalId || !creationTxHash || !governorAddress) {
@@ -378,6 +414,7 @@ export function useProposalStages({
     result,
     refetchFromStage,
     refreshingFromIndex,
+    currentL1Block,
   };
 }
 

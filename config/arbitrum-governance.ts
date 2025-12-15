@@ -174,6 +174,11 @@ export const BLOCK_TIMES = {
 } as const;
 
 /**
+ * L1 block time constant for proposal timing calculations
+ */
+export const L1_SECONDS_PER_BLOCK = 12;
+
+/**
  * Blocks per day for time-based calculations
  * Derived from: 86400 seconds/day ÷ block time
  */
