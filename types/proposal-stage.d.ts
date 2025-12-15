@@ -24,6 +24,7 @@ export type StageStatus = "NOT_STARTED" | "PENDING" | "COMPLETED" | "FAILED";
  */
 export type StageType =
   | "PROPOSAL_CREATED"
+  | "VOTING_DELAY"
   | "VOTING_ACTIVE"
   | "PROPOSAL_QUEUED"
   | "L2_TIMELOCK_EXECUTED"

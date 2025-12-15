@@ -56,6 +56,13 @@ export const STAGE_METADATA: StageMetadata[] = [
     chain: "L2",
   },
   {
+    type: "VOTING_DELAY",
+    title: "Voting Delay",
+    description: "Waiting period before voting begins",
+    chain: "L2",
+    estimatedDuration: "3 days",
+  },
+  {
     type: "VOTING_ACTIVE",
     title: "Voting",
     description: "Token holders vote on the proposal",
@@ -300,9 +307,28 @@ export class IncrementalStageTracker {
       addStage(createdStage);
     }
 
-    // Stage 2: Voting (index 1)
-    let votingStage: ProposalStage;
+    // Stage 2: Voting Delay (index 1)
+    let votingDelayStage: ProposalStage;
     if (startIndex <= 1) {
+      votingDelayStage = await this.trackVotingDelay(ctx);
+      addStage(votingDelayStage);
+    } else {
+      votingDelayStage = stages.find((s) => s.type === "VOTING_DELAY")!;
+    }
+
+    if (votingDelayStage && votingDelayStage.status === "PENDING") {
+      return {
+        proposalId,
+        creationTxHash,
+        governorAddress: this.governorAddress,
+        stages,
+        currentState,
+      };
+    }
+
+    // Stage 3: Voting (index 2)
+    let votingStage: ProposalStage;
+    if (startIndex <= 2) {
       votingStage = await this.trackVotingStage(ctx);
       addStage(votingStage);
     } else {
@@ -329,9 +355,9 @@ export class IncrementalStageTracker {
       };
     }
 
-    // Stage 3: Proposal Queued (index 2)
+    // Stage 4: Proposal Queued (index 3)
     let queuedStage: ProposalStage;
-    if (startIndex <= 2) {
+    if (startIndex <= 3) {
       queuedStage = await this.trackProposalQueued(ctx);
       addStage(queuedStage);
     } else {
@@ -353,9 +379,9 @@ export class IncrementalStageTracker {
       ctx.proposalData = await this.getProposalData(ctx);
     }
 
-    // Stage 4: L2 Timelock Executed (index 3)
+    // Stage 5: L2 Timelock Executed (index 4)
     let l2TimelockStage: ProposalStage;
-    if (startIndex <= 3) {
+    if (startIndex <= 4) {
       l2TimelockStage = await this.trackL2TimelockExecution(
         ctx,
         queuedStage.transactions[0]?.blockNumber ||
@@ -378,9 +404,9 @@ export class IncrementalStageTracker {
 
     ctx.l2TimelockTxHash = l2TimelockStage.transactions[0]?.hash;
 
-    // Stages 5-6: L2 to L1 Message (indices 4-5)
+    // Stages 6-7: L2 to L1 Message (indices 5-6)
     let l2ToL1ConfirmedStage: ProposalStage | undefined;
-    if (startIndex <= 5) {
+    if (startIndex <= 6) {
       const l2ToL1Result = await this.trackL2ToL1Message(ctx);
       for (const stage of l2ToL1Result.stages) {
         if (startIndex <= stages.length) {
@@ -406,9 +432,9 @@ export class IncrementalStageTracker {
       };
     }
 
-    // Stages 7-8: L1 Timelock (indices 6-7)
+    // Stages 8-9: L1 Timelock (indices 7-8)
     let l1ExecutedStage: ProposalStage | undefined;
-    if (startIndex <= 7) {
+    if (startIndex <= 8) {
       const l1TimelockStages = await this.trackL1Timelock(ctx);
       for (const stage of l1TimelockStages) {
         if (startIndex <= stages.length) {
@@ -434,7 +460,7 @@ export class IncrementalStageTracker {
 
     ctx.l1ExecutionTxHash = l1ExecutedStage.transactions[0]?.hash;
 
-    // Stages 9-10: Retryables (indices 8-9)
+    // Stages 10-11: Retryables (indices 9-10)
     const retryableStages = await this.trackRetryables(ctx);
     for (let i = 0; i < retryableStages.length; i++) {
       addStage(retryableStages[i], i === retryableStages.length - 1);
@@ -525,6 +551,76 @@ export class IncrementalStageTracker {
         endBlock: parsed.args.endBlock.toString(),
       },
     };
+  }
+
+  private async trackVotingDelay(ctx: TrackingContext): Promise<ProposalStage> {
+    const governor = new ethers.Contract(
+      ctx.governorAddress,
+      GovernorABI,
+      ctx.l2Provider
+    );
+
+    try {
+      const state = await governor.state(ctx.proposalId);
+
+      // State 0 = Pending (voting delay in progress)
+      // State 1+ = Active or later (voting delay complete)
+      if (state === 0) {
+        // Get the start block from ProposalCreated event to estimate when voting begins
+        const proposalCreatedTopic =
+          ctx.governorInterface.getEventTopic("ProposalCreated");
+        const createdLog = ctx.creationReceipt!.logs.find(
+          (log) =>
+            log.topics[0] === proposalCreatedTopic &&
+            log.address.toLowerCase() === ctx.governorAddress.toLowerCase()
+        );
+
+        let startBlock: string | undefined;
+        if (createdLog) {
+          const parsed = ctx.governorInterface.parseLog(createdLog);
+          startBlock = parsed.args.startBlock?.toString();
+        }
+
+        return {
+          type: "VOTING_DELAY",
+          status: "PENDING",
+          transactions: [
+            {
+              hash: ctx.creationTxHash,
+              blockNumber: ctx.creationReceipt!.blockNumber,
+              chain: "L2",
+            },
+          ],
+          data: {
+            message: "Waiting for voting to begin",
+            votingStartBlock: startBlock,
+          },
+        };
+      }
+
+      // Voting delay is complete
+      return {
+        type: "VOTING_DELAY",
+        status: "COMPLETED",
+        transactions: [
+          {
+            hash: ctx.creationTxHash,
+            blockNumber: ctx.creationReceipt!.blockNumber,
+            chain: "L2",
+          },
+        ],
+        data: {
+          message: "Voting delay period complete",
+        },
+      };
+    } catch (error) {
+      return {
+        type: "VOTING_DELAY",
+        status: "FAILED",
+        transactions: [],
+        data: { error: String(error) },
+      };
+    }
   }
 
   private async trackVotingStage(ctx: TrackingContext): Promise<ProposalStage> {
