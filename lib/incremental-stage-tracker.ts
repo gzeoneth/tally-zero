@@ -760,12 +760,13 @@ export class IncrementalStageTracker {
     for (const log of logs) {
       const parsed = ctx.governorInterface.parseLog(log);
       if (parsed.args.proposalId.eq(proposalIdBN)) {
-        const args = parsed.args as unknown as ProposalCreatedEventArgs;
+        const args = parsed.args;
+        // args.values conflicts with the built-in iterator method
         return {
-          targets: args.targets,
-          values: args.values,
-          calldatas: args.calldatas,
-          description: args.description,
+          targets: (args.targets ?? args[2]) as string[],
+          values: args[3] as ethers.BigNumber[],
+          calldatas: (args.calldatas ?? args[5]) as string[],
+          description: (args.description ?? args[8]) as string,
         };
       }
     }

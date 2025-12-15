@@ -20,6 +20,7 @@ interface RpcStatusProps {
     l1?: string;
   };
   onHealthChecked?: (allHealthy: boolean, requiredHealthy: boolean) => void;
+  autoCheck?: boolean;
 }
 
 function StatusIndicator({ result }: { result: RpcHealthResult }) {
@@ -71,10 +72,11 @@ function StatusIndicator({ result }: { result: RpcHealthResult }) {
 export default function RpcStatus({
   customUrls,
   onHealthChecked,
+  autoCheck = true,
 }: RpcStatusProps) {
   const { results, isChecking, summary, checkHealth } = useRpcHealth({
     customUrls,
-    autoCheck: true,
+    autoCheck,
   });
   const isMobile = useMediaQuery("(max-width: 639px)");
   const [isExpanded, setIsExpanded] = useState(false);

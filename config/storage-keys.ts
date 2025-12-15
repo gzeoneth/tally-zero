@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   DAYS_TO_SEARCH: "tally-zero-days-to-search",
   NERD_MODE: "tally-zero-nerd-mode",
   CACHE_TTL: "tally-zero-cache-ttl",
+  SKIP_PRELOAD_CACHE: "tally-zero-skip-preload-cache",
 } as const;
 
 export const CACHE_VERSION = 1;

@@ -1,4 +1,5 @@
-import { Address } from "@/types/search";
+import type { ProposalStage } from "@/types/proposal-stage";
+import type { Address } from "@/types/search";
 
 export type Proposal = {
   id: string;
@@ -38,6 +39,10 @@ export type ParsedProposal = {
   votes?: ProposalVotes;
   governorName?: string;
   creationTxHash?: string;
+  /** Lifecycle stages tracked at build time (optional) */
+  stages?: ProposalStage[];
+  /** ISO timestamp when stages were last tracked */
+  stagesTrackedAt?: string;
 };
 
 export type UseTotalProposalsReturn = {

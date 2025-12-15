@@ -22,12 +22,24 @@ export default function Search() {
     STORAGE_KEYS.DAYS_TO_SEARCH,
     DEFAULT_FORM_VALUES.daysToSearch
   );
-  const [storedL2Rpc] = useLocalStorage(STORAGE_KEYS.L2_RPC, "");
-  const [storedL1Rpc] = useLocalStorage(STORAGE_KEYS.L1_RPC, "");
+  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+  const [storedL1Rpc, , l1RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L1_RPC,
+    ""
+  );
   const [storedBlockRange] = useLocalStorage<number>(
     STORAGE_KEYS.BLOCK_RANGE,
     DEFAULT_FORM_VALUES.blockRange
   );
+  const [storedSkipCache] = useLocalStorage<boolean>(
+    STORAGE_KEYS.SKIP_PRELOAD_CACHE,
+    false
+  );
+
+  const rpcSettingsHydrated = l2RpcHydrated && l1RpcHydrated;
 
   const daysToSearch =
     parseInt(searchParams.get("days") || "") ||
@@ -35,6 +47,8 @@ export default function Search() {
     DEFAULT_FORM_VALUES.daysToSearch;
   const rpcFromUrl = searchParams.get("rpc") || "";
   const customRpc = rpcFromUrl || storedL2Rpc;
+  const skipCacheFromUrl = searchParams.get("skipCache") === "true";
+  const skipCache = skipCacheFromUrl || storedSkipCache;
 
   const customRpcUrls = useMemo(
     () => ({
@@ -51,12 +65,13 @@ export default function Search() {
     []
   );
 
-  const { proposals, progress, error, isProviderReady } =
+  const { proposals, progress, error, isProviderReady, cacheInfo } =
     useMultiGovernorSearch({
       daysToSearch,
       enabled: autoStarted && rpcHealthy === true,
       customRpcUrl: customRpc || undefined,
       blockRange: storedBlockRange,
+      skipCache,
     });
 
   useEffect(() => {
@@ -64,6 +79,19 @@ export default function Search() {
       setAutoStarted(true);
     }
   }, [isProviderReady, rpcHealthy, autoStarted]);
+
+  const progressMessage = useMemo(() => {
+    if (progress === 0) return "Connecting to Arbitrum...";
+    if (progress < 70) {
+      if (cacheInfo?.cacheUsed && cacheInfo.cachedCount > 0) {
+        return `Using ${cacheInfo.cachedCount} cached proposals, fetching new... ${Math.round(progress)}%`;
+      }
+      return `Searching proposals... ${Math.round(progress)}%`;
+    }
+    if (progress < 80) return "Processing proposals...";
+    if (progress < 90) return "Refreshing active proposals...";
+    return "Finalizing...";
+  }, [progress, cacheInfo]);
 
   return (
     <div className="flex flex-col space-y-4">
@@ -82,13 +110,7 @@ export default function Search() {
             <div className="w-full max-w-md">
               <Progress value={progress} />
             </div>
-            <p className="text-sm text-muted-foreground">
-              {progress === 0
-                ? "Connecting to Arbitrum..."
-                : progress < 95
-                  ? `Searching proposals... ${Math.round(progress)}%`
-                  : "Processing proposals..."}
-            </p>
+            <p className="text-sm text-muted-foreground">{progressMessage}</p>
           </div>
         )}
 
@@ -101,13 +123,23 @@ export default function Search() {
         )}
 
         {progress === 100 && !error && (
-          <DataTable isPaginated={true} columns={columns} data={proposals} />
+          <>
+            <DataTable isPaginated={true} columns={columns} data={proposals} />
+            {cacheInfo && cacheInfo.loaded && (
+              <p className="mt-2 text-xs text-muted-foreground text-center">
+                {cacheInfo.cacheUsed
+                  ? `${cacheInfo.cachedCount} from cache, ${cacheInfo.freshCount} fetched fresh`
+                  : `${cacheInfo.freshCount} proposals fetched from RPC`}
+              </p>
+            )}
+          </>
         )}
       </section>
 
       <RpcStatus
         customUrls={customRpcUrls}
         onHealthChecked={handleRpcHealthChecked}
+        autoCheck={rpcSettingsHydrated}
       />
     </div>
   );

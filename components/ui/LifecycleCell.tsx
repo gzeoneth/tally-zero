@@ -14,6 +14,11 @@ import { proposalSchema } from "@/config/schema";
 import { states } from "@/data/table/data";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useProposalStages } from "@/hooks/use-proposal-stages";
+import {
+  formatCurrentState,
+  formatStageName,
+  getStateStyle,
+} from "@/lib/lifecycle-utils";
 import { cn } from "@/lib/utils";
 import {
   CheckCircledIcon,
@@ -195,7 +200,8 @@ function LifecycleContent({
 
   if (status === "complete") {
     const stateDisplay = formatCurrentState(currentState);
-    const { icon: StateIcon, color } = getStateStyle(currentState);
+    const { icon, color } = getStateStyle(currentState);
+    const StateIcon = iconMap[icon];
 
     return (
       <HoverCard>
@@ -218,63 +224,9 @@ function LifecycleContent({
   return null;
 }
 
-function formatStageName(stageName: string): string {
-  return stageName
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatCurrentState(state: string | null): string {
-  if (!state) return "Unknown";
-
-  const stateMap: Record<string, string> = {
-    Active: "Active",
-    Pending: "Pending",
-    Succeeded: "Passed",
-    Defeated: "Defeated",
-    Queued: "Queued",
-    Executed: "Executed",
-    Canceled: "Canceled",
-    Expired: "Expired",
-  };
-
-  return stateMap[state] || state;
-}
-
-function getStateStyle(state: string | null): {
-  icon: typeof CheckCircledIcon;
-  color: string;
-} {
-  switch (state) {
-    case "Executed":
-      return {
-        icon: CheckCircledIcon,
-        color: "text-green-600 dark:text-green-400",
-      };
-    case "Active":
-    case "Pending":
-      return {
-        icon: ReloadIcon,
-        color: "text-blue-600 dark:text-blue-400",
-      };
-    case "Queued":
-    case "Succeeded":
-      return {
-        icon: ClockIcon,
-        color: "text-yellow-600 dark:text-yellow-400",
-      };
-    case "Defeated":
-    case "Canceled":
-    case "Expired":
-      return {
-        icon: CrossCircledIcon,
-        color: "text-red-600 dark:text-red-400",
-      };
-    default:
-      return {
-        icon: ClockIcon,
-        color: "text-muted-foreground",
-      };
-  }
-}
+const iconMap = {
+  check: CheckCircledIcon,
+  reload: ReloadIcon,
+  clock: ClockIcon,
+  cross: CrossCircledIcon,
+} as const;
