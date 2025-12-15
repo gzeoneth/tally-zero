@@ -1,24 +1,10 @@
 import { Contract, ethers } from "ethers";
 import { useEffect, useState } from "react";
 
+import { getBlocksPerDay } from "@/config/block-times";
 import { Proposal } from "@/types/proposal";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 import { batchQueryWithRateLimit } from "../lib/rpc-utils";
-
-// Block times for different chains (in seconds)
-const BLOCK_TIMES: Record<number, number> = {
-  1: 12, // Ethereum
-  10: 2, // Optimism
-  137: 2, // Polygon
-  42161: 0.25, // Arbitrum
-  43114: 2, // Avalanche
-  // Add more chains as needed
-};
-
-const getBlocksPerDay = (chainId: number): number => {
-  const blockTime = BLOCK_TIMES[chainId] || 12; // Default to Ethereum block time
-  return Math.floor(86400 / blockTime);
-};
 
 export interface UseSearchProposalsOptions {
   provider: ethers.providers.Provider | undefined;
@@ -41,11 +27,6 @@ export const useSearchProposals = ({
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-
-  const cancelSearch = () => {
-    setSearchProgress(0);
-    setProposals([]);
-  };
 
   useEffect(() => {
     if (!enabled || !provider || !contractAddress) return;

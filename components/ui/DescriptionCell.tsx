@@ -1,13 +1,13 @@
 "use client";
 
 import VoteModel from "@/components/container/VoteModel";
-import { Dialog, DialogTrigger } from "@components/ui/Dialog";
-import { Drawer, DrawerTrigger } from "@components/ui/Drawer";
+import { Dialog, DialogTrigger } from "@/components/ui/Dialog";
+import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
 
+import { proposalSchema } from "@/config/schema";
+import { states } from "@/data/table/data";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { ParsedProposal } from "@/types/proposal";
-import { proposalSchema } from "@config/schema";
-import { states } from "@data/table/data";
-import { useMediaQuery } from "@hooks/use-media-query";
 
 function stripMarkdownAndHtml(text: string) {
   // Remove HTML tags first

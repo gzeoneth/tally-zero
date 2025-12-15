@@ -29,7 +29,7 @@ export function VoteDisplay({ votes }: VoteDisplayProps) {
     }
   };
 
-  const formatQuorum = (value: string) => {
+  const formatQuorum = (value: string | undefined) => {
     if (!value || value === "0") return "N/A";
     return formatVotes(value);
   };

@@ -7,22 +7,15 @@ import { useEffect, useState } from "react";
 import { cn } from "@lib/utils";
 
 import { Icons } from "@components/Icons";
+import { SettingsSheet } from "@components/container/SettingsSheet";
 import { buttonVariants } from "@components/ui/Button";
-
-const Skeleton = ({ className }: { className?: string }) => (
-  <div aria-live="polite" aria-busy="true" className={className}>
-    <span className="inline-flex w-full h-[38px] animate-pulse select-none rounded-md bg-gray-300 leading-none">
-      ‌
-    </span>
-    <br />
-  </div>
-);
+import { Skeleton } from "@components/ui/Skeleton";
 
 const LoadingSkeleton = ({ compact = false }: { compact?: boolean }) => (
   <div className="inline-flex items-center justify-center transition-colors h-10 px-2 sm:px-4 py-2">
     <Skeleton
       className={cn(
-        "max-w-full",
+        "h-[38px]",
         compact ? "w-[80px]" : "w-[120px] sm:w-[158px]"
       )}
     />
@@ -35,17 +28,39 @@ export function ButtonNav() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
+    // AppKit uses Web Components that need to be registered before rendering
+    const checkReady = () =>
+      customElements.get("appkit-button") &&
+      customElements.get("appkit-network-button");
 
-    return () => clearTimeout(timer);
+    if (checkReady()) {
+      setLoading(false);
+      return;
+    }
+
+    const poll = setInterval(() => {
+      if (checkReady()) {
+        clearInterval(poll);
+        setLoading(false);
+      }
+    }, 50);
+
+    const timeout = setTimeout(() => {
+      clearInterval(poll);
+      setLoading(false);
+    }, 2000);
+
+    return () => {
+      clearInterval(poll);
+      clearTimeout(timeout);
+    };
   }, []);
 
   return (
     <nav className="flex-shrink-0">
       {isExplore ? (
         <div className="flex items-center gap-1 sm:gap-2 px-0 sm:px-4 py-2">
+          <SettingsSheet />
           {loading ? (
             <div className="flex items-center gap-1 sm:gap-2">
               <LoadingSkeleton compact />

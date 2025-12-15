@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
 
-import { ParsedProposal, Proposal } from "@/types/proposal";
+import { EnrichedProposal, Proposal } from "@/types/proposal";
 import { Address } from "@/types/search";
 
 export function useParseProposals(
@@ -11,8 +11,10 @@ export function useParseProposals(
   contractAddress: Address | undefined,
   proposals: Proposal[],
   enabled: boolean
-): ParsedProposal[] {
-  const [parsedProposals, setParsedProposals] = useState<ParsedProposal[]>([]);
+): EnrichedProposal[] {
+  const [parsedProposals, setParsedProposals] = useState<EnrichedProposal[]>(
+    []
+  );
 
   useEffect(() => {
     if (!enabled || !contractAddress) return;
@@ -79,7 +81,9 @@ export function useParseProposals(
       const resolvedProposals = (await Promise.all(proposalPromises)).filter(
         Boolean
       );
-      setParsedProposals(resolvedProposals.filter(Boolean) as ParsedProposal[]);
+      setParsedProposals(
+        resolvedProposals.filter(Boolean) as EnrichedProposal[]
+      );
     };
 
     parseProposals();

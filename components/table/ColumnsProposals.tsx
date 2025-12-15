@@ -97,20 +97,10 @@ export const columns: ColumnDef<ParsedProposal>[] = [
       <DataTableColumnHeader column={column} title="State" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
-      const networkId = row.original.networkId;
-
-      let stateValue;
-      /*       if (networkId === "10") {
-        stateValue = optimismStates.find(
-          (state) => state.value === row.getValue("state")
-        );
-        if (!stateValue) return null;
-      } else { */
-      stateValue = states.find(
+      const stateValue = states.find(
         (state) => state.value === row.getValue("state")
       );
       if (!stateValue) return null;
-      /* } */
 
       return (
         <Badge

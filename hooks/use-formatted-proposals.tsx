@@ -1,31 +1,28 @@
-import { ParsedProposal, Proposal } from "@/types/proposal";
+import { EnrichedProposal, ParsedProposal } from "@/types/proposal";
 import { ProposalState } from "@config/intial-state";
 import { useMemo } from "react";
 
 export function useFormattedProposals(
-  proposals: Proposal[],
+  proposals: EnrichedProposal[],
   networkId: string
 ): ParsedProposal[] {
   return useMemo(() => {
     const formattedProposals = proposals.map(
-      (proposal: Proposal): ParsedProposal => ({
+      (proposal: EnrichedProposal): ParsedProposal => ({
         id: proposal.id,
         contractAddress: proposal.contractAddress,
         proposer: proposal.proposer,
         targets: proposal.targets,
-        values: proposal.values.map((value) => value.toString()),
+        values: proposal.values,
         signatures: proposal.signatures,
         calldatas: proposal.calldatas,
-        startBlock: proposal.startBlock.toString(),
-        endBlock: proposal.endBlock.toString(),
+        startBlock: proposal.startBlock,
+        endBlock: proposal.endBlock,
         description: proposal.description,
         networkId: networkId,
         state: (ProposalState[proposal.state] as string).toLowerCase(),
         creationTxHash: proposal.creationTxHash,
-        /*       state:
-        networkId === "10"
-          ? (ProposalOptimismState[proposal.state] as string).toLowerCase()
-          : (ProposalState[proposal.state] as string).toLowerCase(), */
+        votes: proposal.votes,
       })
     );
 

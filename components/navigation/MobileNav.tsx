@@ -1,9 +1,9 @@
 import Link from "next/link";
 import * as React from "react";
 
-import { siteConfig } from "@config/site";
-import { useLockBody } from "@hooks/use-lock-body";
-import { cn } from "@lib/utils";
+import { siteConfig } from "@/config/site";
+import { useLockBody } from "@/hooks/use-lock-body";
+import { cn } from "@/lib/utils";
 
 import { Icons } from "@/components/Icons";
 

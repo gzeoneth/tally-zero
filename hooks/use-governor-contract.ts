@@ -1,10 +1,10 @@
 import { ethers } from "ethers";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
 
 import { useFormattedProposals } from "@/hooks/use-formatted-proposals";
-import { useParseProposals } from "@hooks/use-parse-proposals";
-import { useSearchProposals } from "@hooks/use-search-proposals";
+import { useParseProposals } from "@/hooks/use-parse-proposals";
+import { useSearchProposals } from "@/hooks/use-search-proposals";
 
 import { ContractParams, State } from "@/types/search";
 
@@ -69,11 +69,9 @@ export function useGovernorContract({
   const dao = selectDAOByGovernorAddress(values.contractAddress);
 
   // Create governor contract instance when provider is ready
-  const governorContractRef = useRef(state.governor.contract);
-
   useEffect(() => {
     if (
-      !governorContractRef.current &&
+      !state.governor.contract &&
       providerReady &&
       provider &&
       values.contractAddress
@@ -84,11 +82,8 @@ export function useGovernorContract({
         provider
       );
 
-      governorContractRef.current = governorContract;
-
       setState((prevState) => ({
         ...prevState,
-        system: {},
         governor: {
           ...prevState.governor,
           contract: governorContract,
@@ -101,14 +96,8 @@ export function useGovernorContract({
     providerReady,
     values.contractAddress,
     state.governor.contract,
-    values.state?.governor.contract,
     setState,
   ]);
-
-  // Update the ref when state.governor.contract changes outside of this useEffect
-  useEffect(() => {
-    governorContractRef.current = state.governor.contract;
-  }, [state.governor.contract]);
 
   // When governor contract is ready, find Proposals
   // Use custom block range if provided, otherwise use DAO config or default

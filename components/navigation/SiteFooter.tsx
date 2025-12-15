@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-import { siteConfig } from "@config/site";
-import { cn } from "@lib/utils";
+import { siteConfig } from "@/config/site";
+import { cn } from "@/lib/utils";
 
-import { ModeToggle } from "@/components/ModeToggel";
+import { ModeToggle } from "@/components/ModeToggle";
 
 export function SiteFooter({ className }: React.HTMLAttributes<HTMLElement>) {
   return (

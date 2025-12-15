@@ -6,6 +6,11 @@ import {
   TREASURY_GOVERNOR,
 } from "@/config/arbitrum-governance";
 import {
+  CACHE_VERSION,
+  DEFAULT_CACHE_TTL_MS,
+  STORAGE_KEYS,
+} from "@/config/storage-keys";
+import {
   STAGE_METADATA,
   createCoreGovernorTracker,
   createTreasuryGovernorTracker,
@@ -19,11 +24,6 @@ import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
-import {
-  CACHE_TTL_MS,
-  CACHE_VERSION,
-  STORAGE_KEYS,
-} from "@config/storage-keys";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface CachedResult {
@@ -51,7 +51,7 @@ function areAllStagesCompleted(result: ProposalTrackingResult): boolean {
 function loadCachedResult(
   proposalId: string,
   governorAddress: string,
-  ttlMs: number = CACHE_TTL_MS
+  ttlMs: number = DEFAULT_CACHE_TTL_MS
 ): CacheLoadResult {
   if (typeof window === "undefined") {
     return { result: null, isExpired: false, allStagesCompleted: false };

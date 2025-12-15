@@ -45,11 +45,10 @@ export interface Proposal {
   actions: any[];
 }
 
-export type ProposalState = Proposal[];
+export type ProposalList = Proposal[];
 
 export interface State {
-  system: {};
   governor: GovernorState;
   token: TokenState;
-  proposals: ProposalState;
+  proposals: ProposalList;
 }

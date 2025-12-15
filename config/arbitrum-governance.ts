@@ -165,44 +165,33 @@ export function getGovernorConfig(type: "core" | "treasury") {
  */
 export const CHALLENGE_PERIOD_L1_BLOCKS = 46080;
 
-/**
- * Block times for time-based calculations
- */
-export const BLOCK_TIMES = {
-  ethereum: 12, // seconds per block
-  arbitrum: 0.25, // seconds per block
-} as const;
+export {
+  BLOCKS_PER_DAY,
+  BLOCK_TIMES,
+  L1_SECONDS_PER_BLOCK,
+  blocksToTime as blocksToTimeByChainId,
+  getBlockTime,
+  getBlocksPerDay,
+  timeToBlocks as timeToBlocksByChainId,
+} from "@/config/block-times";
 
-/**
- * L1 block time constant for proposal timing calculations
- */
-export const L1_SECONDS_PER_BLOCK = 12;
+import {
+  blocksToTime as blocksToTimeById,
+  timeToBlocks as timeToBlocksById,
+} from "@/config/block-times";
 
-/**
- * Blocks per day for time-based calculations
- * Derived from: 86400 seconds/day ÷ block time
- */
-export const BLOCKS_PER_DAY = {
-  ethereum: 7200, // 86400 / 12
-  arbitrum: 345600, // 86400 / 0.25
-} as const;
+const CHAIN_IDS = { ethereum: 1, arbitrum: 42161 } as const;
 
-/**
- * Calculate approximate blocks from time duration
- */
 export function timeToBlocks(
   seconds: number,
   chain: "ethereum" | "arbitrum"
 ): number {
-  return Math.ceil(seconds / BLOCK_TIMES[chain]);
+  return timeToBlocksById(seconds, CHAIN_IDS[chain]);
 }
 
-/**
- * Calculate approximate time from block count
- */
 export function blocksToTime(
   blocks: number,
   chain: "ethereum" | "arbitrum"
 ): number {
-  return blocks * BLOCK_TIMES[chain];
+  return blocksToTimeById(blocks, CHAIN_IDS[chain]);
 }

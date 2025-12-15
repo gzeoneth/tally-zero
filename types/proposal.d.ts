@@ -19,7 +19,23 @@ export type ProposalVotes = {
   againstVotes: string;
   forVotes: string;
   abstainVotes: string;
-  quorum: string;
+  quorum: string | undefined;
+};
+
+export type EnrichedProposal = {
+  id: string;
+  contractAddress: Address;
+  proposer: string;
+  targets: string[];
+  values: string[];
+  signatures: string[];
+  calldatas: string[];
+  startBlock: string;
+  endBlock: string;
+  description: string;
+  state: number;
+  votes?: ProposalVotes;
+  creationTxHash?: string;
 };
 
 export type ParsedProposal = {
@@ -34,7 +50,7 @@ export type ParsedProposal = {
   endBlock: string;
   description: string;
   networkId: string;
-  state: ProposalState | undefined;
+  state: string;
   votes?: ProposalVotes;
   governorName?: string;
   creationTxHash?: string;
