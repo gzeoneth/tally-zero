@@ -56,14 +56,10 @@ function getStoredRpc(key: string, defaultValue: string): string {
   if (typeof window !== "undefined") {
     const stored = localStorage.getItem(key);
     if (stored) {
-      try {
-        // Values are stored via useLocalStorage which uses JSON.stringify
-        return JSON.parse(stored) || defaultValue;
-      } catch {
-        return stored || defaultValue;
-      }
+      // Values are stored via useLocalStorage which uses JSON.stringify
+      const parsed = JSON.parse(stored);
+      return parsed || defaultValue;
     }
-    return defaultValue;
   }
   return defaultValue;
 }
