@@ -65,15 +65,23 @@ function ParameterView({
           : param.value;
 
     if (param.link && param.type === "address") {
+      // Show label as primary text if available, address as title
+      const linkText = param.addressLabel || displayValue;
+      const titleText = param.addressLabel ? displayValue : undefined;
+
       return (
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1 flex-wrap">
           <a
             href={param.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+            title={titleText}
+            className={cn(
+              "text-blue-600 dark:text-blue-400 hover:underline",
+              param.addressLabel ? "font-medium" : "font-mono"
+            )}
           >
-            {displayValue}
+            {linkText}
           </a>
           {param.chainLabel && (
             <Badge variant="outline" className="text-[9px] px-1 py-0">

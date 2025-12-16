@@ -1,4 +1,5 @@
 import localSignatures from "@data/function-signatures.json";
+import knownAddresses from "@data/known-addresses.json";
 import { ethers } from "ethers";
 
 const FOURBYTE_API = "https://www.4byte.directory/api/v1/signatures/";
@@ -46,8 +47,10 @@ export interface DecodedParameter {
   nestedArray?: DecodedCalldata[];
   // For addresses - link to block explorer
   link?: string;
-  // For retryable tickets - chain info
+  // Chain context for display (Arb1, Nova, L1)
   chainLabel?: string;
+  // Known address label (e.g., "Core Governor", "L1 Timelock")
+  addressLabel?: string;
 }
 
 export interface RetryableTicketData {
@@ -79,6 +82,34 @@ export function getChainLabel(chain: ChainContext): string {
     case "ethereum":
       return "L1";
   }
+}
+
+/**
+ * Look up known address label
+ */
+export function getAddressLabel(
+  address: string,
+  chain: ChainContext
+): string | undefined {
+  const chainAddresses = knownAddresses.addresses[chain] as
+    | Record<string, string>
+    | undefined;
+  if (!chainAddresses) return undefined;
+
+  // Try exact match first
+  if (chainAddresses[address]) {
+    return chainAddresses[address];
+  }
+
+  // Try case-insensitive match
+  const lowerAddress = address.toLowerCase();
+  for (const [addr, label] of Object.entries(chainAddresses)) {
+    if (addr.toLowerCase() === lowerAddress) {
+      return label;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -330,9 +361,11 @@ export function decodeParameters(
 
       let link: string | undefined;
       let chainLabel: string | undefined;
+      let addressLabel: string | undefined;
       if (type === "address") {
         link = getExplorerUrl(String(value), chainContext);
         chainLabel = getChainLabel(chainContext);
+        addressLabel = getAddressLabel(String(value), chainContext);
       }
 
       return {
@@ -342,6 +375,7 @@ export function decodeParameters(
         isNested: isNested || isBytesArray,
         link,
         chainLabel,
+        addressLabel,
         // Store raw bytes array for later decoding
         _rawBytesArray: isBytesArray ? value.map(String) : undefined,
       } as DecodedParameter & { _rawBytesArray?: string[] };
@@ -467,6 +501,10 @@ export async function decodeCalldata(
                       isNested: false,
                       link: getExplorerUrl(retryable.targetInbox, "ethereum"),
                       chainLabel: "L1",
+                      addressLabel: getAddressLabel(
+                        retryable.targetInbox,
+                        "ethereum"
+                      ),
                     },
                     {
                       name: "l2Target",
@@ -475,6 +513,10 @@ export async function decodeCalldata(
                       isNested: false,
                       link: getExplorerUrl(retryable.l2Target, l2Chain),
                       chainLabel: getChainLabel(l2Chain),
+                      addressLabel: getAddressLabel(
+                        retryable.l2Target,
+                        l2Chain
+                      ),
                     },
                     {
                       name: "l2Value",
@@ -554,6 +596,14 @@ export async function decodeCalldata(
   if (localSignature) {
     const params = decodeParameters(calldata, localSignature, chainContext);
     const functionName = localSignature.split("(")[0];
+
+    // For sendTxToL1, fix the first parameter (address) to use ethereum context
+    if (isSendTxToL1 && params && params[0]?.type === "address") {
+      const addr = params[0].value;
+      params[0].link = getExplorerUrl(addr, "ethereum");
+      params[0].chainLabel = getChainLabel("ethereum");
+      params[0].addressLabel = getAddressLabel(addr, "ethereum");
+    }
 
     // Recursively decode nested calldata
     await processNestedParams(params, localSignature);
