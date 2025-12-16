@@ -21,11 +21,12 @@ import { ethers } from "ethers";
 import * as fs from "fs";
 import * as path from "path";
 
+import { trackProposalStages } from "../lib/stage-tracker-core";
 import {
-  areStagesComplete,
-  shouldTrackStages,
-  trackProposalStages,
-} from "../lib/stage-tracker-core";
+  hasExceededTrackingAge,
+  hasReachedFinalStage,
+  isCacheExpired,
+} from "../lib/stages-cache";
 import type { ParsedProposal } from "../types/proposal";
 import type { ProposalStage } from "../types/proposal-stage";
 import type { Address } from "../types/search";
@@ -351,20 +352,78 @@ function loadExistingCache(outputPath: string): ProposalCache | null {
 }
 
 /**
- * Track lifecycle stages for proposals that have progressed past voting
+ * Get the estimated creation time of a proposal
+ * Uses the first stage's transaction timestamp if available
+ */
+function getProposalCreationTime(proposal: ParsedProposal): number | null {
+  if (proposal.stages && proposal.stages.length > 0) {
+    const firstStage = proposal.stages[0];
+    if (firstStage.transactions && firstStage.transactions.length > 0) {
+      const timestamp = firstStage.transactions[0].timestamp;
+      if (timestamp) {
+        // Timestamp is in seconds, convert to ms
+        return timestamp * 1000;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Track lifecycle stages for all proposals
+ *
+ * Applies the same caching logic as the UI hook:
+ * - Skip proposals that have reached their final stage
+ * - Skip proposals where cache is not expired (TTL-based)
+ * - Skip proposals that have exceeded the 60-day tracking window
  */
 async function trackStagesForProposals(
   proposals: ParsedProposal[]
 ): Promise<ParsedProposal[]> {
+  let skippedFinal = 0;
+  let skippedCacheFresh = 0;
+  let skippedTooOld = 0;
+
   // Filter proposals that need stage tracking
   const proposalsToTrack = proposals.filter((p) => {
-    // Skip if already has complete stages
-    if (p.stages && areStagesComplete(p.stages)) {
+    // Must have a creation tx hash
+    if (!p.creationTxHash) {
       return false;
     }
-    // Only track if state indicates progression past voting
-    return shouldTrackStages(p.state) && p.creationTxHash;
+
+    // Skip if proposal has reached its final stage for this governor
+    if (p.stages && hasReachedFinalStage(p.stages, p.contractAddress)) {
+      skippedFinal++;
+      return false;
+    }
+
+    // Skip if cache is still fresh (not expired by TTL)
+    if (p.stagesTrackedAt && !isCacheExpired(p.stagesTrackedAt)) {
+      skippedCacheFresh++;
+      return false;
+    }
+
+    // Skip if tracking has exceeded 60 days from proposal creation
+    const creationTime = getProposalCreationTime(p);
+    if (
+      creationTime &&
+      p.stagesTrackedAt &&
+      hasExceededTrackingAge(p.stagesTrackedAt, creationTime)
+    ) {
+      skippedTooOld++;
+      return false;
+    }
+
+    return true;
   });
+
+  console.log("\nStage tracking filter results:");
+  console.log(`  - Proposals at final stage: ${skippedFinal} (skipped)`);
+  console.log(`  - Proposals with fresh cache: ${skippedCacheFresh} (skipped)`);
+  console.log(
+    `  - Proposals exceeded 60-day window: ${skippedTooOld} (skipped)`
+  );
+  console.log(`  - Proposals to track: ${proposalsToTrack.length}`);
 
   if (proposalsToTrack.length === 0) {
     console.log("\nNo proposals need stage tracking");
@@ -714,15 +773,13 @@ async function main() {
   const proposalsWithStages = allProposals.filter(
     (p) => p.stages && p.stages.length > 0
   );
-  const proposalsWithCompleteStages = allProposals.filter(
-    (p) => p.stages && areStagesComplete(p.stages)
+  const proposalsAtFinalStage = allProposals.filter(
+    (p) => p.stages && hasReachedFinalStage(p.stages, p.contractAddress)
   );
   console.log("");
   console.log("Stage tracking:");
   console.log(`  Proposals with stages: ${proposalsWithStages.length}`);
-  console.log(
-    `  Proposals with complete stages: ${proposalsWithCompleteStages.length}`
-  );
+  console.log(`  Proposals at final stage: ${proposalsAtFinalStage.length}`);
 }
 
 main().catch((error) => {

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedAt": "2025-12-15T18:20:55.025Z",
-  "snapshotBlock": 410969642,
+  "generatedAt": "2025-12-16T09:04:21.528Z",
+  "snapshotBlock": 411188529,
   "startBlock": 70398215,
   "chainId": 42161,
   "proposals": [
@@ -23,11 +23,53 @@
       "state": "active",
       "governorName": "Core Governor",
       "votes": {
-        "againstVotes": "9185900777392533400186",
-        "forVotes": "177084990248676979685876404",
+        "againstVotes": "15999870561133390074625",
+        "forVotes": "201361904735137197434318382",
         "abstainVotes": "6817309579880618181939",
         "quorum": "217965067095536545797776669"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x385043172e9314cdc34facf04efb540de5ff6ec99a41ec2ff373d79d0415736d",
+              "blockNumber": 406178381,
+              "timestamp": 1764625619,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb4c064f466931B8d0F637654c916E3F203c46f13",
+            "targets": ["0x0000000000000000000000000000000000000064"],
+            "description": "# [Constitutional] AIP: Activate ArbOS 51 (Dia) and Gas Pricing Updates\n**Type:** Constitutional AIP\n\n## **Abstract**\n\nThis AIP proposes the activation of ArbOS 51: Dia on Arbitrum One and Arbitrum No...",
+            "startBlock": "23943007",
+            "endBlock": "24043807"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "PENDING",
+          "transactions": [
+            {
+              "hash": "0x385043172e9314cdc34facf04efb540de5ff6ec99a41ec2ff373d79d0415736d",
+              "blockNumber": 406178381,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Active",
+            "forVotes": "201361904.735137197434318382",
+            "againstVotes": "15999.870561133390074625",
+            "abstainVotes": "6817.309579880618181939",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T08:59:56.261Z"
     },
     {
       "id": "57495998481040869152703890521939307107269690440073097268210566577740258992963",
@@ -1226,7 +1268,49 @@
         "forVotes": "6930882658889176617977",
         "abstainVotes": "1395315934282527854761",
         "quorum": "219338285137608430372141423"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0xe5e6787a4726c6d820017e4e0c9acb3b592fb1b9ebfce565f62f735096dc55d3",
+              "blockNumber": 345527079,
+              "timestamp": 1749468830,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0x583E3EDc26E1B8620341bce90547197bfE2c1ddD",
+            "targets": ["0x0000000000000000000000000000000000000064"],
+            "description": "# [CONSTITUTIONAL] Register the Sky Custom Gateway contracts in the Router\n### Constitutional\n\n### Abstract\n\nSKY has launched support for USDS and sUSDS tokens on Arbitrum. This proposal requests Arbi...",
+            "startBlock": "22688349",
+            "endBlock": "22789149"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0xe5e6787a4726c6d820017e4e0c9acb3b592fb1b9ebfce565f62f735096dc55d3",
+              "blockNumber": 345527079,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "6930.882658889176617977",
+            "againstVotes": "88692101.214754908353135452",
+            "abstainVotes": "1395.315934282527854761",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:00:05.249Z"
     },
     {
       "id": "13050485773425645466153415888358064378805606653363056526521393182333458879398",
@@ -1800,7 +1884,49 @@
         "forVotes": "26708069789611833801649275",
         "abstainVotes": "43778403606897407365088759",
         "quorum": "126443073391113752452404094"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0xcd188ac8e1a0553aec23d13f273b48881054cdb75def415096784247ebeedf76",
+              "blockNumber": 314367693,
+              "timestamp": 1741646546,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb5B069370Ef24BC67F114e185D185063CE3479f8",
+            "targets": ["0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"],
+            "description": "# [NON-CONSTITUTIONAL] Arbitrum Onboarding V2: A Governance Bootcamp\nOn December 12, 2024, the Snapshot vote to launch the [<u>Arbitrum Governance Bootcamp</u>](https://snapshot.box/#/s:arbitrumfounda...",
+            "startBlock": "22041121",
+            "endBlock": "22141921"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0xcd188ac8e1a0553aec23d13f273b48881054cdb75def415096784247ebeedf76",
+              "blockNumber": 314367693,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "26708069.789611833801649275",
+            "againstVotes": "123288831.01071975814597009",
+            "abstainVotes": "43778403.606897407365088759",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:00:16.254Z"
     },
     {
       "id": "14881197137069494959448952699217598923721993392617887469969318742509097999570",
@@ -3539,7 +3665,50 @@
         "forVotes": "56743270199081612783132648",
         "abstainVotes": "64017381529362760665778955",
         "quorum": "110653663546209983179855374"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x67e1b8133fd6dc0391f964101de069fd9150410667f549dbbb7878c222f4215a",
+              "blockNumber": 259338276,
+              "timestamp": 1727804353,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb5B069370Ef24BC67F114e185D185063CE3479f8",
+            "targets": ["0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"],
+            "description": "# ArbitrumDAO strategic “Off-site” (online) updated proposal\n# ArbitrumDAO strategic “Off-site” (online) updated proposal\n\nNon-Constitutional\n\n## Context\n\nThis proposal is a continuation of the direct...",
+            "startBlock": "20893788",
+            "endBlock": "20994588"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x67e1b8133fd6dc0391f964101de069fd9150410667f549dbbb7878c222f4215a",
+              "blockNumber": 259338276,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "56743270.199081612783132648",
+            "againstVotes": "62404504.768359396399819173",
+            "abstainVotes": "64017381.529362760665778955",
+            "extensionPossible": false,
+            "wasExtended": true,
+            "extendedDeadline": "21007611",
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:00:20.437Z"
     },
     {
       "id": "78608365328815179822381240433375943106975722017227920505592824878237374730465",
@@ -4087,7 +4256,49 @@
         "forVotes": "25789860505645643280822",
         "abstainVotes": "991526586781094691516746",
         "quorum": "128792379097825954596886066"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0xec98f7c5a1c9bc2a5b70b1f3185599fa5d883eb30b08f9e3732cc9ae76f9c5f6",
+              "blockNumber": 254333935,
+              "timestamp": 1726545482,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xF92F185AbD9E00F56cb11B0b709029633d1E37B4",
+            "targets": ["0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"],
+            "description": "# Ethereum Protocol Attackathon Sponsorship\n## Abstract\n\nThis proposal seeks funding from the Arbitrum DAO to support an Attackathon, a large-scale security audit event hosted by the Ethereum Foundati...",
+            "startBlock": "20789396",
+            "endBlock": "20890196"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0xec98f7c5a1c9bc2a5b70b1f3185599fa5d883eb30b08f9e3732cc9ae76f9c5f6",
+              "blockNumber": 254333935,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "25789.860505645643280822",
+            "againstVotes": "58765375.73684145017575084",
+            "abstainVotes": "991526.586781094691516746",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:00:34.944Z"
     },
     {
       "id": "112325874093084064493910714319140234408317576120604499542718372361020687891105",
@@ -4111,7 +4322,49 @@
         "forVotes": "62773473994825823247161",
         "abstainVotes": "1015575919519799570757159",
         "quorum": "175363268391953111392009189"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x4d0e1f606cdc13c0a15a92340051490be866d28feca270b18afe6cb1e55e9418",
+              "blockNumber": 251897791,
+              "timestamp": 1725931635,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb5B069370Ef24BC67F114e185D185063CE3479f8",
+            "targets": ["0x0000000000000000000000000000000000000064"],
+            "description": "# Upgrade Governor Contracts by Transfering Timelock Roles to the New Governors\n### **Abstract**\n\nThis proposal will transfer the proposer and canceller roles from the current Arbitrum Core Governor a...",
+            "startBlock": "20738529",
+            "endBlock": "20839329"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x4d0e1f606cdc13c0a15a92340051490be866d28feca270b18afe6cb1e55e9418",
+              "blockNumber": 251897791,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "62773.473994825823247161",
+            "againstVotes": "65656353.163824418777769125",
+            "abstainVotes": "1015575.919519799570757159",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:00:49.572Z"
     },
     {
       "id": "79529399410531589353911088395953830829384332193617716676855043534419270111970",
@@ -4244,7 +4497,52 @@
         "forVotes": "296715314873414203648176",
         "abstainVotes": "18038608532149506870340588",
         "quorum": "103862968735340094838173425"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x297ab8951a7e983f04e07d7144f483147fa261a73146df9603066afc57cea1b2",
+              "blockNumber": 245705026,
+              "timestamp": 1724374389,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0x1B686eE8E31c5959D9F5BBd8122a58682788eeaD",
+            "targets": [
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"
+            ],
+            "description": "# Delegate to Voter Enfranchisement Pool — Event Horizon\n# **Summary**\n\nEvent Horizon is a public good. It is a public-access metagovernance block. With the aim of enfranchising the tens of thousands ...",
+            "startBlock": "20609453",
+            "endBlock": "20710253"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x297ab8951a7e983f04e07d7144f483147fa261a73146df9603066afc57cea1b2",
+              "blockNumber": 245705026,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "296715.314873414203648176",
+            "againstVotes": "92497740.635713872621513357",
+            "abstainVotes": "18038608.532149506870340588",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:01:04.680Z"
     },
     {
       "id": "52793687237294107439411688810483120161857085958258363826553939061522164665920",
@@ -7686,7 +7984,49 @@
         "forVotes": "148942281589269002061853",
         "abstainVotes": "82226113578900320673092",
         "quorum": "125307585777099696763599256"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0xb6bc77a2d66d6bd55eb2a3ce14b25d1ccf3921581ca7d59fa754f05ed6c272c3",
+              "blockNumber": 167429287,
+              "timestamp": 1704479354,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb5B069370Ef24BC67F114e185D185063CE3479f8",
+            "targets": ["0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"],
+            "description": "# [Updated] Proposal to Establish the Arbitrum Research & Development Collective\nThis is a non-constitutional proposal.\n\n**Amendments in light of community feedback:**\n\n* Standard 50,000ARB for the DA...",
+            "startBlock": "18964449",
+            "endBlock": "19065249"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0xb6bc77a2d66d6bd55eb2a3ce14b25d1ccf3921581ca7d59fa754f05ed6c272c3",
+              "blockNumber": 167429287,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "148942.281589269002061853",
+            "againstVotes": "27165520.108021722657770383",
+            "abstainVotes": "82226.113578900320673092",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:01:24.914Z"
     },
     {
       "id": "6269372711941757139042689495856382466058496535755800373140231592090274906424",
@@ -7710,7 +8050,49 @@
         "forVotes": "685050749567563840865458",
         "abstainVotes": "1647733600214102392871351",
         "quorum": "124807585777099696763599256"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x46d47040c51b1a88b1276d50c502b750590f6cec4a4a8fcbfde38fc1714b08d2",
+              "blockNumber": 167282380,
+              "timestamp": 1704442403,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xAbAbE91A907fAdff921720C43ABe4098e7245E99",
+            "targets": ["0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"],
+            "description": "# Experimental Delegates Incentive System\n# Final Version with Option 2 (Karma)\n\n## Abstract\n\nWe introduce an Experimental Incentive System aimed at the ArbitrumDAO delegates with a duration of six mo...",
+            "startBlock": "18961418",
+            "endBlock": "19062218"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x46d47040c51b1a88b1276d50c502b750590f6cec4a4a8fcbfde38fc1714b08d2",
+              "blockNumber": 167282380,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "685050.749567563840865458",
+            "againstVotes": "25495102.770183808315706563",
+            "abstainVotes": "1647733.600214102392871351",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:01:44.947Z"
     },
     {
       "id": "35525013043870715946223420504118237039230172376655957921569389087285511330636",
@@ -7734,7 +8116,49 @@
         "forVotes": "2690311771649612064891461",
         "abstainVotes": "79509555751672487273937",
         "quorum": "74884551466259818058159553"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x5da64f32c8e6afa015f47f9fb5be9785206dc70cf5b0cf366dd3320db7b53ce6",
+              "blockNumber": 166732941,
+              "timestamp": 1704303186,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb5B069370Ef24BC67F114e185D185063CE3479f8",
+            "targets": ["0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"],
+            "description": "# [UPDATED] Proposal to Establish the Arbitrum Research & Development Collective\nThis is a non-constitutional proposal.&#x20;\n\n**Amendments in light of community feedback:**\n\n* Standard 50,000ARB for ...",
+            "startBlock": "18949940",
+            "endBlock": "19050740"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x5da64f32c8e6afa015f47f9fb5be9785206dc70cf5b0cf366dd3320db7b53ce6",
+              "blockNumber": 166732941,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "2690311.771649612064891461",
+            "againstVotes": "25095928.523364619609892204",
+            "abstainVotes": "79509.555751672487273937",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:02:05.033Z"
     },
     {
       "id": "55434268037459750836497365958054185343730937462615166912204494229415053613423",
@@ -7758,7 +8182,49 @@
         "forVotes": "2226220837127984581886229",
         "abstainVotes": "37796574271566270240347",
         "quorum": "124807585777099696763599256"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0xef3708dd0a5896b0cff67239dc5d1bcd57202d3bf967afb478aa8585fe1993a4",
+              "blockNumber": 166725301,
+              "timestamp": 1704301281,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb5B069370Ef24BC67F114e185D185063CE3479f8",
+            "targets": ["0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"],
+            "description": "# [UPDATED] Proposal to Establish the Arbitrum Research & Development Collective\n**Amendments in light of community feedback:**\n\n* Standard 50,000ARB for the DAOAdvocate role due to the important natu...",
+            "startBlock": "18949783",
+            "endBlock": "19050583"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0xef3708dd0a5896b0cff67239dc5d1bcd57202d3bf967afb478aa8585fe1993a4",
+              "blockNumber": 166725301,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "2226220.837127984581886229",
+            "againstVotes": "25391028.303062024072101399",
+            "abstainVotes": "37796.574271566270240347",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:02:25.143Z"
     },
     {
       "id": "13830398746784164287014809687499019395362322167304875665797507515532859950760",
@@ -7782,7 +8248,49 @@
         "forVotes": "2185041519587312801016151",
         "abstainVotes": "26755596383426275772643",
         "quorum": "124807585777099696763599256"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x2e267411550d7b284f81ee77f4b210adbe21f73b34a04ff3c7cebe61225abd64",
+              "blockNumber": 166717878,
+              "timestamp": 1704299440,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb5B069370Ef24BC67F114e185D185063CE3479f8",
+            "targets": ["0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"],
+            "description": "# Proposal to Establish the Arbitrum Research & Development Collective\nThis is a Non-Constitutional proposal.\n\n**Abstract** - This proposal aims to fund the Arbitrum Research & Development Collective ...",
+            "startBlock": "18949630",
+            "endBlock": "19050430"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x2e267411550d7b284f81ee77f4b210adbe21f73b34a04ff3c7cebe61225abd64",
+              "blockNumber": 166717878,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "2185041.519587312801016151",
+            "againstVotes": "25445239.242508475265956422",
+            "abstainVotes": "26755.596383426275772643",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:02:45.186Z"
     },
     {
       "id": "77069694702187027448745871790562515795432836429094222862498991082283032976814",
@@ -8139,7 +8647,74 @@
         "forVotes": "52325388755721832328852217",
         "abstainVotes": "17922169809527759385203888",
         "quorum": "73157505406259818058159553"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0xf9b50f74a860be6111dccf4ae3f6fcfab3018994bd58d3bb1aac715e92082c6d",
+              "blockNumber": 151400658,
+              "timestamp": 1700245318,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xb5B069370Ef24BC67F114e185D185063CE3479f8",
+            "targets": [
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58",
+              "0xF3FC178157fb3c87548bAA86F9d24BA38E649B58"
+            ],
+            "description": "# Empowering Early Contributors: The community Arbiter Proposal\n**Abstract:**\nThis proposal recommends the allocation of 500,000 $ARB tokens, equivalent to 0.005% of the total supply, to acknowledge a...",
+            "startBlock": "18614953",
+            "endBlock": "18715753"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0xf9b50f74a860be6111dccf4ae3f6fcfab3018994bd58d3bb1aac715e92082c6d",
+              "blockNumber": 151400658,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "52325388.755721832328852217",
+            "againstVotes": "104669294.196042653389310915",
+            "abstainVotes": "17922169.809527759385203888",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:03:05.922Z"
     },
     {
       "id": "13413460212244439965325761903593975061091934953503684497413508380387288651335",
@@ -9780,7 +10355,49 @@
         "forVotes": "11877205411525283058309871",
         "abstainVotes": "69223452302702936118502015",
         "quorum": "86006753446259818058159553"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x21c3f3db7304d3278f6e0c8d2d6e2fb65ceb876c5bced84eb276c817e8d934fe",
+              "blockNumber": 98423914,
+              "timestamp": 1686066964,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0x1B686eE8E31c5959D9F5BBd8122a58682788eeaD",
+            "targets": ["0x4b075f1d7DcE6F480bf87e45df2F2e1B1A430184"],
+            "description": "# AIP-1.1 - Lockup, Budget, Transparency\nCategory: Non-constitutional\n\n## Abstract\ntl;dr: AIP-1.1 proposes (1) a lockup, (2) a budget and (3) transparency reporting regarding the 7.5% of the $ARB toke...",
+            "startBlock": "17444029",
+            "endBlock": "17544829"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x21c3f3db7304d3278f6e0c8d2d6e2fb65ceb876c5bced84eb276c817e8d934fe",
+              "blockNumber": 98423914,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "11877205.411525283058309871",
+            "againstVotes": "6447687.896985267827274608",
+            "abstainVotes": "69223452.302702936118502015",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:03:30.273Z"
     },
     {
       "id": "110793123084980773896129216551445203207286848914653873956746115694475823589450",
@@ -9802,7 +10419,49 @@
         "forVotes": "11072109822771445447763281",
         "abstainVotes": "461624790431066399891858",
         "quorum": "189191214739434565500000000"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x73d981550bc38454ec89d6437d607b2166ecdce1b187a4288f20367cad21a730",
+              "blockNumber": 72957775,
+              "timestamp": 1679606963,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xeB939516A1f91c2D386d435f3AdE8ac396E5C97a",
+            "targets": ["0xeB939516A1f91c2D386d435f3AdE8ac396E5C97a"],
+            "description": "# Arcubtang\nArbitrum Treasury...",
+            "startBlock": "16914514",
+            "endBlock": "17015314"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x73d981550bc38454ec89d6437d607b2166ecdce1b187a4288f20367cad21a730",
+              "blockNumber": 72957775,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "11072109.822771445447763281",
+            "againstVotes": "17314729.461306242635054196",
+            "abstainVotes": "461624.790431066399891858",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:03:55.871Z"
     },
     {
       "id": "60371879178081104082641012273221287927865067413661362234634146098631763379427",
@@ -9824,7 +10483,49 @@
         "forVotes": "10043404730070845694504850",
         "abstainVotes": "490500168094033920357974",
         "quorum": "315311209982390942500000000"
-      }
+      },
+      "stages": [
+        {
+          "type": "PROPOSAL_CREATED",
+          "status": "COMPLETED",
+          "transactions": [
+            {
+              "hash": "0x91226f5bfad5d1c0911ed590287734241f6b3101d8b60970911987dfa74fe37e",
+              "blockNumber": 72951811,
+              "timestamp": 1679605512,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "proposer": "0xF07210273DE1ad682650F8e283cBC98778B16652",
+            "targets": ["0xF07210273DE1ad682650F8e283cBC98778B16652"],
+            "description": "# art dra\n### ## # ***[\n\n- ![](`\n\n> bi\n\n`)\n\n](url)***...",
+            "startBlock": "16914393",
+            "endBlock": "17015193"
+          }
+        },
+        {
+          "type": "VOTING_ACTIVE",
+          "status": "FAILED",
+          "transactions": [
+            {
+              "hash": "0x91226f5bfad5d1c0911ed590287734241f6b3101d8b60970911987dfa74fe37e",
+              "blockNumber": 72951811,
+              "chain": "L2"
+            }
+          ],
+          "data": {
+            "state": "Defeated",
+            "forVotes": "10043404.73007084569450485",
+            "againstVotes": "17238373.529121357074070637",
+            "abstainVotes": "490500.168094033920357974",
+            "extensionPossible": true,
+            "wasExtended": false,
+            "quorumReached": false
+          }
+        }
+      ],
+      "stagesTrackedAt": "2025-12-16T09:04:21.527Z"
     }
   ],
   "governorStats": {

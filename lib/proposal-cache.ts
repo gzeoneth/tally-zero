@@ -1,6 +1,12 @@
-import { CACHE_VERSION, STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal } from "@/types/proposal";
-import type { ProposalTrackingResult } from "@/types/proposal-stage";
+import { seedStagesFromProposal } from "./stages-cache";
+
+// Re-export stages cache functions for convenience
+export {
+  getPreloadedStages,
+  hasPreloadedStages,
+  seedStagesFromProposal,
+} from "./stages-cache";
 
 export interface ProposalCache {
   version: number;
@@ -183,58 +189,6 @@ export function getCacheStats(cache: ProposalCache): {
   };
 }
 
-function getStagesCacheKey(
-  proposalId: string,
-  governorAddress: string
-): string {
-  return `${STORAGE_KEYS.STAGES_CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
-}
-
-interface CachedStagesResult {
-  version: number;
-  timestamp: number;
-  result: ProposalTrackingResult;
-}
-
-export function seedStagesFromProposal(proposal: ParsedProposal): boolean {
-  if (typeof window === "undefined") return false;
-  if (!proposal.stages || proposal.stages.length === 0) return false;
-  if (!proposal.creationTxHash) return false;
-
-  const key = getStagesCacheKey(proposal.id, proposal.contractAddress);
-
-  try {
-    const existing = localStorage.getItem(key);
-    if (existing) {
-      const parsed: CachedStagesResult = JSON.parse(existing);
-      if (parsed.version === CACHE_VERSION && parsed.result.stages) {
-        if (parsed.result.stages.length >= proposal.stages.length) {
-          return false;
-        }
-      }
-    }
-
-    const cachedResult: CachedStagesResult = {
-      version: CACHE_VERSION,
-      timestamp: proposal.stagesTrackedAt
-        ? new Date(proposal.stagesTrackedAt).getTime()
-        : Date.now(),
-      result: {
-        proposalId: proposal.id,
-        creationTxHash: proposal.creationTxHash,
-        governorAddress: proposal.contractAddress,
-        stages: proposal.stages,
-        currentState: proposal.state,
-      },
-    };
-
-    localStorage.setItem(key, JSON.stringify(cachedResult));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function seedAllStagesFromCache(cache: ProposalCache): number {
   if (typeof window === "undefined") return 0;
 
@@ -252,46 +206,4 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
   }
 
   return seededCount;
-}
-
-export function hasPreloadedStages(
-  proposalId: string,
-  governorAddress: string
-): boolean {
-  if (typeof window === "undefined") return false;
-
-  const key = getStagesCacheKey(proposalId, governorAddress);
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return false;
-
-    const parsed: CachedStagesResult = JSON.parse(cached);
-    return (
-      parsed.version === CACHE_VERSION &&
-      parsed.result.stages &&
-      parsed.result.stages.length > 0
-    );
-  } catch {
-    return false;
-  }
-}
-
-export function getPreloadedStages(
-  proposalId: string,
-  governorAddress: string
-): ProposalTrackingResult | null {
-  if (typeof window === "undefined") return null;
-
-  const key = getStagesCacheKey(proposalId, governorAddress);
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return null;
-
-    const parsed: CachedStagesResult = JSON.parse(cached);
-    if (parsed.version !== CACHE_VERSION) return null;
-
-    return parsed.result;
-  } catch {
-    return null;
-  }
 }

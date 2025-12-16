@@ -27,6 +27,9 @@ import {
   type StageProgressCallback,
 } from "./incremental-stage-tracker";
 
+// Re-export areStagesComplete from stages-cache for backward compatibility
+export { areStagesComplete } from "./stages-cache";
+
 export interface TrackStagesOptions {
   proposalId: string;
   creationTxHash: string;
@@ -150,25 +153,6 @@ export async function trackProposalStages(
       error: error instanceof Error ? error.message : String(error),
     };
   }
-}
-
-/**
- * Check if a proposal state indicates it has progressed past voting
- * (i.e., it's worth tracking full lifecycle stages)
- */
-export function shouldTrackStages(proposalState: string): boolean {
-  const state = proposalState.toLowerCase();
-  // Track stages for proposals that have completed voting
-  return ["queued", "succeeded", "executed", "expired"].includes(state);
-}
-
-/**
- * Check if stages are complete (all stages have final status)
- */
-export function areStagesComplete(stages: ProposalStage[]): boolean {
-  if (!stages || stages.length === 0) return false;
-  const lastStage = stages[stages.length - 1];
-  return lastStage.status === "COMPLETED" || lastStage.status === "FAILED";
 }
 
 /**

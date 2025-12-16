@@ -5,11 +5,7 @@ import {
   ETHEREUM_RPC_URL,
   TREASURY_GOVERNOR,
 } from "@/config/arbitrum-governance";
-import {
-  CACHE_VERSION,
-  DEFAULT_CACHE_TTL_MS,
-  STORAGE_KEYS,
-} from "@/config/storage-keys";
+import { STORAGE_KEYS } from "@/config/storage-keys";
 import {
   STAGE_METADATA,
   createCoreGovernorTracker,
@@ -20,94 +16,16 @@ import {
   trackerManager,
   type TrackingSession,
 } from "@/lib/proposal-tracker-manager";
+import {
+  clearCachedStages,
+  loadCachedStages,
+  saveCachedStages,
+} from "@/lib/stages-cache";
 import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-interface CachedResult {
-  version: number;
-  timestamp: number;
-  result: ProposalTrackingResult;
-}
-
-function getCacheKey(proposalId: string, governorAddress: string): string {
-  return `${STORAGE_KEYS.STAGES_CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
-}
-
-interface CacheLoadResult {
-  result: ProposalTrackingResult | null;
-  isExpired: boolean;
-  allStagesCompleted: boolean;
-}
-
-function areAllStagesCompleted(result: ProposalTrackingResult): boolean {
-  if (!result.stages || result.stages.length === 0) return false;
-  const lastStage = result.stages[result.stages.length - 1];
-  return lastStage.status === "COMPLETED";
-}
-
-function loadCachedResult(
-  proposalId: string,
-  governorAddress: string,
-  ttlMs: number = DEFAULT_CACHE_TTL_MS
-): CacheLoadResult {
-  if (typeof window === "undefined") {
-    return { result: null, isExpired: false, allStagesCompleted: false };
-  }
-  try {
-    const key = getCacheKey(proposalId, governorAddress);
-    const cached = localStorage.getItem(key);
-    if (!cached) {
-      return { result: null, isExpired: false, allStagesCompleted: false };
-    }
-    const parsed: CachedResult = JSON.parse(cached);
-    if (parsed.version !== CACHE_VERSION) {
-      return { result: null, isExpired: false, allStagesCompleted: false };
-    }
-
-    const isExpired = Date.now() - parsed.timestamp > ttlMs;
-    const allStagesCompleted = areAllStagesCompleted(parsed.result);
-
-    return {
-      result: parsed.result,
-      isExpired,
-      allStagesCompleted,
-    };
-  } catch {
-    return { result: null, isExpired: false, allStagesCompleted: false };
-  }
-}
-
-function saveCachedResult(
-  proposalId: string,
-  governorAddress: string,
-  result: ProposalTrackingResult
-): void {
-  if (typeof window === "undefined") return;
-  try {
-    const key = getCacheKey(proposalId, governorAddress);
-    const cached: CachedResult = {
-      version: CACHE_VERSION,
-      timestamp: Date.now(),
-      result,
-    };
-    localStorage.setItem(key, JSON.stringify(cached));
-  } catch {
-    // Storage full or unavailable
-  }
-}
-
-function clearCachedResult(proposalId: string, governorAddress: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    const key = getCacheKey(proposalId, governorAddress);
-    localStorage.removeItem(key);
-  } catch {
-    // Ignore
-  }
-}
 
 interface UseProposalStagesOptions {
   proposalId: string;
@@ -267,7 +185,7 @@ export function useProposalStages({
           abortController: null,
         });
 
-        saveCachedResult(proposalId, governorAddress, trackingResult);
+        saveCachedStages(proposalId, governorAddress, trackingResult);
       } catch (err) {
         if (abortController.signal.aborted) return;
         trackerManager.trackingFinished(proposalId, governorAddress);
@@ -294,7 +212,7 @@ export function useProposalStages({
     (stageIndex: number) => {
       if (!proposalId || !governorAddress) return;
 
-      clearCachedResult(proposalId, governorAddress);
+      clearCachedStages(proposalId, governorAddress);
 
       // Abort any existing tracking
       trackerManager.abortTracking(proposalId, governorAddress);
@@ -402,8 +320,8 @@ export function useProposalStages({
       const {
         result: cached,
         isExpired,
-        allStagesCompleted,
-      } = loadCachedResult(proposalId, governorAddress);
+        isComplete: allStagesCompleted,
+      } = loadCachedStages(proposalId, governorAddress);
 
       if (cached) {
         // Always load the cached data first
