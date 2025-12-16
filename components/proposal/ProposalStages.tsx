@@ -1,6 +1,8 @@
 "use client";
 
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Progress } from "@/components/ui/Progress";
 import {
   L1_SECONDS_PER_BLOCK,
   TREASURY_GOVERNOR,
@@ -89,6 +91,117 @@ function formatVoteAmount(amount: string | number): string {
     return (num / 1_000).toFixed(2).replace(/\.?0+$/, "") + "K";
   }
   return num.toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+function QuorumProgressBar({
+  current,
+  required,
+  reached,
+}: {
+  current: string;
+  required: string;
+  reached: boolean;
+}) {
+  const currentNum = parseFloat(current);
+  const requiredNum = parseFloat(required);
+  const percentage =
+    requiredNum > 0 ? Math.min(100, (currentNum / requiredNum) * 100) : 0;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          Quorum
+        </span>
+        <span
+          className={cn(
+            "text-xs font-semibold",
+            reached ? "text-green-600 dark:text-green-400" : "text-foreground"
+          )}
+        >
+          {percentage.toFixed(0)}%
+        </span>
+      </div>
+      <Progress
+        value={percentage}
+        className={cn(
+          "h-2",
+          reached && "[&>div]:bg-green-500 dark:[&>div]:bg-green-400"
+        )}
+      />
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>{formatVoteAmount(current)}</span>
+        <span>{formatVoteAmount(required)}</span>
+      </div>
+    </div>
+  );
+}
+
+function VoteDistributionBar({
+  forVotes,
+  againstVotes,
+  abstainVotes,
+}: {
+  forVotes: string;
+  againstVotes: string;
+  abstainVotes: string;
+}) {
+  const forNum = parseFloat(forVotes) || 0;
+  const againstNum = parseFloat(againstVotes) || 0;
+  const abstainNum = parseFloat(abstainVotes) || 0;
+  const total = forNum + againstNum + abstainNum;
+
+  if (total === 0) return null;
+
+  const forPct = (forNum / total) * 100;
+  const againstPct = (againstNum / total) * 100;
+  const abstainPct = (abstainNum / total) * 100;
+
+  return (
+    <div className="space-y-1.5">
+      <span className="text-xs font-medium text-muted-foreground">Votes</span>
+      <div className="flex h-2 rounded-full overflow-hidden bg-secondary">
+        {forPct > 0 && (
+          <div
+            className="bg-green-500 dark:bg-green-400 transition-all"
+            style={{ width: `${forPct}%` }}
+          />
+        )}
+        {againstPct > 0 && (
+          <div
+            className="bg-red-500 dark:bg-red-400 transition-all"
+            style={{ width: `${againstPct}%` }}
+          />
+        )}
+        {abstainPct > 0 && (
+          <div
+            className="bg-gray-400 dark:bg-gray-500 transition-all"
+            style={{ width: `${abstainPct}%` }}
+          />
+        )}
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400" />
+          <span className="text-green-600 dark:text-green-400">
+            {forPct.toFixed(1)}%
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
+          <span className="text-red-600 dark:text-red-400">
+            {againstPct.toFixed(1)}%
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500" />
+          <span className="text-muted-foreground">
+            {abstainPct.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface EstimatedTimeRange {
@@ -516,96 +629,83 @@ function StageItem({
           {metadata?.description}
         </p>
 
-        {status !== "COMPLETED" &&
-          (estimatedCompletion ||
-            metadata?.estimatedDuration ||
-            (stageType === "VOTING_ACTIVE" && votingTimeRange)) && (
-            <div className="text-xs text-muted-foreground mt-1 italic space-y-0.5">
-              {/* Show voting timing for VOTING_ACTIVE stage */}
-              {stageType === "VOTING_ACTIVE" && votingTimeRange && (
-                <>
-                  <p>
-                    Voting starts:{" "}
-                    <span className="text-foreground not-italic">
-                      {formatDateShort(votingTimeRange.votingStartDate)}
-                    </span>
-                  </p>
-                  <p>
-                    Voting ends:{" "}
-                    <span className="text-foreground not-italic">
-                      {stage?.data?.extensionPossible === false
-                        ? formatDateShort(votingTimeRange.votingEndMaxDate)
-                        : formatDateRange(
-                            votingTimeRange.votingEndMinDate,
-                            votingTimeRange.votingEndMaxDate
-                          )}
-                    </span>
-                    {stage?.data?.extensionPossible !== false && (
-                      <span className="text-muted-foreground ml-1">
-                        (+2 days possible extension)
-                      </span>
-                    )}
-                    {Boolean(stage?.data?.wasExtended) && (
-                      <span className="text-green-600 dark:text-green-400 ml-1">
-                        (extended)
-                      </span>
-                    )}
-                    {Boolean(stage?.data?.quorumReached) &&
-                      !stage?.data?.wasExtended && (
-                        <span className="text-green-600 dark:text-green-400 ml-1">
-                          (quorum reached)
-                        </span>
+        {stageType === "VOTING_ACTIVE" && votingTimeRange && (
+          <div className="mt-3 space-y-3">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-muted-foreground">
+                  Voting Period
+                </span>
+                <span className="text-foreground">
+                  {formatDateShort(votingTimeRange.votingStartDate)} →{" "}
+                  {stage?.data?.extensionPossible === false
+                    ? formatDateShort(votingTimeRange.votingEndMaxDate)
+                    : formatDateRange(
+                        votingTimeRange.votingEndMinDate,
+                        votingTimeRange.votingEndMaxDate
                       )}
-                  </p>
-                  {stage?.data?.quorumRequired && (
-                    <p>
-                      Quorum:{" "}
-                      <span
-                        className={cn(
-                          "not-italic",
-                          stage?.data?.quorumReached
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-foreground"
-                        )}
-                      >
-                        {formatVoteAmount(
-                          String(stage?.data?.votesTowardsQuorum ?? "0")
-                        )}
-                      </span>
-                      <span className="text-muted-foreground"> / </span>
-                      <span className="text-foreground not-italic">
-                        {formatVoteAmount(String(stage?.data?.quorumRequired))}
-                      </span>
-                      {Boolean(
-                        stage?.data?.quorumRequired &&
-                          stage?.data?.votesTowardsQuorum
-                      ) && (
-                        <span className="text-muted-foreground ml-1">
-                          (
-                          {Math.min(
-                            100,
-                            Math.round(
-                              (parseFloat(
-                                String(stage?.data?.votesTowardsQuorum)
-                              ) /
-                                parseFloat(
-                                  String(stage?.data?.quorumRequired)
-                                )) *
-                                100
-                            )
-                          )}
-                          %)
-                        </span>
-                      )}
-                    </p>
-                  )}
-                </>
-              )}
-              {/* Fallback to duration-based display */}
-              {!(stageType === "VOTING_ACTIVE" && votingTimeRange) &&
-                metadata?.estimatedDuration && (
-                  <p>Est. duration: {metadata.estimatedDuration}</p>
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {Boolean(stage?.data?.quorumReached) && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-xs py-0 px-1.5"
+                  >
+                    Quorum Reached
+                  </Badge>
                 )}
+                {Boolean(stage?.data?.wasExtended) && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 text-xs py-0 px-1.5"
+                  >
+                    Extended
+                  </Badge>
+                )}
+                {Boolean(
+                  stage?.data?.extensionPossible !== false &&
+                    !stage?.data?.wasExtended
+                ) && (
+                  <Badge variant="outline" className="text-xs py-0 px-1.5">
+                    +2d extension possible
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {Boolean(stage?.data?.quorumRequired) && (
+              <QuorumProgressBar
+                current={String(stage?.data?.votesTowardsQuorum ?? "0")}
+                required={String(stage?.data?.quorumRequired)}
+                reached={Boolean(stage?.data?.quorumReached)}
+              />
+            )}
+
+            {Boolean(stage?.data?.forVotes) && (
+              <VoteDistributionBar
+                forVotes={String(stage?.data?.forVotes)}
+                againstVotes={String(stage?.data?.againstVotes ?? "0")}
+                abstainVotes={String(stage?.data?.abstainVotes ?? "0")}
+              />
+            )}
+
+            {estimatedCompletion && (
+              <div className="text-xs text-blue-600 dark:text-blue-400">
+                Est. completion:{" "}
+                {formatEstimatedCompletion(estimatedCompletion)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {status !== "COMPLETED" &&
+          stageType !== "VOTING_ACTIVE" &&
+          (estimatedCompletion || metadata?.estimatedDuration) && (
+            <div className="text-xs text-muted-foreground mt-1 italic space-y-0.5">
+              {metadata?.estimatedDuration && (
+                <p>Est. duration: {metadata.estimatedDuration}</p>
+              )}
               {estimatedCompletion && (
                 <p className="text-blue-600 dark:text-blue-400">
                   Est. completion:{" "}
@@ -649,22 +749,6 @@ function StageItem({
               <p className="text-muted-foreground">
                 ETA: {formatEta(String(stage.data.eta))}
               </p>
-            ) : null}
-            {"forVotes" in stage.data && stage.data.forVotes ? (
-              <div className="flex gap-3 mt-1">
-                <span className="text-green-600 dark:text-green-400">
-                  For:{" "}
-                  {parseFloat(String(stage.data.forVotes)).toLocaleString()}
-                </span>
-                <span className="text-red-600 dark:text-red-400">
-                  Against:{" "}
-                  {parseFloat(String(stage.data.againstVotes)).toLocaleString()}
-                </span>
-                <span className="text-muted-foreground">
-                  Abstain:{" "}
-                  {parseFloat(String(stage.data.abstainVotes)).toLocaleString()}
-                </span>
-              </div>
             ) : null}
             {"note" in stage.data && stage.data.note ? (
               <p className="text-muted-foreground italic">
