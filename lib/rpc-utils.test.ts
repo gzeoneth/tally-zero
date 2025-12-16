@@ -1,8 +1,249 @@
-import { describe, expect, it } from "vitest";
-import { DEFAULT_MAX_BLOCK_RANGE } from "./rpc-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  DEFAULT_MAX_BLOCK_RANGE,
+  batchQueryWithRateLimit,
+  queryWithRetry,
+} from "./rpc-utils";
 
 describe("rpc-utils", () => {
-  it("DEFAULT_MAX_BLOCK_RANGE is 10M", () => {
-    expect(DEFAULT_MAX_BLOCK_RANGE).toBe(10_000_000);
+  describe("DEFAULT_MAX_BLOCK_RANGE", () => {
+    it("is 10M", () => {
+      expect(DEFAULT_MAX_BLOCK_RANGE).toBe(10_000_000);
+    });
+  });
+
+  describe("queryWithRetry", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("returns result on first success", async () => {
+      const queryFn = vi.fn().mockResolvedValue("success");
+
+      const resultPromise = queryWithRetry(queryFn);
+      const result = await resultPromise;
+
+      expect(result).toBe("success");
+      expect(queryFn).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries on failure and succeeds", async () => {
+      const queryFn = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("fail 1"))
+        .mockRejectedValueOnce(new Error("fail 2"))
+        .mockResolvedValue("success");
+
+      const resultPromise = queryWithRetry(queryFn, {
+        maxRetries: 3,
+        initialDelay: 100,
+      });
+
+      await vi.advanceTimersByTimeAsync(100);
+      await vi.advanceTimersByTimeAsync(200);
+
+      const result = await resultPromise;
+
+      expect(result).toBe("success");
+      expect(queryFn).toHaveBeenCalledTimes(3);
+    });
+
+    it("throws after max retries", async () => {
+      const queryFn = vi.fn().mockRejectedValue(new Error("always fails"));
+
+      let caughtError: unknown = null;
+      const resultPromise = queryWithRetry(queryFn, {
+        maxRetries: 2,
+        initialDelay: 100,
+      }).catch((e) => {
+        caughtError = e;
+      });
+
+      await vi.runAllTimersAsync();
+      await resultPromise;
+
+      expect(caughtError).toBeInstanceOf(Error);
+      expect((caughtError as Error).message).toBe("always fails");
+      expect(queryFn).toHaveBeenCalledTimes(3);
+    });
+
+    it("applies exponential backoff", async () => {
+      const queryFn = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("fail"))
+        .mockRejectedValueOnce(new Error("fail"))
+        .mockResolvedValue("success");
+
+      const resultPromise = queryWithRetry(queryFn, {
+        maxRetries: 3,
+        initialDelay: 1000,
+        backoffFactor: 2,
+      });
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(queryFn).toHaveBeenCalledTimes(2);
+
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(queryFn).toHaveBeenCalledTimes(3);
+
+      await resultPromise;
+    });
+
+    it("respects maxDelay cap", async () => {
+      const queryFn = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("fail"))
+        .mockRejectedValueOnce(new Error("fail"))
+        .mockRejectedValueOnce(new Error("fail"))
+        .mockResolvedValue("success");
+
+      const resultPromise = queryWithRetry(queryFn, {
+        maxRetries: 4,
+        initialDelay: 1000,
+        backoffFactor: 10,
+        maxDelay: 5000,
+      });
+
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(5000);
+
+      const result = await resultPromise;
+      expect(result).toBe("success");
+    });
+
+    it("handles rate limit errors", async () => {
+      const rateLimitError = { code: 429, message: "rate limit exceeded" };
+      const queryFn = vi
+        .fn()
+        .mockRejectedValueOnce(rateLimitError)
+        .mockResolvedValue("success");
+
+      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const resultPromise = queryWithRetry(queryFn, {
+        maxRetries: 2,
+        initialDelay: 100,
+      });
+
+      await vi.advanceTimersByTimeAsync(100);
+
+      const result = await resultPromise;
+      expect(result).toBe("success");
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Rate limit hit")
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it("handles non-Error rejections", async () => {
+      const queryFn = vi
+        .fn()
+        .mockRejectedValueOnce("string error")
+        .mockResolvedValue("success");
+
+      const resultPromise = queryWithRetry(queryFn, {
+        maxRetries: 1,
+        initialDelay: 100,
+      });
+
+      await vi.advanceTimersByTimeAsync(100);
+
+      const result = await resultPromise;
+      expect(result).toBe("success");
+    });
+  });
+
+  describe("batchQueryWithRateLimit", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("processes queries in batches", async () => {
+      const queries = [
+        vi.fn().mockResolvedValue(1),
+        vi.fn().mockResolvedValue(2),
+        vi.fn().mockResolvedValue(3),
+        vi.fn().mockResolvedValue(4),
+        vi.fn().mockResolvedValue(5),
+      ];
+
+      const resultPromise = batchQueryWithRateLimit(queries, 2, 100);
+
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(100);
+      await vi.advanceTimersByTimeAsync(100);
+
+      const results = await resultPromise;
+
+      expect(results).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it("adds delay between batches", async () => {
+      const startTime = Date.now();
+      const queries = [
+        vi.fn().mockResolvedValue(1),
+        vi.fn().mockResolvedValue(2),
+        vi.fn().mockResolvedValue(3),
+      ];
+
+      const resultPromise = batchQueryWithRateLimit(queries, 1, 1000);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(1000);
+
+      await resultPromise;
+
+      expect(Date.now() - startTime).toBeGreaterThanOrEqual(2000);
+    });
+
+    it("returns all results in order", async () => {
+      const queries = [
+        vi.fn().mockResolvedValue("a"),
+        vi.fn().mockResolvedValue("b"),
+        vi.fn().mockResolvedValue("c"),
+      ];
+
+      const resultPromise = batchQueryWithRateLimit(queries, 5, 0);
+      const results = await resultPromise;
+
+      expect(results).toEqual(["a", "b", "c"]);
+    });
+
+    it("handles empty query array", async () => {
+      const results = await batchQueryWithRateLimit([], 5, 100);
+      expect(results).toEqual([]);
+    });
+
+    it("handles single query", async () => {
+      const query = vi.fn().mockResolvedValue("only one");
+      const results = await batchQueryWithRateLimit([query], 5, 100);
+
+      expect(results).toEqual(["only one"]);
+      expect(query).toHaveBeenCalledTimes(1);
+    });
+
+    it("uses default batch size of 5", async () => {
+      const queries = Array(6)
+        .fill(null)
+        .map((_, i) => vi.fn().mockResolvedValue(i));
+
+      const resultPromise = batchQueryWithRateLimit(queries);
+
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(1000);
+
+      const results = await resultPromise;
+      expect(results).toEqual([0, 1, 2, 3, 4, 5]);
+    });
   });
 });
