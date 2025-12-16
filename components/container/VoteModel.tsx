@@ -26,12 +26,207 @@ import { proposalSchema } from "@config/schema";
 import { cn } from "@lib/utils";
 import { formatEther } from "viem";
 
+import { useDecodedCalldata } from "@hooks/use-decoded-calldata";
+import type { DecodedCalldata, DecodedParameter } from "@lib/calldata-decoder";
+
 // Check if this is an Arbitrum Governor (Core or Treasury)
 function isArbitrumGovernor(contractAddress: string): boolean {
   const lowerAddress = contractAddress.toLowerCase();
   return (
     lowerAddress === CORE_GOVERNOR.address.toLowerCase() ||
     lowerAddress === TREASURY_GOVERNOR.address.toLowerCase()
+  );
+}
+
+// Display a single decoded parameter
+function ParameterView({
+  param,
+  index,
+}: {
+  param: DecodedParameter;
+  index: number;
+}) {
+  const truncateValue = (value: string, maxLength = 50): string => {
+    if (value.length <= maxLength) return value;
+    return value.slice(0, 24) + "..." + value.slice(-20);
+  };
+
+  // Check if this is a bytes[] with decoded nested array
+  const hasNestedArray = param.nestedArray && param.nestedArray.length > 0;
+  const hasNestedSingle = param.nested && param.nested.functionName;
+
+  return (
+    <div className="text-xs space-y-1">
+      <div className="flex items-start gap-2">
+        <span className="text-muted-foreground font-mono shrink-0">
+          [{index}] {param.type}:
+        </span>
+        <span className="font-mono break-all">
+          {param.isNested && !hasNestedArray
+            ? truncateValue(param.value)
+            : hasNestedArray
+              ? `[${param.nestedArray!.length} calls]`
+              : param.value}
+        </span>
+      </div>
+
+      {/* Nested single bytes calldata */}
+      {hasNestedSingle && (
+        <div className="ml-4 pl-2 border-l-2 border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20 rounded p-2 mt-1">
+          <span className="text-[10px] text-blue-600 dark:text-blue-400 block mb-1">
+            Nested call:
+          </span>
+          <DecodedCalldataView decoded={param.nested!} isDecoding={false} />
+        </div>
+      )}
+
+      {/* Nested bytes[] array - each element is a decoded call */}
+      {hasNestedArray && (
+        <div className="ml-4 space-y-2 mt-1">
+          {param.nestedArray!.map((nestedCall, nestedIdx) => (
+            <div
+              key={nestedIdx}
+              className="pl-2 border-l-2 border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/20 rounded p-2"
+            >
+              <span className="text-[10px] text-purple-600 dark:text-purple-400 block mb-1">
+                Batch action [{nestedIdx}]:
+              </span>
+              {nestedCall.functionName ? (
+                <DecodedCalldataView decoded={nestedCall} isDecoding={false} />
+              ) : (
+                <code className="text-[10px] text-muted-foreground break-all">
+                  {truncateValue(nestedCall.raw, 80)}
+                </code>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Display decoded calldata
+function DecodedCalldataView({
+  decoded,
+  isDecoding,
+}: {
+  decoded: DecodedCalldata | null;
+  isDecoding: boolean;
+}) {
+  if (isDecoding) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="animate-pulse">Decoding...</span>
+      </div>
+    );
+  }
+
+  if (!decoded || decoded.decodingSource === "failed") {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Function signature badge */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant="secondary" className="font-mono text-xs">
+          {decoded.functionName}()
+        </Badge>
+        <span className="text-[10px] text-muted-foreground">
+          {decoded.decodingSource === "local" ? "(local)" : "(4byte)"}
+        </span>
+      </div>
+
+      {/* Decoded parameters */}
+      {decoded.parameters && decoded.parameters.length > 0 && (
+        <div className="space-y-1.5 pl-2 border-l-2 border-border">
+          {decoded.parameters.map((param, idx) => (
+            <ParameterView key={idx} param={param} index={idx} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Single action view with calldata decoding
+function ActionView({
+  index,
+  target,
+  value,
+  calldata,
+}: {
+  index: number;
+  target: string;
+  value: string;
+  calldata: string;
+}) {
+  const ethValue = formatEther(BigInt(value));
+  const hasValue = ethValue !== "0";
+  const hasCalldata = calldata !== "0x" && calldata !== "";
+
+  const { decoded, isDecoding } = useDecodedCalldata({
+    calldata,
+    targetAddress: target,
+    enabled: hasCalldata,
+  });
+
+  const showDecoded = decoded && decoded.decodingSource !== "failed";
+
+  return (
+    <div className="border border-border rounded-lg p-3 space-y-2 text-sm">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          Action {index + 1}
+        </span>
+        {hasValue && (
+          <span className="text-xs font-semibold text-green-600 dark:text-green-400">
+            {ethValue} ETH
+          </span>
+        )}
+      </div>
+
+      {/* Target address */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground shrink-0">To:</span>
+        <code className="text-xs font-mono truncate">{target}</code>
+      </div>
+
+      {/* Calldata section */}
+      {hasCalldata && (
+        <div className="space-y-2">
+          {/* Decoded view */}
+          {(showDecoded || isDecoding) && (
+            <DecodedCalldataView decoded={decoded} isDecoding={isDecoding} />
+          )}
+
+          {/* Raw data toggle */}
+          <details className="group">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
+              {showDecoded
+                ? "Raw calldata"
+                : `Calldata (${calldata.length} bytes)`}
+              {!showDecoded && !isDecoding && (
+                <Badge variant="outline" className="text-[10px] ml-1">
+                  Unknown
+                </Badge>
+              )}
+            </summary>
+            <code className="text-xs font-mono break-all block bg-muted/50 p-2 rounded mt-1 max-h-24 overflow-y-auto">
+              {calldata}
+            </code>
+          </details>
+        </div>
+      )}
+
+      {!hasCalldata && (
+        <span className="text-xs text-muted-foreground italic">
+          No calldata
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -54,55 +249,15 @@ function PayloadView({
 
   return (
     <div className="space-y-3">
-      {targets.map((target, idx) => {
-        const value = values[idx] || "0";
-        const calldata = calldatas[idx] || "0x";
-        const ethValue = formatEther(BigInt(value));
-        const hasValue = ethValue !== "0";
-        const hasCalldata = calldata !== "0x" && calldata !== "";
-
-        return (
-          <div
-            key={idx}
-            className="border border-border rounded-lg p-3 space-y-2 text-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
-                Action {idx + 1}
-              </span>
-              {hasValue && (
-                <span className="text-xs font-semibold text-green-600 dark:text-green-400">
-                  {ethValue} ETH
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground shrink-0">
-                To:
-              </span>
-              <code className="text-xs font-mono truncate">{target}</code>
-            </div>
-
-            {hasCalldata && (
-              <details className="group">
-                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                  Calldata ({calldata.length} bytes)
-                </summary>
-                <code className="text-xs font-mono break-all block bg-muted/50 p-2 rounded mt-1 max-h-24 overflow-y-auto">
-                  {calldata}
-                </code>
-              </details>
-            )}
-
-            {!hasCalldata && (
-              <span className="text-xs text-muted-foreground italic">
-                No calldata
-              </span>
-            )}
-          </div>
-        );
-      })}
+      {targets.map((target, idx) => (
+        <ActionView
+          key={idx}
+          index={idx}
+          target={target}
+          value={values[idx] || "0"}
+          calldata={calldatas[idx] || "0x"}
+        />
+      ))}
     </div>
   );
 }
