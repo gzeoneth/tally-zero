@@ -5,6 +5,20 @@ const FOURBYTE_API = "https://www.4byte.directory/api/v1/signatures/";
 const CACHE_KEY_PREFIX = "tally-zero-4byte-";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// Retryable ticket magic address - bytes are ABI encoded tuple, not calldata
+const RETRYABLE_TICKET_MAGIC = "0xa723c008e76e379c55599d2e4d93879beafda79c";
+
+// Inbox addresses to identify chain
+const ARB1_INBOX = "0x4dbd4fc535ac27206064b68ffcf827b0a60bab3f";
+const NOVA_INBOX = "0xc4448b71118c9071bcb9734a0eac55d18a153949";
+
+// Block explorer URLs
+const EXPLORERS = {
+  ethereum: "https://etherscan.io",
+  arb1: "https://arbiscan.io",
+  nova: "https://nova.arbiscan.io",
+} as const;
+
 // In-memory cache for session
 const sessionCache = new Map<
   string,
@@ -20,6 +34,8 @@ export interface DecodedCalldata {
   decodingSource: "local" | "api" | "failed";
 }
 
+export type ChainContext = "arb1" | "nova" | "ethereum";
+
 export interface DecodedParameter {
   name: string;
   type: string;
@@ -28,6 +44,41 @@ export interface DecodedParameter {
   nested?: DecodedCalldata;
   // For bytes[] arrays - each element decoded
   nestedArray?: DecodedCalldata[];
+  // For addresses - link to block explorer
+  link?: string;
+  // For retryable tickets - chain info
+  chainLabel?: string;
+}
+
+export interface RetryableTicketData {
+  targetInbox: string;
+  l2Target: string;
+  l2Value: string;
+  gasLimit: string;
+  maxFeePerGas: string;
+  l2Calldata: string;
+  chain: "arb1" | "nova" | "unknown";
+}
+
+/**
+ * Get explorer URL for an address based on chain
+ */
+export function getExplorerUrl(address: string, chain: ChainContext): string {
+  return `${EXPLORERS[chain]}/address/${address}`;
+}
+
+/**
+ * Get chain label for display
+ */
+export function getChainLabel(chain: ChainContext): string {
+  switch (chain) {
+    case "arb1":
+      return "Arb1";
+    case "nova":
+      return "Nova";
+    case "ethereum":
+      return "L1";
+  }
 }
 
 /**
@@ -155,6 +206,50 @@ export function isLikelyCalldata(value: string): boolean {
 }
 
 /**
+ * Check if target is the retryable ticket magic address
+ */
+export function isRetryableTicketMagic(target: string): boolean {
+  return target.toLowerCase() === RETRYABLE_TICKET_MAGIC;
+}
+
+/**
+ * Decode retryable ticket data from bytes (not calldata - raw ABI encoded tuple)
+ */
+export function decodeRetryableTicket(
+  bytes: string
+): RetryableTicketData | null {
+  try {
+    const abiCoder = new ethers.utils.AbiCoder();
+    // Decode as tuple: (address, address, uint256, uint256, uint256, bytes)
+    const decoded = abiCoder.decode(
+      ["address", "address", "uint256", "uint256", "uint256", "bytes"],
+      bytes
+    );
+
+    const targetInbox = decoded[0].toLowerCase();
+    let chain: "arb1" | "nova" | "unknown" = "unknown";
+    if (targetInbox === ARB1_INBOX) {
+      chain = "arb1";
+    } else if (targetInbox === NOVA_INBOX) {
+      chain = "nova";
+    }
+
+    return {
+      targetInbox: decoded[0],
+      l2Target: decoded[1],
+      l2Value: decoded[2].toString(),
+      gasLimit: decoded[3].toString(),
+      maxFeePerGas: decoded[4].toString(),
+      l2Calldata: decoded[5],
+      chain,
+    };
+  } catch (error) {
+    console.warn("Failed to decode retryable ticket:", error);
+    return null;
+  }
+}
+
+/**
  * Format decoded value for display
  */
 export function formatDecodedValue(value: unknown, type: string): string {
@@ -206,7 +301,8 @@ export function formatDecodedValue(value: unknown, type: string): string {
  */
 export function decodeParameters(
   calldata: string,
-  signature: string
+  signature: string,
+  chainContext: ChainContext = "arb1"
 ): DecodedParameter[] | null {
   try {
     // Extract parameter types from signature
@@ -232,11 +328,20 @@ export function decodeParameters(
       // Check for bytes[] array type
       const isBytesArray = type === "bytes[]" && Array.isArray(value);
 
+      let link: string | undefined;
+      let chainLabel: string | undefined;
+      if (type === "address") {
+        link = getExplorerUrl(String(value), chainContext);
+        chainLabel = getChainLabel(chainContext);
+      }
+
       return {
         name: `arg${index}`,
         type,
         value: formattedValue,
         isNested: isNested || isBytesArray,
+        link,
+        chainLabel,
         // Store raw bytes array for later decoding
         _rawBytesArray: isBytesArray ? value.map(String) : undefined,
       } as DecodedParameter & { _rawBytesArray?: string[] };
@@ -249,11 +354,13 @@ export function decodeParameters(
 
 /**
  * Main entry point - decode calldata
+ * @param chainContext - The chain context for address links (arb1, nova, ethereum)
  */
 export async function decodeCalldata(
   calldata: string,
   _targetAddress?: string,
-  depth = 0
+  depth = 0,
+  chainContext: ChainContext = "arb1"
 ): Promise<DecodedCalldata> {
   const MAX_DEPTH = 3;
 
@@ -271,6 +378,11 @@ export async function decodeCalldata(
 
   const selector = calldata.slice(0, 10).toLowerCase();
 
+  // Determine context for nested calls based on function
+  // sendTxToL1 means nested content is on L1 (ethereum)
+  const isSendTxToL1 = selector === "0x928c169a";
+  const nestedContext: ChainContext = isSendTxToL1 ? "ethereum" : chainContext;
+
   // Helper to process nested calldata in params
   async function processNestedParams(
     params: (DecodedParameter & { _rawBytesArray?: string[] })[] | null,
@@ -284,6 +396,20 @@ export async function decodeCalldata(
     const paramTypes = parseParamTypes(match[1]);
     const abiCoder = new ethers.utils.AbiCoder();
 
+    // For scheduleBatch, get the targets array to check for retryable ticket magic
+    let targets: string[] = [];
+    const addressArrayIndex = paramTypes.indexOf("address[]");
+    if (addressArrayIndex !== -1) {
+      try {
+        const decoded = abiCoder.decode(paramTypes, "0x" + calldata.slice(10));
+        targets = decoded[addressArrayIndex].map((a: string) =>
+          a.toLowerCase()
+        );
+      } catch {
+        // Ignore
+      }
+    }
+
     for (const param of params) {
       if (!param.isNested) continue;
 
@@ -296,12 +422,104 @@ export async function decodeCalldata(
         // Handle bytes[] array - decode each element
         if (paramType === "bytes[]" && param._rawBytesArray) {
           const nestedArray: DecodedCalldata[] = [];
-          for (const bytesItem of param._rawBytesArray) {
+          for (let i = 0; i < param._rawBytesArray.length; i++) {
+            const bytesItem = param._rawBytesArray[i];
+            const target = targets[i];
+
+            // Check if this is a retryable ticket (target is magic address)
+            if (target && isRetryableTicketMagic(target)) {
+              const retryable = decodeRetryableTicket(bytesItem);
+              if (retryable) {
+                // Determine the L2 chain for this retryable
+                const l2Chain: ChainContext =
+                  retryable.chain === "arb1"
+                    ? "arb1"
+                    : retryable.chain === "nova"
+                      ? "nova"
+                      : "arb1";
+                const chainLabel =
+                  retryable.chain === "arb1"
+                    ? "Arbitrum One"
+                    : retryable.chain === "nova"
+                      ? "Nova"
+                      : "Unknown L2";
+
+                // Decode the l2Calldata if it looks like calldata (on the L2 chain)
+                let nestedL2Call: DecodedCalldata | undefined;
+                if (isLikelyCalldata(retryable.l2Calldata)) {
+                  nestedL2Call = await decodeCalldata(
+                    retryable.l2Calldata,
+                    retryable.l2Target,
+                    depth + 1,
+                    l2Chain // L2 calldata is on the target chain
+                  );
+                }
+
+                const retryableDecoded: DecodedCalldata = {
+                  selector: "",
+                  functionName: `Retryable Ticket → ${chainLabel}`,
+                  signature: null,
+                  parameters: [
+                    {
+                      name: "inbox",
+                      type: "address",
+                      value: retryable.targetInbox,
+                      isNested: false,
+                      link: getExplorerUrl(retryable.targetInbox, "ethereum"),
+                      chainLabel: "L1",
+                    },
+                    {
+                      name: "l2Target",
+                      type: "address",
+                      value: retryable.l2Target,
+                      isNested: false,
+                      link: getExplorerUrl(retryable.l2Target, l2Chain),
+                      chainLabel: getChainLabel(l2Chain),
+                    },
+                    {
+                      name: "l2Value",
+                      type: "uint256",
+                      value: formatDecodedValue(
+                        ethers.BigNumber.from(retryable.l2Value),
+                        "uint256"
+                      ),
+                      isNested: false,
+                    },
+                    {
+                      name: "gasLimit",
+                      type: "uint256",
+                      value: retryable.gasLimit,
+                      isNested: false,
+                    },
+                    {
+                      name: "maxFeePerGas",
+                      type: "uint256",
+                      value: retryable.maxFeePerGas,
+                      isNested: false,
+                    },
+                    {
+                      name: "l2Calldata",
+                      type: "bytes",
+                      value: retryable.l2Calldata,
+                      isNested: !!nestedL2Call,
+                      nested: nestedL2Call,
+                    },
+                  ],
+                  raw: bytesItem,
+                  decodingSource: "local",
+                };
+                nestedArray.push(retryableDecoded);
+                continue;
+              }
+            }
+
+            // Normal calldata decoding (use nestedContext for chain)
             if (isLikelyCalldata(bytesItem)) {
               const decodedItem = await decodeCalldata(
                 bytesItem,
-                undefined,
-                depth + 1
+                target,
+                depth + 1,
+                nestedContext
               );
               nestedArray.push(decodedItem);
             }
@@ -316,7 +534,12 @@ export async function decodeCalldata(
         else if (paramType === "bytes") {
           const rawBytes = String(decoded[paramIndex]);
           if (isLikelyCalldata(rawBytes)) {
-            param.nested = await decodeCalldata(rawBytes, undefined, depth + 1);
+            param.nested = await decodeCalldata(
+              rawBytes,
+              undefined,
+              depth + 1,
+              nestedContext
+            );
             param.value = rawBytes;
           }
         }
@@ -329,7 +552,7 @@ export async function decodeCalldata(
   // 1. Try local registry first
   const localSignature = lookupLocalSignature(selector);
   if (localSignature) {
-    const params = decodeParameters(calldata, localSignature);
+    const params = decodeParameters(calldata, localSignature, chainContext);
     const functionName = localSignature.split("(")[0];
 
     // Recursively decode nested calldata
@@ -348,7 +571,7 @@ export async function decodeCalldata(
   // 2. Try 4byte.directory API
   const apiSignature = await lookup4byteDirectory(selector);
   if (apiSignature) {
-    const params = decodeParameters(calldata, apiSignature);
+    const params = decodeParameters(calldata, apiSignature, chainContext);
     const functionName = apiSignature.split("(")[0];
 
     // Recursively decode nested calldata

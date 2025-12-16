@@ -55,19 +55,46 @@ function ParameterView({
   const hasNestedArray = param.nestedArray && param.nestedArray.length > 0;
   const hasNestedSingle = param.nested && param.nested.functionName;
 
+  // Render the value - either as a link or plain text
+  const renderValue = () => {
+    const displayValue =
+      param.isNested && !hasNestedArray
+        ? truncateValue(param.value)
+        : hasNestedArray
+          ? `[${param.nestedArray!.length} calls]`
+          : param.value;
+
+    if (param.link && param.type === "address") {
+      return (
+        <span className="inline-flex items-center gap-1">
+          <a
+            href={param.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {displayValue}
+          </a>
+          {param.chainLabel && (
+            <Badge variant="outline" className="text-[9px] px-1 py-0">
+              {param.chainLabel}
+            </Badge>
+          )}
+        </span>
+      );
+    }
+
+    return <span className="font-mono break-all">{displayValue}</span>;
+  };
+
   return (
     <div className="text-xs space-y-1">
       <div className="flex items-start gap-2">
         <span className="text-muted-foreground font-mono shrink-0">
-          [{index}] {param.type}:
+          {param.name !== `arg${index}` ? param.name : `[${index}]`}{" "}
+          {param.type}:
         </span>
-        <span className="font-mono break-all">
-          {param.isNested && !hasNestedArray
-            ? truncateValue(param.value)
-            : hasNestedArray
-              ? `[${param.nestedArray!.length} calls]`
-              : param.value}
-        </span>
+        {renderValue()}
       </div>
 
       {/* Nested single bytes calldata */}
@@ -86,9 +113,21 @@ function ParameterView({
           {param.nestedArray!.map((nestedCall, nestedIdx) => (
             <div
               key={nestedIdx}
-              className="pl-2 border-l-2 border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/20 rounded p-2"
+              className={cn(
+                "pl-2 border-l-2 rounded p-2",
+                nestedCall.functionName?.startsWith("Retryable Ticket")
+                  ? "border-orange-500/30 bg-orange-50/50 dark:bg-orange-950/20"
+                  : "border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/20"
+              )}
             >
-              <span className="text-[10px] text-purple-600 dark:text-purple-400 block mb-1">
+              <span
+                className={cn(
+                  "text-[10px] block mb-1",
+                  nestedCall.functionName?.startsWith("Retryable Ticket")
+                    ? "text-orange-600 dark:text-orange-400"
+                    : "text-purple-600 dark:text-purple-400"
+                )}
+              >
                 Batch action [{nestedIdx}]:
               </span>
               {nestedCall.functionName ? (
