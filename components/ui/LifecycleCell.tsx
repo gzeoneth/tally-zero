@@ -52,7 +52,8 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
           : "idle";
 
   const currentState = proposalStages.result?.currentState || null;
-  const { queuePosition, currentStageIndex, stages } = proposalStages;
+  const { queuePosition, currentStageIndex, stages, isBackgroundRefreshing } =
+    proposalStages;
 
   const stateValue = states.find((state) => state.value === proposal.state);
 
@@ -67,6 +68,7 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
       queuePosition={queuePosition}
       currentStageIndex={currentStageIndex}
       stages={stages}
+      isBackgroundRefreshing={isBackgroundRefreshing}
     />
   );
 
@@ -115,6 +117,7 @@ interface LifecycleContentProps {
   queuePosition: number | null;
   currentStageIndex: number;
   stages: Array<{ type: string; status: string }>;
+  isBackgroundRefreshing: boolean;
 }
 
 function LifecycleContent({
@@ -123,6 +126,7 @@ function LifecycleContent({
   queuePosition,
   currentStageIndex,
   stages,
+  isBackgroundRefreshing,
 }: LifecycleContentProps) {
   if (status === "queued") {
     return (
@@ -207,7 +211,14 @@ function LifecycleContent({
       <HoverCard>
         <HoverCardTrigger asChild>
           <div className="flex items-center gap-1.5 cursor-help">
-            <StateIcon className={cn("h-3.5 w-3.5", color)} />
+            {isBackgroundRefreshing ? (
+              <div className="relative">
+                <StateIcon className={cn("h-3.5 w-3.5", color)} />
+                <ReloadIcon className="absolute -top-0.5 -right-0.5 h-2 w-2 text-blue-500 animate-spin" />
+              </div>
+            ) : (
+              <StateIcon className={cn("h-3.5 w-3.5", color)} />
+            )}
             <span className={cn("text-xs font-medium", color)}>
               {stateDisplay}
             </span>
@@ -215,7 +226,13 @@ function LifecycleContent({
         </HoverCardTrigger>
         <HoverCardContent className="w-auto">
           <p className="text-sm">Lifecycle tracked: {stages.length} stages</p>
-          <p className="text-xs text-muted-foreground">Click to view details</p>
+          {isBackgroundRefreshing ? (
+            <p className="text-xs text-blue-500">Refreshing in background...</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Click to view details
+            </p>
+          )}
         </HoverCardContent>
       </HoverCard>
     );

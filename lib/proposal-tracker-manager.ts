@@ -28,6 +28,7 @@ export interface TrackingSession {
   abortController: AbortController | null;
   queuePosition: number | null;
   lastUpdatedAt: number;
+  isBackgroundRefreshing: boolean;
 }
 
 export interface QueuedItem {
@@ -104,6 +105,7 @@ class ProposalTrackerManager {
       abortController: null,
       queuePosition: null,
       lastUpdatedAt: Date.now(),
+      isBackgroundRefreshing: false,
     };
 
     this.sessions.set(key, session);
@@ -337,5 +339,38 @@ class ProposalTrackerManager {
   }
 }
 
+// Vote update event type
+export interface VoteUpdate {
+  proposalId: string;
+  governorAddress: string;
+  forVotes: string;
+  againstVotes: string;
+  abstainVotes: string;
+}
+
+export type VoteUpdateCallback = (update: VoteUpdate) => void;
+
 // Singleton instance
 export const trackerManager = new ProposalTrackerManager();
+
+// Vote update subscribers (separate from tracking sessions)
+const voteUpdateSubscribers = new Set<VoteUpdateCallback>();
+
+export function subscribeToVoteUpdates(
+  callback: VoteUpdateCallback
+): () => void {
+  voteUpdateSubscribers.add(callback);
+  return () => {
+    voteUpdateSubscribers.delete(callback);
+  };
+}
+
+export function emitVoteUpdate(update: VoteUpdate): void {
+  voteUpdateSubscribers.forEach((callback) => {
+    try {
+      callback(update);
+    } catch (e) {
+      console.error("[VoteUpdate] Subscriber error:", e);
+    }
+  });
+}

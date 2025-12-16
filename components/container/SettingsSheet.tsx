@@ -76,7 +76,11 @@ export function SettingsSheet() {
   );
   const [cacheTtl, setCacheTtl] = useLocalStorage<number>(
     STORAGE_KEYS.CACHE_TTL,
-    DEFAULT_CACHE_TTL_MS / 1000 / 60 // Convert ms to minutes
+    DEFAULT_CACHE_TTL_MS / 1000 // Convert ms to seconds
+  );
+  const [skipPreloadCache, setSkipPreloadCache] = useLocalStorage<boolean>(
+    STORAGE_KEYS.SKIP_PRELOAD_CACHE,
+    false
   );
 
   // Local form state
@@ -88,6 +92,7 @@ export function SettingsSheet() {
   );
   const [daysInput, setDaysInput] = useState(String(daysToSearch));
   const [ttlInput, setTtlInput] = useState(cacheTtl);
+  const [ttlCustomInput, setTtlCustomInput] = useState(String(cacheTtl));
 
   // Sync local state when sheet opens
   const handleOpenChange = useCallback(
@@ -99,6 +104,7 @@ export function SettingsSheet() {
         setL1BlockRangeInput(String(l1BlockRange));
         setDaysInput(String(daysToSearch));
         setTtlInput(cacheTtl);
+        setTtlCustomInput(String(cacheTtl));
       }
       setOpen(isOpen);
     },
@@ -177,7 +183,8 @@ export function SettingsSheet() {
     setBlockRangeInput(String(DEFAULT_FORM_VALUES.blockRange));
     setL1BlockRangeInput(String(DEFAULT_FORM_VALUES.l1BlockRange));
     setDaysInput(String(DEFAULT_FORM_VALUES.daysToSearch));
-    setTtlInput(60); // 1 hour default
+    setTtlInput(3600); // 1 hour default in seconds
+    setTtlCustomInput("3600");
   }, []);
 
   // Export settings
@@ -455,15 +462,63 @@ export function SettingsSheet() {
                         ttlInput === option.value ? "default" : "outline"
                       }
                       size="sm"
-                      onClick={() => setTtlInput(option.value)}
+                      onClick={() => {
+                        setTtlInput(option.value);
+                        setTtlCustomInput(String(option.value));
+                      }}
                     >
                       {option.label}
                     </Button>
                   ))}
                 </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={ttlCustomInput}
+                    onChange={(e) => {
+                      setTtlCustomInput(e.target.value);
+                      const parsed = parseInt(e.target.value);
+                      if (!isNaN(parsed) && parsed > 0) {
+                        setTtlInput(parsed);
+                      }
+                    }}
+                    placeholder="3600"
+                    min={1}
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    seconds
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   How long to cache proposal lifecycle data before auto-refresh
+                  (current:{" "}
+                  {ttlInput >= 3600
+                    ? `${Math.floor(ttlInput / 3600)}h ${Math.floor((ttlInput % 3600) / 60)}m`
+                    : ttlInput >= 60
+                      ? `${Math.floor(ttlInput / 60)}m ${ttlInput % 60}s`
+                      : `${ttlInput}s`}
+                  )
                 </p>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Skip Preload Cache</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Bypass bundled proposal cache and fetch fresh data
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant={skipPreloadCache ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSkipPreloadCache(!skipPreloadCache)}
+                >
+                  {skipPreloadCache ? "On" : "Off"}
+                </Button>
               </div>
 
               <Separator />
@@ -627,7 +682,15 @@ export function SettingsSheet() {
                         <span className="text-muted-foreground">
                           Cache TTL:
                         </span>
-                        <span>{cacheTtl} min</span>
+                        <span>
+                          {cacheTtl}s ({Math.floor(cacheTtl / 60)}m)
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Skip Preload:
+                        </span>
+                        <span>{skipPreloadCache ? "Yes" : "No"}</span>
                       </div>
                     </div>
                   </div>

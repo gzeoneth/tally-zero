@@ -13,11 +13,12 @@ export const STORAGE_KEYS = {
 export const CACHE_VERSION = 1;
 export const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
 
+// Cache TTL options in seconds
 export const CACHE_TTL_OPTIONS = [
-  { label: "15 min", value: 15 },
-  { label: "30 min", value: 30 },
-  { label: "1 hour", value: 60 },
-  { label: "2 hours", value: 120 },
-  { label: "6 hours", value: 360 },
-  { label: "24 hours", value: 1440 },
+  { label: "15 min", value: 900 },
+  { label: "30 min", value: 1800 },
+  { label: "1 hour", value: 3600 },
+  { label: "2 hours", value: 7200 },
+  { label: "6 hours", value: 21600 },
+  { label: "24 hours", value: 86400 },
 ] as const;

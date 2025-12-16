@@ -1,3 +1,4 @@
+import { STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal } from "@/types/proposal";
 import { seedStagesFromProposal } from "./stages-cache";
 
@@ -7,6 +8,20 @@ export {
   hasPreloadedStages,
   seedStagesFromProposal,
 } from "./stages-cache";
+
+function getSkipPreloadCacheSetting(): boolean {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem(STORAGE_KEYS.SKIP_PRELOAD_CACHE);
+    if (stored) {
+      try {
+        return JSON.parse(stored) === true;
+      } catch {
+        return false;
+      }
+    }
+  }
+  return false;
+}
 
 export interface ProposalCache {
   version: number;
@@ -55,6 +70,11 @@ let cacheValidated = false;
 let stagesSeeded = false;
 
 export async function loadProposalCache(): Promise<ProposalCache | null> {
+  if (getSkipPreloadCacheSetting()) {
+    console.log("[proposal-cache] Skipping preload cache (setting enabled)");
+    return null;
+  }
+
   if (cacheValidated) {
     if (validatedCacheData && !stagesSeeded) {
       seedAllStagesFromCache(validatedCacheData);
@@ -191,6 +211,11 @@ export function getCacheStats(cache: ProposalCache): {
 
 export function seedAllStagesFromCache(cache: ProposalCache): number {
   if (typeof window === "undefined") return 0;
+
+  if (getSkipPreloadCacheSetting()) {
+    console.log("[proposal-cache] Skipping stages seeding (setting enabled)");
+    return 0;
+  }
 
   let seededCount = 0;
   for (const proposal of cache.proposals) {

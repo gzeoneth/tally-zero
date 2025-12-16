@@ -5,7 +5,7 @@ import {
   ETHEREUM_RPC_URL,
   TREASURY_GOVERNOR,
 } from "@/config/arbitrum-governance";
-import { STORAGE_KEYS } from "@/config/storage-keys";
+import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
 import {
   STAGE_METADATA,
   createCoreGovernorTracker,
@@ -13,6 +13,7 @@ import {
   type StageProgressCallback,
 } from "@/lib/incremental-stage-tracker";
 import {
+  emitVoteUpdate,
   trackerManager,
   type TrackingSession,
 } from "@/lib/proposal-tracker-manager";
@@ -67,6 +68,24 @@ function getStoredRpc(key: string, defaultValue: string): string {
   return defaultValue;
 }
 
+function getStoredCacheTtlMs(): number {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem(STORAGE_KEYS.CACHE_TTL);
+    if (stored) {
+      try {
+        // Stored value is in seconds, convert to ms
+        const seconds = JSON.parse(stored);
+        if (typeof seconds === "number" && seconds > 0) {
+          return seconds * 1000;
+        }
+      } catch {
+        // Fall through to default
+      }
+    }
+  }
+  return DEFAULT_CACHE_TTL_MS;
+}
+
 export function useProposalStages({
   proposalId,
   creationTxHash,
@@ -110,6 +129,7 @@ export function useProposalStages({
     setError(session.error);
     setResult(session.result);
     setRefreshingFromIndex(session.refreshingFromIndex);
+    setIsBackgroundRefreshing(session.isBackgroundRefreshing);
   }, []);
 
   // Start tracking function
@@ -183,9 +203,34 @@ export function useProposalStages({
           status: "complete",
           refreshingFromIndex: null,
           abortController: null,
+          isBackgroundRefreshing: false,
         });
 
         saveCachedStages(proposalId, governorAddress, trackingResult);
+
+        // Lifecycle tracker stores votes in ether format, convert to wei
+        const votingStage = trackingResult.stages.find(
+          (s) => s.type === "VOTING_ACTIVE"
+        );
+        const forVotesStr = votingStage?.data?.forVotes as string | undefined;
+        if (forVotesStr) {
+          try {
+            const { ethers } = await import("ethers");
+            const againstVotesStr =
+              (votingStage?.data?.againstVotes as string) || "0";
+            const abstainVotesStr =
+              (votingStage?.data?.abstainVotes as string) || "0";
+            emitVoteUpdate({
+              proposalId,
+              governorAddress,
+              forVotes: ethers.utils.parseEther(forVotesStr).toString(),
+              againstVotes: ethers.utils.parseEther(againstVotesStr).toString(),
+              abstainVotes: ethers.utils.parseEther(abstainVotesStr).toString(),
+            });
+          } catch {
+            // If conversion fails, skip the update
+          }
+        }
       } catch (err) {
         if (abortController.signal.aborted) return;
         trackerManager.trackingFinished(proposalId, governorAddress);
@@ -195,6 +240,7 @@ export function useProposalStages({
           status: "error",
           refreshingFromIndex: null,
           abortController: null,
+          isBackgroundRefreshing: false,
         });
       }
     },
@@ -293,6 +339,31 @@ export function useProposalStages({
     return () => clearInterval(interval);
   }, [enabled, effectiveL1RpcUrl]);
 
+  // Function to trigger background refresh
+  const triggerBackgroundRefresh = useCallback(() => {
+    if (!proposalId || !governorAddress) return;
+
+    const session = trackerManager.getSession(proposalId, governorAddress);
+    if (!session) return;
+
+    if (
+      session.isBackgroundRefreshing ||
+      session.status === "loading" ||
+      session.status === "queued"
+    ) {
+      return;
+    }
+
+    trackerManager.updateSession(proposalId, governorAddress, {
+      isBackgroundRefreshing: true,
+      status: "idle",
+    });
+
+    trackerManager.requestTracking(proposalId, governorAddress, () =>
+      startTracking()
+    );
+  }, [proposalId, governorAddress, startTracking]);
+
   // Subscribe to session and start tracking if needed
   useEffect(() => {
     if (!enabled || !proposalId || !creationTxHash || !governorAddress) {
@@ -317,11 +388,12 @@ export function useProposalStages({
       }
 
       // Check for cached result
+      const cacheTtlMs = getStoredCacheTtlMs();
       const {
         result: cached,
         isExpired,
         isComplete: allStagesCompleted,
-      } = loadCachedStages(proposalId, governorAddress);
+      } = loadCachedStages(proposalId, governorAddress, cacheTtlMs);
 
       if (cached) {
         // Always load the cached data first
@@ -334,17 +406,7 @@ export function useProposalStages({
 
         // If cache is expired and not all stages are completed, do a background refresh
         if (isExpired && !allStagesCompleted) {
-          setIsBackgroundRefreshing(true);
-          trackerManager.requestTracking(
-            proposalId,
-            governorAddress,
-            async () => {
-              await startTracking();
-              if (isMounted.current) {
-                setIsBackgroundRefreshing(false);
-              }
-            }
-          );
+          triggerBackgroundRefresh();
         }
         return;
       }
@@ -369,7 +431,35 @@ export function useProposalStages({
     enabled,
     syncFromSession,
     startTracking,
+    triggerBackgroundRefresh,
   ]);
+
+  // Periodic TTL check - continuously check for expiration while user is on page
+  useEffect(() => {
+    if (!enabled || !proposalId || !governorAddress) return;
+
+    const checkTtlExpiration = () => {
+      const session = trackerManager.getSession(proposalId, governorAddress);
+      if (!session || session.status !== "complete") return;
+      if (session.isBackgroundRefreshing) return;
+
+      const cacheTtlMs = getStoredCacheTtlMs();
+      const { isExpired, isComplete: allStagesCompleted } = loadCachedStages(
+        proposalId,
+        governorAddress,
+        cacheTtlMs
+      );
+
+      if (isExpired && !allStagesCompleted) {
+        triggerBackgroundRefresh();
+      }
+    };
+
+    // Check every 30 seconds
+    const interval = setInterval(checkTtlExpiration, 30000);
+
+    return () => clearInterval(interval);
+  }, [enabled, proposalId, governorAddress, triggerBackgroundRefresh]);
 
   return {
     stages,

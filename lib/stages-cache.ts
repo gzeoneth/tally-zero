@@ -118,10 +118,10 @@ export function hasReachedFinalStage(
     return lastStage.status === "COMPLETED";
   }
 
-  // Must be at the expected final stage with COMPLETED status
-  return (
-    lastStage.type === expectedFinalStage && lastStage.status === "COMPLETED"
-  );
+  // Check if the expected final stage exists and is COMPLETED
+  // (it may not be the last stage if additional tracking stages were added)
+  const finalStage = stages.find((s) => s.type === expectedFinalStage);
+  return finalStage?.status === "COMPLETED";
 }
 
 /**

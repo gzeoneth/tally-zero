@@ -1,7 +1,7 @@
 "use client";
 
 import { ethers } from "ethers";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   loadProposalCache,
@@ -9,6 +9,10 @@ import {
   needsStateRefresh,
   type ProposalCache,
 } from "@/lib/proposal-cache";
+import {
+  subscribeToVoteUpdates,
+  type VoteUpdate,
+} from "@/lib/proposal-tracker-manager";
 import { batchQueryWithRateLimit } from "@/lib/rpc-utils";
 import { ParsedProposal, Proposal } from "@/types/proposal";
 import {
@@ -575,6 +579,41 @@ export function useMultiGovernorSearch({
     skipCache,
     cache,
   ]);
+
+  // Handle vote updates from lifecycle tracking
+  const handleVoteUpdate = useCallback((update: VoteUpdate) => {
+    setProposals((currentProposals) => {
+      const proposalIndex = currentProposals.findIndex(
+        (p) =>
+          p.id === update.proposalId &&
+          p.contractAddress.toLowerCase() ===
+            update.governorAddress.toLowerCase()
+      );
+
+      if (proposalIndex === -1) return currentProposals;
+
+      const updatedProposals = [...currentProposals];
+      const proposal = updatedProposals[proposalIndex];
+
+      updatedProposals[proposalIndex] = {
+        ...proposal,
+        votes: {
+          forVotes: update.forVotes,
+          againstVotes: update.againstVotes,
+          abstainVotes: update.abstainVotes,
+          quorum: proposal.votes?.quorum,
+        },
+      };
+
+      return updatedProposals;
+    });
+  }, []);
+
+  // Subscribe to vote updates from lifecycle tracking
+  useEffect(() => {
+    const unsubscribe = subscribeToVoteUpdates(handleVoteUpdate);
+    return () => unsubscribe();
+  }, [handleVoteUpdate]);
 
   return {
     proposals,
