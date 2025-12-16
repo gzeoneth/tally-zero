@@ -598,19 +598,25 @@ export class IncrementalStageTracker {
       }
 
       let quorumReached = false;
-      if (!wasExtended) {
-        try {
-          const snapshotBlock = await governor.proposalSnapshot(ctx.proposalId);
-          const quorumAmount = await governor.quorum(snapshotBlock);
-          const totalVotesForQuorum = forVotes.add(abstainVotes);
+      let quorumRequired: string | undefined;
+      let votesTowardsQuorum: string | undefined;
 
+      try {
+        const snapshotBlock = await governor.proposalSnapshot(ctx.proposalId);
+        const quorumAmount = await governor.quorum(snapshotBlock);
+        const totalVotesForQuorum = forVotes.add(abstainVotes);
+
+        quorumRequired = ethers.utils.formatEther(quorumAmount);
+        votesTowardsQuorum = ethers.utils.formatEther(totalVotesForQuorum);
+
+        if (!wasExtended) {
           quorumReached = totalVotesForQuorum.gte(quorumAmount);
           if (quorumReached) {
             extensionPossible = false;
           }
-        } catch {
-          // Ignore - continue without quorum info
         }
+      } catch {
+        // Ignore - continue without quorum info
       }
 
       return {
@@ -633,6 +639,8 @@ export class IncrementalStageTracker {
           wasExtended,
           extendedDeadline,
           quorumReached,
+          quorumRequired,
+          votesTowardsQuorum,
         },
       };
     } catch (error) {

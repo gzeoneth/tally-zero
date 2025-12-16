@@ -79,6 +79,18 @@ function formatEta(eta?: string): string {
   });
 }
 
+function formatVoteAmount(amount: string | number): string {
+  const num = parseFloat(String(amount));
+  if (isNaN(num)) return "0";
+  if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(2).replace(/\.?0+$/, "") + "M";
+  }
+  if (num >= 1_000) {
+    return (num / 1_000).toFixed(2).replace(/\.?0+$/, "") + "K";
+  }
+  return num.toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
 interface EstimatedTimeRange {
   minDate: Date;
   maxDate: Date;
@@ -545,6 +557,48 @@ function StageItem({
                         </span>
                       )}
                   </p>
+                  {stage?.data?.quorumRequired && (
+                    <p>
+                      Quorum:{" "}
+                      <span
+                        className={cn(
+                          "not-italic",
+                          stage?.data?.quorumReached
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-foreground"
+                        )}
+                      >
+                        {formatVoteAmount(
+                          String(stage?.data?.votesTowardsQuorum ?? "0")
+                        )}
+                      </span>
+                      <span className="text-muted-foreground"> / </span>
+                      <span className="text-foreground not-italic">
+                        {formatVoteAmount(String(stage?.data?.quorumRequired))}
+                      </span>
+                      {Boolean(
+                        stage?.data?.quorumRequired &&
+                          stage?.data?.votesTowardsQuorum
+                      ) && (
+                        <span className="text-muted-foreground ml-1">
+                          (
+                          {Math.min(
+                            100,
+                            Math.round(
+                              (parseFloat(
+                                String(stage?.data?.votesTowardsQuorum)
+                              ) /
+                                parseFloat(
+                                  String(stage?.data?.quorumRequired)
+                                )) *
+                                100
+                            )
+                          )}
+                          %)
+                        </span>
+                      )}
+                    </p>
+                  )}
                 </>
               )}
               {/* Fallback to duration-based display */}
