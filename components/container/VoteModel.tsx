@@ -1,5 +1,8 @@
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+
+import { proposalSanitizeSchema } from "@lib/sanitize-schema";
 import { z } from "zod";
 
 import VoteForm from "@components/form/VoteForm";
@@ -378,7 +381,12 @@ export default function VoteModel({
                   Description
                 </h3>
                 <div className="text-sm break-words prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-strong:text-foreground prose-ul:text-muted-foreground prose-ol:text-muted-foreground prose-li:text-muted-foreground">
-                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                  <ReactMarkdown
+                    rehypePlugins={[
+                      [rehypeSanitize, proposalSanitizeSchema],
+                      rehypeRaw,
+                    ]}
+                  >
                     {proposal.description}
                   </ReactMarkdown>
                 </div>
@@ -490,7 +498,12 @@ export default function VoteModel({
                   Description
                 </h3>
                 <div className="text-sm break-words prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-strong:text-foreground">
-                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                  <ReactMarkdown
+                    rehypePlugins={[
+                      [rehypeSanitize, proposalSanitizeSchema],
+                      rehypeRaw,
+                    ]}
+                  >
                     {proposal.description}
                   </ReactMarkdown>
                 </div>
