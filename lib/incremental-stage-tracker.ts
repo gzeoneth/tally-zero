@@ -89,7 +89,7 @@ export const STAGE_METADATA: StageMetadata[] = [
     title: "L2 Timelock Executed",
     description: "Timelock delay passed, execution triggers L2→L1 message",
     chain: "L2",
-    estimatedDuration: "3 days",
+    estimatedDuration: "8 days",
   },
   {
     type: "L2_TO_L1_MESSAGE_SENT",
