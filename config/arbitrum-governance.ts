@@ -15,13 +15,13 @@ export const ETHEREUM_RPC_URL = "https://1rpc.io/eth";
 
 /**
  * Core Governor Contract (Constitutional Proposals)
- * 5% quorum, ~37-39 day lifecycle
+ * 4.5% quorum, ~42-44 day lifecycle
  */
 export const CORE_GOVERNOR = {
   address: "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9",
   name: "Core Governor",
   description: "Constitutional and non-emergency proposals",
-  quorum: "5%",
+  quorum: "4.5%",
 } as const;
 
 /**
@@ -36,13 +36,13 @@ export const TREASURY_GOVERNOR = {
 } as const;
 
 /**
- * L2 Timelock Contract (Arbitrum One)
- * 3-day delay for both Core and Treasury governors
+ * L2 Core Timelock Contract (Arbitrum One)
+ * 8-day delay for Core Governor constitutional proposals
  */
 export const L2_CORE_TIMELOCK = {
   address: "0x34d45e99f7D8c45ed05B5cA72D54bbD1fb3F98f0",
   name: "L2 Core Timelock",
-  delay: "3 days",
+  delay: "8 days",
 } as const;
 
 export const L2_TREASURY_TIMELOCK = {
