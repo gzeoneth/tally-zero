@@ -15,6 +15,7 @@ import { SiteFooter } from "@components/navigation/SiteFooter";
 import { Analytics } from "@components/Analytics";
 import { TailwindIndicator } from "@components/TailwindIndicator";
 import { ThemeProvider } from "@components/ThemeProvider";
+import { NerdModeProvider } from "@context/NerdModeContext";
 
 export const metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -72,19 +73,21 @@ export default function RootLayout({ children }: RootLayoutProps) {
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Web3ModalProvider>
-            <header className="container z-40 px-4 sm:px-6 lg:px-8">
-              <div className="flex h-16 sm:h-20 items-center justify-between py-4 sm:py-6 gap-2">
-                <MainNav items={marketingConfig.mainNav} />
-                <ButtonNav />
-              </div>
-            </header>
+            <NerdModeProvider>
+              <header className="container z-40 px-4 sm:px-6 lg:px-8">
+                <div className="flex h-16 sm:h-20 items-center justify-between py-4 sm:py-6 gap-2">
+                  <MainNav items={marketingConfig.mainNav} />
+                  <ButtonNav />
+                </div>
+              </header>
 
-            {children}
-            <SiteFooter />
+              {children}
+              <SiteFooter />
 
-            <Toaster />
-            <Analytics />
-            <TailwindIndicator />
+              <Toaster />
+              <Analytics />
+              <TailwindIndicator />
+            </NerdModeProvider>
           </Web3ModalProvider>
         </ThemeProvider>
       </body>

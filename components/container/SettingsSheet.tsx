@@ -36,6 +36,7 @@ import {
   DEFAULT_CACHE_TTL_MS,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
+import { useNerdMode } from "@/context/NerdModeContext";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
 // Get all TallyZero storage keys
@@ -66,10 +67,7 @@ export function SettingsSheet() {
     STORAGE_KEYS.L1_BLOCK_RANGE,
     DEFAULT_FORM_VALUES.l1BlockRange
   );
-  const [nerdMode, setNerdMode] = useLocalStorage<boolean>(
-    STORAGE_KEYS.NERD_MODE,
-    false
-  );
+  const { nerdMode, toggleNerdMode } = useNerdMode();
   const [daysToSearch, setDaysToSearch] = useLocalStorage<number>(
     STORAGE_KEYS.DAYS_TO_SEARCH,
     DEFAULT_FORM_VALUES.daysToSearch
@@ -364,7 +362,7 @@ export function SettingsSheet() {
                   type="button"
                   variant={nerdMode ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setNerdMode(!nerdMode)}
+                  onClick={toggleNerdMode}
                 >
                   {nerdMode ? "On" : "Off"}
                 </Button>

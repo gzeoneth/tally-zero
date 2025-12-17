@@ -1,14 +1,19 @@
+"use client";
+
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 
 import { proposalSanitizeSchema } from "@lib/sanitize-schema";
+import { useCallback, useState } from "react";
 import { z } from "zod";
 
 import VoteForm from "@components/form/VoteForm";
 import ProposalStages from "@components/proposal/ProposalStages";
 import ProposalStagesError from "@components/proposal/ProposalStagesError";
 import { Badge } from "@components/ui/Badge";
+import { Button } from "@components/ui/Button";
+import { CopyableText } from "@components/ui/CopyableText";
 import {
   DialogContent,
   DialogDescription,
@@ -22,6 +27,8 @@ import {
   DrawerTitle,
 } from "@components/ui/Drawer";
 import { ErrorBoundary } from "@components/ui/ErrorBoundary";
+import { Input } from "@components/ui/Input";
+import { Label } from "@components/ui/Label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 
 import { CORE_GOVERNOR, TREASURY_GOVERNOR } from "@config/arbitrum-governance";
@@ -29,8 +36,85 @@ import { proposalSchema } from "@config/schema";
 import { cn } from "@lib/utils";
 import { formatEther } from "viem";
 
+import { useNerdMode } from "@context/NerdModeContext";
 import { useDecodedCalldata } from "@hooks/use-decoded-calldata";
 import type { DecodedCalldata, DecodedParameter } from "@lib/calldata-decoder";
+import {
+  CheckIcon,
+  CopyIcon,
+  Pencil1Icon,
+  ResetIcon,
+} from "@radix-ui/react-icons";
+
+// Raw calldata display with copy button
+function RawCalldataDisplay({
+  calldata,
+  nerdMode,
+  isOverridden,
+  onEdit,
+  onReset,
+}: {
+  calldata: string;
+  nerdMode: boolean;
+  isOverridden: boolean;
+  onEdit: () => void;
+  onReset: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(calldata);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textArea = document.createElement("textarea");
+      textArea.value = calldata;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [calldata]);
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <code className="text-xs font-mono break-all block bg-muted/50 p-2 pr-8 rounded max-h-24 overflow-y-auto">
+          {calldata}
+        </code>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="absolute top-2 right-2 p-1 hover:bg-muted rounded transition-colors"
+          title="Copy to clipboard"
+        >
+          {copied ? (
+            <CheckIcon className="w-3 h-3 text-green-500" />
+          ) : (
+            <CopyIcon className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+          )}
+        </button>
+      </div>
+      {nerdMode && (
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            <Pencil1Icon className="w-3 h-3 mr-1" />
+            Edit
+          </Button>
+          {isOverridden && (
+            <Button size="sm" variant="outline" onClick={onReset}>
+              <ResetIcon className="w-3 h-3 mr-1" />
+              Reset
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Check if this is an Arbitrum Governor (Core or Treasury)
 function isArbitrumGovernor(contractAddress: string): boolean {
@@ -41,6 +125,11 @@ function isArbitrumGovernor(contractAddress: string): boolean {
   );
 }
 
+function truncateValue(value: string, maxLength = 50): string {
+  if (value.length <= maxLength) return value;
+  return value.slice(0, 24) + "..." + value.slice(-20);
+}
+
 // Display a single decoded parameter
 function ParameterView({
   param,
@@ -49,17 +138,14 @@ function ParameterView({
   param: DecodedParameter;
   index: number;
 }) {
-  const truncateValue = (value: string, maxLength = 50): string => {
-    if (value.length <= maxLength) return value;
-    return value.slice(0, 24) + "..." + value.slice(-20);
-  };
-
   // Check if this is a bytes[] with decoded nested array
   const hasNestedArray = param.nestedArray && param.nestedArray.length > 0;
   const hasNestedSingle = param.nested && param.nested.functionName;
 
   // Render the value - either as a link or plain text
   const renderValue = () => {
+    const isTruncatable =
+      param.isNested && !hasNestedArray && param.value.length > 50;
     const displayValue =
       param.isNested && !hasNestedArray
         ? truncateValue(param.value)
@@ -92,6 +178,17 @@ function ParameterView({
             </Badge>
           )}
         </span>
+      );
+    }
+
+    // Use CopyableText for truncated values to allow copying the original
+    if (isTruncatable) {
+      return (
+        <CopyableText
+          value={param.value}
+          displayText={displayValue}
+          className="text-xs"
+        />
       );
     }
 
@@ -144,9 +241,15 @@ function ParameterView({
               {nestedCall.functionName ? (
                 <DecodedCalldataView decoded={nestedCall} isDecoding={false} />
               ) : (
-                <code className="text-[10px] text-muted-foreground break-all">
-                  {truncateValue(nestedCall.raw, 80)}
-                </code>
+                <CopyableText
+                  value={nestedCall.raw}
+                  displayText={
+                    nestedCall.raw.length > 80
+                      ? truncateValue(nestedCall.raw, 80)
+                      : undefined
+                  }
+                  className="text-[10px] text-muted-foreground"
+                />
               )}
             </div>
           ))}
@@ -200,36 +303,83 @@ function DecodedCalldataView({
   );
 }
 
-// Single action view with calldata decoding
+// Single action view with calldata decoding and optional editing
 function ActionView({
   index,
   target,
   value,
   calldata,
+  nerdMode = false,
+  overriddenCalldata,
+  onCalldataChange,
 }: {
   index: number;
   target: string;
   value: string;
   calldata: string;
+  nerdMode?: boolean;
+  overriddenCalldata?: string;
+  onCalldataChange?: (newCalldata: string | undefined) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(overriddenCalldata || calldata);
+
+  const effectiveCalldata = overriddenCalldata ?? calldata;
+  const isOverridden = overriddenCalldata !== undefined;
+
   const ethValue = formatEther(BigInt(value));
   const hasValue = ethValue !== "0";
-  const hasCalldata = calldata !== "0x" && calldata !== "";
+  const hasCalldata = effectiveCalldata !== "0x" && effectiveCalldata !== "";
 
   const { decoded, isDecoding } = useDecodedCalldata({
-    calldata,
+    calldata: effectiveCalldata,
     targetAddress: target,
     enabled: hasCalldata,
   });
 
   const showDecoded = decoded && decoded.decodingSource !== "failed";
 
+  const handleSaveEdit = useCallback(() => {
+    if (editValue !== calldata) {
+      onCalldataChange?.(editValue);
+    } else {
+      onCalldataChange?.(undefined);
+    }
+    setIsEditing(false);
+  }, [editValue, calldata, onCalldataChange]);
+
+  const handleResetOverride = useCallback(() => {
+    onCalldataChange?.(undefined);
+    setEditValue(calldata);
+    setIsEditing(false);
+  }, [calldata, onCalldataChange]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditValue(overriddenCalldata || calldata);
+    setIsEditing(false);
+  }, [overriddenCalldata, calldata]);
+
   return (
-    <div className="border border-border rounded-lg p-3 space-y-2 text-sm">
+    <div
+      className={cn(
+        "border rounded-lg p-3 space-y-2 text-sm",
+        isOverridden
+          ? "border-orange-500 bg-orange-50/30 dark:bg-orange-950/10"
+          : "border-border"
+      )}
+    >
       {/* Header row */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">
           Action {index + 1}
+          {isOverridden && (
+            <Badge
+              variant="outline"
+              className="ml-2 text-[10px] border-orange-500 text-orange-600"
+            >
+              Override
+            </Badge>
+          )}
         </span>
         {hasValue && (
           <span className="text-xs font-semibold text-green-600 dark:text-green-400">
@@ -241,33 +391,71 @@ function ActionView({
       {/* Target address */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground shrink-0">To:</span>
-        <code className="text-xs font-mono truncate">{target}</code>
+        <CopyableText value={target} className="text-xs" maxLength={42} />
       </div>
 
       {/* Calldata section */}
       {hasCalldata && (
         <div className="space-y-2">
           {/* Decoded view */}
-          {(showDecoded || isDecoding) && (
+          {(showDecoded || isDecoding) && !isEditing && (
             <DecodedCalldataView decoded={decoded} isDecoding={isDecoding} />
           )}
 
-          {/* Raw data toggle */}
-          <details className="group">
-            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
-              {showDecoded
-                ? "Raw calldata"
-                : `Calldata (${calldata.length} bytes)`}
-              {!showDecoded && !isDecoding && (
-                <Badge variant="outline" className="text-[10px] ml-1">
-                  Unknown
-                </Badge>
-              )}
-            </summary>
-            <code className="text-xs font-mono break-all block bg-muted/50 p-2 rounded mt-1 max-h-24 overflow-y-auto">
-              {calldata}
-            </code>
-          </details>
+          {/* Editing mode */}
+          {nerdMode && isEditing ? (
+            <div className="space-y-2">
+              <Label className="text-xs">Edit Calldata (hex)</Label>
+              <Input
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                placeholder="0x..."
+                className="font-mono text-xs"
+              />
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveEdit}
+                  disabled={
+                    !editValue.startsWith("0x") || editValue.length < 10
+                  }
+                >
+                  Save Override
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Raw data - always visible in nerd mode, collapsible otherwise */}
+              <details className="group" open={nerdMode || isOverridden}>
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
+                  {showDecoded
+                    ? "Raw calldata"
+                    : `Calldata (${effectiveCalldata.length} bytes)`}
+                  {!showDecoded && !isDecoding && (
+                    <Badge variant="outline" className="text-[10px] ml-1">
+                      Unknown
+                    </Badge>
+                  )}
+                </summary>
+                <div className="mt-1 space-y-2">
+                  <RawCalldataDisplay
+                    calldata={effectiveCalldata}
+                    nerdMode={nerdMode}
+                    isOverridden={isOverridden}
+                    onEdit={() => {
+                      setEditValue(effectiveCalldata);
+                      setIsEditing(true);
+                    }}
+                    onReset={handleResetOverride}
+                  />
+                </div>
+              </details>
+            </>
+          )}
         </div>
       )}
 
@@ -280,14 +468,25 @@ function ActionView({
   );
 }
 
+type CalldataOverrides = Record<number, string>;
+
 function PayloadView({
   targets,
   values,
   calldatas,
+  nerdMode = false,
+  calldataOverrides,
+  onCalldataOverrideChange,
 }: {
   targets: string[];
   values: string[];
   calldatas: string[];
+  nerdMode?: boolean;
+  calldataOverrides?: CalldataOverrides;
+  onCalldataOverrideChange?: (
+    index: number,
+    newCalldata: string | undefined
+  ) => void;
 }) {
   if (targets.length === 0) {
     return (
@@ -297,8 +496,18 @@ function PayloadView({
     );
   }
 
+  const hasOverrides =
+    calldataOverrides && Object.keys(calldataOverrides).length > 0;
+
   return (
     <div className="space-y-3">
+      {/* Override info banner */}
+      {nerdMode && hasOverrides && (
+        <div className="bg-orange-100 dark:bg-orange-950/30 border border-orange-500 rounded-lg p-3 text-xs text-orange-700 dark:text-orange-300">
+          You have calldata overrides active.
+        </div>
+      )}
+
       {targets.map((target, idx) => (
         <ActionView
           key={idx}
@@ -306,6 +515,11 @@ function PayloadView({
           target={target}
           value={values[idx] || "0"}
           calldata={calldatas[idx] || "0x"}
+          nerdMode={nerdMode}
+          overriddenCalldata={calldataOverrides?.[idx]}
+          onCalldataChange={(newCalldata) =>
+            onCalldataOverrideChange?.(idx, newCalldata)
+          }
         />
       ))}
     </div>
@@ -335,9 +549,34 @@ export default function VoteModel({
 }) {
   const showStagesTab = isArbitrumGovernor(proposal.contractAddress);
 
+  const { nerdMode } = useNerdMode();
+  const [calldataOverrides, setCalldataOverrides] = useState<CalldataOverrides>(
+    {}
+  );
+
+  const handleCalldataOverrideChange = useCallback(
+    (index: number, newCalldata: string | undefined) => {
+      setCalldataOverrides((prev) => {
+        if (newCalldata === undefined) {
+          const next = { ...prev };
+          delete next[index];
+          return next;
+        }
+        return { ...prev, [index]: newCalldata };
+      });
+    },
+    []
+  );
+
+  const effectiveCalldatas = proposal.calldatas.map(
+    (calldata, idx) => calldataOverrides[idx] ?? calldata
+  );
+
+  const hasCalldataOverrides = Object.keys(calldataOverrides).length > 0;
+
   if (isDesktop) {
     return (
-      <DialogContent className="sm:max-w-[800px] max-w-sm max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[1000px] max-w-sm max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>
             <div className="flex items-center justify-between pb-2">
@@ -376,7 +615,7 @@ export default function VoteModel({
             className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
           >
             <DialogDescription asChild>
-              <div className="max-h-[50vh] overflow-y-auto text-left bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
+              <div className="max-h-[60vh] overflow-y-auto text-left bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
                 <h3 className="text-sm font-semibold mb-2 text-foreground">
                   Description
                 </h3>
@@ -398,14 +637,24 @@ export default function VoteModel({
             value="payload"
             className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
           >
-            <div className="max-h-[50vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
-              <h3 className="text-sm font-semibold mb-3 text-foreground">
-                Proposal Actions ({proposal.targets.length})
-              </h3>
+            <div className="max-h-[60vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Proposal Actions ({proposal.targets.length})
+                </h3>
+                {nerdMode && (
+                  <Badge variant="outline" className="text-[10px]">
+                    Nerd Mode
+                  </Badge>
+                )}
+              </div>
               <PayloadView
                 targets={proposal.targets}
                 values={proposal.values}
                 calldatas={proposal.calldatas}
+                nerdMode={nerdMode}
+                calldataOverrides={calldataOverrides}
+                onCalldataOverrideChange={handleCalldataOverrideChange}
               />
             </div>
           </TabsContent>
@@ -415,7 +664,7 @@ export default function VoteModel({
               value="stages"
               className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
             >
-              <div className="max-h-[50vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg">
+              <div className="max-h-[60vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg">
                 <ErrorBoundary
                   fallback={(error, reset) => (
                     <ProposalStagesError error={error} onReset={reset} />
@@ -436,7 +685,7 @@ export default function VoteModel({
               value="stages"
               className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
             >
-              <div className="max-h-[50vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
+              <div className="max-h-[60vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
                 <p className="text-sm text-muted-foreground">
                   Stage tracking is not available for this proposal. The
                   creation transaction hash was not found.
@@ -450,6 +699,11 @@ export default function VoteModel({
             className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
           >
             <div className="pt-4">
+              {nerdMode && hasCalldataOverrides && (
+                <div className="mb-4 bg-orange-100 dark:bg-orange-950/30 border border-orange-500 rounded-lg p-3 text-xs text-orange-700 dark:text-orange-300">
+                  You have calldata overrides active in the Payload tab.
+                </div>
+              )}
               <VoteForm proposal={proposal} />
             </div>
           </TabsContent>
@@ -493,7 +747,7 @@ export default function VoteModel({
 
           <TabsContent value="description" className="flex-1 min-h-0">
             <DrawerDescription asChild>
-              <div className="max-h-[40vh] overflow-y-auto text-left bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
+              <div className="max-h-[50vh] overflow-y-auto text-left bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
                 <h3 className="text-sm font-semibold mb-2 text-foreground">
                   Description
                 </h3>
@@ -512,21 +766,31 @@ export default function VoteModel({
           </TabsContent>
 
           <TabsContent value="payload" className="flex-1 min-h-0">
-            <div className="max-h-[40vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-              <h3 className="text-sm font-semibold mb-3 text-foreground">
-                Proposal Actions ({proposal.targets.length})
-              </h3>
+            <div className="max-h-[50vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Proposal Actions ({proposal.targets.length})
+                </h3>
+                {nerdMode && (
+                  <Badge variant="outline" className="text-[10px]">
+                    Nerd Mode
+                  </Badge>
+                )}
+              </div>
               <PayloadView
                 targets={proposal.targets}
                 values={proposal.values}
                 calldatas={proposal.calldatas}
+                nerdMode={nerdMode}
+                calldataOverrides={calldataOverrides}
+                onCalldataOverrideChange={handleCalldataOverrideChange}
               />
             </div>
           </TabsContent>
 
           {showStagesTab && proposal.creationTxHash && (
             <TabsContent value="stages" className="flex-1 min-h-0">
-              <div className="max-h-[40vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg">
+              <div className="max-h-[50vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg">
                 <ErrorBoundary
                   fallback={(error, reset) => (
                     <ProposalStagesError error={error} onReset={reset} />
@@ -544,7 +808,7 @@ export default function VoteModel({
 
           {showStagesTab && !proposal.creationTxHash && (
             <TabsContent value="stages" className="flex-1 min-h-0">
-              <div className="max-h-[40vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
+              <div className="max-h-[50vh] overflow-y-auto bg-slate-50 dark:bg-slate-900 rounded-lg p-4">
                 <p className="text-sm text-muted-foreground">
                   Stage tracking is not available for this proposal.
                 </p>
@@ -554,6 +818,11 @@ export default function VoteModel({
 
           <TabsContent value="vote" className="flex-1 min-h-0">
             <div className="pt-4">
+              {nerdMode && hasCalldataOverrides && (
+                <div className="mb-4 bg-orange-100 dark:bg-orange-950/30 border border-orange-500 rounded-lg p-3 text-xs text-orange-700 dark:text-orange-300">
+                  You have calldata overrides active in the Payload tab.
+                </div>
+              )}
               <VoteForm proposal={proposal} />
             </div>
           </TabsContent>
