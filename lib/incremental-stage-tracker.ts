@@ -64,7 +64,10 @@ export interface StageMetadata {
   estimatedDuration?: string;
 }
 
-export const STAGE_METADATA: StageMetadata[] = [
+/**
+ * Base stage metadata without duration (duration depends on governor type)
+ */
+const BASE_STAGE_METADATA: Omit<StageMetadata, "estimatedDuration">[] = [
   {
     type: "PROPOSAL_CREATED",
     title: "Proposal Created",
@@ -76,7 +79,6 @@ export const STAGE_METADATA: StageMetadata[] = [
     title: "Voting",
     description: "Token holders vote on the proposal",
     chain: "L2",
-    estimatedDuration: "14-16 days",
   },
   {
     type: "PROPOSAL_QUEUED",
@@ -89,7 +91,6 @@ export const STAGE_METADATA: StageMetadata[] = [
     title: "L2 Timelock Executed",
     description: "Timelock delay passed, execution triggers L2→L1 message",
     chain: "L2",
-    estimatedDuration: "8 days",
   },
   {
     type: "L2_TO_L1_MESSAGE_SENT",
@@ -102,7 +103,6 @@ export const STAGE_METADATA: StageMetadata[] = [
     title: "L2→L1 Message Confirmed",
     description: "Challenge period completed, message ready for L1 execution",
     chain: "Cross-chain",
-    estimatedDuration: "~7 days",
   },
   {
     type: "L1_TIMELOCK_QUEUED",
@@ -115,7 +115,6 @@ export const STAGE_METADATA: StageMetadata[] = [
     title: "L1 Timelock Executed",
     description: "Executed on Ethereum mainnet",
     chain: "L1",
-    estimatedDuration: "3 days",
   },
   {
     type: "RETRYABLE_CREATED",
@@ -131,9 +130,67 @@ export const STAGE_METADATA: StageMetadata[] = [
   },
 ];
 
-export function getStageMetadata(type: StageType): StageMetadata | undefined {
-  return STAGE_METADATA.find((s) => s.type === type);
+/**
+ * Voting duration is the same for both governors
+ */
+const VOTING_DURATION = "14-16 days";
+
+/**
+ * Challenge period duration (~7 days based on CHALLENGE_PERIOD_L1_BLOCKS)
+ */
+const CHALLENGE_PERIOD_DURATION = "~7 days";
+
+/**
+ * Get estimated duration for a stage based on governor type
+ * Durations are read from config (L2_CORE_TIMELOCK, L2_TREASURY_TIMELOCK, L1_TIMELOCK)
+ */
+function getEstimatedDuration(
+  type: StageType,
+  governorType?: "core" | "treasury"
+): string | undefined {
+  switch (type) {
+    case "VOTING_ACTIVE":
+      return VOTING_DURATION;
+    case "L2_TIMELOCK_EXECUTED":
+      // Core Governor uses L2_CORE_TIMELOCK (8 days), Treasury uses L2_TREASURY_TIMELOCK (3 days)
+      return governorType === "treasury"
+        ? L2_TREASURY_TIMELOCK.delay
+        : L2_CORE_TIMELOCK.delay;
+    case "L2_TO_L1_MESSAGE_CONFIRMED":
+      return CHALLENGE_PERIOD_DURATION;
+    case "L1_TIMELOCK_EXECUTED":
+      return L1_TIMELOCK.delay;
+    default:
+      return undefined;
+  }
 }
+
+/**
+ * Get stage metadata with estimated duration based on governor type
+ * @param type - The stage type
+ * @param governorType - Optional governor type to determine L2 timelock duration
+ */
+export function getStageMetadata(
+  type: StageType,
+  governorType?: "core" | "treasury"
+): StageMetadata | undefined {
+  const base = BASE_STAGE_METADATA.find((s) => s.type === type);
+  if (!base) return undefined;
+
+  const estimatedDuration = getEstimatedDuration(type, governorType);
+  return estimatedDuration ? { ...base, estimatedDuration } : { ...base };
+}
+
+/**
+ * @deprecated Use getStageMetadata(type, governorType) instead for accurate durations
+ * Legacy export for backwards compatibility - returns metadata with Core Governor durations
+ */
+export const STAGE_METADATA: StageMetadata[] = BASE_STAGE_METADATA.map(
+  (base) => {
+    const estimatedDuration = getEstimatedDuration(base.type, "core");
+    return estimatedDuration ? { ...base, estimatedDuration } : { ...base };
+  }
+);
 
 async function searchLogsInChunks(
   provider: ethers.providers.Provider,

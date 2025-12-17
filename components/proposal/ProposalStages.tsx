@@ -544,6 +544,7 @@ function StageItem({
   onRefresh,
   estimatedCompletion,
   votingTimeRange,
+  governorType,
 }: {
   stage?: ProposalStage;
   stageType: StageType;
@@ -555,8 +556,9 @@ function StageItem({
   onRefresh: (index: number) => void;
   estimatedCompletion?: EstimatedTimeRange;
   votingTimeRange?: VotingTimeRange | null;
+  governorType: "core" | "treasury";
 }) {
-  const metadata = getStageMetadata(stageType);
+  const metadata = getStageMetadata(stageType, governorType);
   const status = stage?.status || "NOT_STARTED";
   const isActive = isTracking && !stage;
   const canRefresh = stage && !isLoading;
@@ -1021,6 +1023,7 @@ export default function ProposalStages({
               onRefresh={refetchFromStage}
               estimatedCompletion={estimatedCompletion}
               votingTimeRange={votingTimeRange}
+              governorType={isTreasuryProposal ? "treasury" : "core"}
             />
           );
         })}
