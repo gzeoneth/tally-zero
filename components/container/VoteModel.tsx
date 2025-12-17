@@ -40,8 +40,14 @@ import { useNerdMode } from "@context/NerdModeContext";
 import { useDecodedCalldata } from "@hooks/use-decoded-calldata";
 import type { DecodedCalldata, DecodedParameter } from "@lib/calldata-decoder";
 import {
+  simulateCall,
+  simulateRetryableTicket,
+  type ChainType,
+} from "@lib/tenderly";
+import {
   CheckIcon,
   CopyIcon,
+  ExternalLinkIcon,
   Pencil1Icon,
   ResetIcon,
 } from "@radix-ui/react-icons";
@@ -130,6 +136,152 @@ function truncateValue(value: string, maxLength = 50): string {
   return value.slice(0, 24) + "..." + value.slice(-20);
 }
 
+// Simulate button for retryable tickets
+function SimulateButton({
+  l2Target,
+  l2Calldata,
+  l2Value,
+  chain,
+}: {
+  l2Target: string;
+  l2Calldata: string;
+  l2Value?: string;
+  chain: "arb1" | "nova" | "unknown";
+}) {
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [simulationLink, setSimulationLink] = useState<string | null>(null);
+
+  const handleSimulate = useCallback(async () => {
+    setIsSimulating(true);
+    setError(null);
+    setSimulationLink(null);
+
+    try {
+      const result = await simulateRetryableTicket({
+        l2Target,
+        l2Calldata,
+        l2Value,
+        chain,
+      });
+      setSimulationLink(result.link);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Simulation failed");
+    } finally {
+      setIsSimulating(false);
+    }
+  }, [l2Target, l2Calldata, l2Value, chain]);
+
+  if (simulationLink) {
+    return (
+      <a
+        href={simulationLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        <ExternalLinkIcon className="w-3 h-3" />
+        View Simulation
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleSimulate}
+        disabled={isSimulating}
+        className="text-xs h-7 px-2"
+      >
+        {isSimulating ? "Simulating..." : "Simulate"}
+      </Button>
+      {error && (
+        <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
+      )}
+    </div>
+  );
+}
+
+// Generic simulate button for any call (L1 or L2)
+function SimulateCallButton({
+  target,
+  calldata,
+  value,
+  chain,
+}: {
+  target: string;
+  calldata: string;
+  value?: string;
+  chain: ChainType;
+}) {
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [simulationLink, setSimulationLink] = useState<string | null>(null);
+
+  const handleSimulate = useCallback(async () => {
+    setIsSimulating(true);
+    setError(null);
+    setSimulationLink(null);
+
+    try {
+      const result = await simulateCall({
+        target,
+        calldata,
+        value,
+        chain,
+      });
+      setSimulationLink(result.link);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Simulation failed");
+    } finally {
+      setIsSimulating(false);
+    }
+  }, [target, calldata, value, chain]);
+
+  if (simulationLink) {
+    return (
+      <a
+        href={simulationLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        <ExternalLinkIcon className="w-3 h-3" />
+        View Simulation
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleSimulate}
+        disabled={isSimulating}
+        className="text-xs h-7 px-2"
+      >
+        {isSimulating ? "Simulating..." : "Simulate"}
+      </Button>
+      {error && (
+        <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
+      )}
+    </div>
+  );
+}
+
+// Helper to derive chain type from chain label
+function getChainTypeFromLabel(chainLabel?: string): ChainType {
+  if (!chainLabel) return "unknown";
+  const label = chainLabel.toLowerCase();
+  if (label === "l1" || label === "ethereum") return "L1";
+  if (label === "arb1" || label === "arbitrum one") return "Arb1";
+  if (label === "nova" || label === "arbitrum nova") return "Nova";
+  return "unknown";
+}
+
 // Display a single decoded parameter
 function ParameterView({
   param,
@@ -212,6 +364,40 @@ function ParameterView({
             Nested call:
           </span>
           <DecodedCalldataView decoded={param.nested!} isDecoding={false} />
+          {/* Add Simulate button for nested execute() calls */}
+          {param.nested!.parameters &&
+            (() => {
+              const nested = param.nested!;
+              // Look for execute() pattern: [0] address, [1] bytes
+              const targetParam = nested.parameters?.find(
+                (p) =>
+                  p.type === "address" &&
+                  (p.name === "arg0" ||
+                    p.name.includes("target") ||
+                    p.name.includes("address"))
+              );
+              const calldataParam = nested.parameters?.find(
+                (p) =>
+                  p.type === "bytes" &&
+                  (p.name === "arg1" ||
+                    p.name.includes("data") ||
+                    p.name.includes("calldata"))
+              );
+
+              if (targetParam && calldataParam) {
+                const chain = getChainTypeFromLabel(targetParam.chainLabel);
+                return (
+                  <div className="mt-2">
+                    <SimulateCallButton
+                      target={targetParam.value}
+                      calldata={calldataParam.value}
+                      chain={chain}
+                    />
+                  </div>
+                );
+              }
+              return null;
+            })()}
         </div>
       )}
 
@@ -239,7 +425,91 @@ function ParameterView({
                 Batch action [{nestedIdx}]:
               </span>
               {nestedCall.functionName ? (
-                <DecodedCalldataView decoded={nestedCall} isDecoding={false} />
+                <>
+                  <DecodedCalldataView
+                    decoded={nestedCall}
+                    isDecoding={false}
+                  />
+                  {/* Add Simulate button for retryable tickets */}
+                  {nestedCall.functionName?.startsWith("Retryable Ticket") &&
+                    nestedCall.parameters &&
+                    (() => {
+                      // Extract retryable data from parameters
+                      const l2TargetParam = nestedCall.parameters.find(
+                        (p) => p.name === "l2Target"
+                      );
+                      const l2CalldataParam = nestedCall.parameters.find(
+                        (p) => p.name === "l2Calldata"
+                      );
+                      const l2ValueParam = nestedCall.parameters.find(
+                        (p) => p.name === "l2Value"
+                      );
+                      // Derive chain from function name
+                      const chainFromName = nestedCall.functionName?.includes(
+                        "Nova"
+                      )
+                        ? "nova"
+                        : nestedCall.functionName?.includes("Arbitrum One")
+                          ? "arb1"
+                          : "unknown";
+
+                      if (l2TargetParam && l2CalldataParam) {
+                        return (
+                          <div className="mt-2">
+                            <SimulateButton
+                              l2Target={l2TargetParam.value}
+                              l2Calldata={l2CalldataParam.value}
+                              l2Value={l2ValueParam?.value?.split(" ")[0]}
+                              chain={
+                                chainFromName as "arb1" | "nova" | "unknown"
+                              }
+                            />
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  {/* Add Simulate button for execute() and other calls */}
+                  {!nestedCall.functionName?.startsWith("Retryable Ticket") &&
+                    nestedCall.parameters &&
+                    (() => {
+                      // Look for execute() pattern: [0] address, [1] bytes
+                      const targetParam = nestedCall.parameters.find(
+                        (p) =>
+                          p.type === "address" &&
+                          (p.name === "arg0" ||
+                            p.name.includes("target") ||
+                            p.name.includes("address"))
+                      );
+                      const calldataParam = nestedCall.parameters.find(
+                        (p) =>
+                          p.type === "bytes" &&
+                          (p.name === "arg1" ||
+                            p.name.includes("data") ||
+                            p.name.includes("calldata"))
+                      );
+
+                      // If we have both target and calldata, show simulate button
+                      if (targetParam && calldataParam) {
+                        const chain = getChainTypeFromLabel(
+                          targetParam.chainLabel
+                        );
+                        return (
+                          <div className="mt-2">
+                            <SimulateCallButton
+                              target={targetParam.value}
+                              calldata={calldataParam.value}
+                              chain={chain}
+                            />
+                          </div>
+                        );
+                      }
+
+                      // For perform() or simple calls, try to get target from parent context
+                      // Skip these as they don't have clear target/calldata
+                      return null;
+                    })()}
+                </>
               ) : (
                 <CopyableText
                   value={nestedCall.raw}

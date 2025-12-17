@@ -34,6 +34,8 @@ import {
 import {
   CACHE_TTL_OPTIONS,
   DEFAULT_CACHE_TTL_MS,
+  DEFAULT_TENDERLY_ORG,
+  DEFAULT_TENDERLY_PROJECT,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
 import { useNerdMode } from "@/context/NerdModeContext";
@@ -80,6 +82,18 @@ export function SettingsSheet() {
     STORAGE_KEYS.SKIP_PRELOAD_CACHE,
     false
   );
+  const [tenderlyOrg, setTenderlyOrg] = useLocalStorage<string>(
+    STORAGE_KEYS.TENDERLY_ORG,
+    DEFAULT_TENDERLY_ORG
+  );
+  const [tenderlyProject, setTenderlyProject] = useLocalStorage<string>(
+    STORAGE_KEYS.TENDERLY_PROJECT,
+    DEFAULT_TENDERLY_PROJECT
+  );
+  const [tenderlyAccessToken, setTenderlyAccessToken] = useLocalStorage<string>(
+    STORAGE_KEYS.TENDERLY_ACCESS_TOKEN,
+    ""
+  );
 
   // Local form state
   const [l2RpcInput, setL2RpcInput] = useState(storedL2Rpc);
@@ -91,6 +105,11 @@ export function SettingsSheet() {
   const [daysInput, setDaysInput] = useState(String(daysToSearch));
   const [ttlInput, setTtlInput] = useState(cacheTtl);
   const [ttlCustomInput, setTtlCustomInput] = useState(String(cacheTtl));
+  const [tenderlyOrgInput, setTenderlyOrgInput] = useState(tenderlyOrg);
+  const [tenderlyProjectInput, setTenderlyProjectInput] =
+    useState(tenderlyProject);
+  const [tenderlyAccessTokenInput, setTenderlyAccessTokenInput] =
+    useState(tenderlyAccessToken);
 
   // Sync local state when sheet opens
   const handleOpenChange = useCallback(
@@ -103,10 +122,23 @@ export function SettingsSheet() {
         setDaysInput(String(daysToSearch));
         setTtlInput(cacheTtl);
         setTtlCustomInput(String(cacheTtl));
+        setTenderlyOrgInput(tenderlyOrg);
+        setTenderlyProjectInput(tenderlyProject);
+        setTenderlyAccessTokenInput(tenderlyAccessToken);
       }
       setOpen(isOpen);
     },
-    [storedL2Rpc, storedL1Rpc, blockRange, l1BlockRange, daysToSearch, cacheTtl]
+    [
+      storedL2Rpc,
+      storedL1Rpc,
+      blockRange,
+      l1BlockRange,
+      daysToSearch,
+      cacheTtl,
+      tenderlyOrg,
+      tenderlyProject,
+      tenderlyAccessToken,
+    ]
   );
 
   // Save settings
@@ -119,6 +151,9 @@ export function SettingsSheet() {
     );
     setDaysToSearch(parseInt(daysInput) || DEFAULT_FORM_VALUES.daysToSearch);
     setCacheTtl(ttlInput);
+    setTenderlyOrg(tenderlyOrgInput || DEFAULT_TENDERLY_ORG);
+    setTenderlyProject(tenderlyProjectInput || DEFAULT_TENDERLY_PROJECT);
+    setTenderlyAccessToken(tenderlyAccessTokenInput);
     setOpen(false);
     // Reload to apply changes
     window.location.reload();
@@ -129,12 +164,18 @@ export function SettingsSheet() {
     l1BlockRangeInput,
     daysInput,
     ttlInput,
+    tenderlyOrgInput,
+    tenderlyProjectInput,
+    tenderlyAccessTokenInput,
     setStoredL2Rpc,
     setStoredL1Rpc,
     setBlockRange,
     setL1BlockRange,
     setDaysToSearch,
     setCacheTtl,
+    setTenderlyOrg,
+    setTenderlyProject,
+    setTenderlyAccessToken,
   ]);
 
   // Clear all cache
@@ -183,6 +224,9 @@ export function SettingsSheet() {
     setDaysInput(String(DEFAULT_FORM_VALUES.daysToSearch));
     setTtlInput(3600); // 1 hour default in seconds
     setTtlCustomInput("3600");
+    setTenderlyOrgInput(DEFAULT_TENDERLY_ORG);
+    setTenderlyProjectInput(DEFAULT_TENDERLY_PROJECT);
+    setTenderlyAccessTokenInput("");
   }, []);
 
   // Export settings
@@ -522,6 +566,61 @@ export function SettingsSheet() {
               <Separator />
 
               <div className="space-y-3">
+                <Label className="text-sm font-medium">
+                  Tenderly Simulation
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Configure Tenderly project for simulating retryable ticket
+                  executions
+                </p>
+                <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                  <div className="space-y-2">
+                    <Label htmlFor="tenderly-org" className="text-xs">
+                      Organization/User Name
+                    </Label>
+                    <Input
+                      id="tenderly-org"
+                      type="text"
+                      value={tenderlyOrgInput}
+                      onChange={(e) => setTenderlyOrgInput(e.target.value)}
+                      placeholder={DEFAULT_TENDERLY_ORG}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tenderly-project" className="text-xs">
+                      Project Slug
+                    </Label>
+                    <Input
+                      id="tenderly-project"
+                      type="text"
+                      value={tenderlyProjectInput}
+                      onChange={(e) => setTenderlyProjectInput(e.target.value)}
+                      placeholder={DEFAULT_TENDERLY_PROJECT}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tenderly-token" className="text-xs">
+                      Access Token
+                    </Label>
+                    <Input
+                      id="tenderly-token"
+                      type="password"
+                      value={tenderlyAccessTokenInput}
+                      onChange={(e) =>
+                        setTenderlyAccessTokenInput(e.target.value)
+                      }
+                      placeholder="Enter your Tenderly access token"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Required for simulation. Get from dashboard.tenderly.co
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
                 <Label className="text-sm font-medium">Cache Management</Label>
                 <div className="p-4 bg-muted/50 rounded-lg space-y-3">
                   <div className="flex justify-between text-sm">
@@ -689,6 +788,20 @@ export function SettingsSheet() {
                           Skip Preload:
                         </span>
                         <span>{skipPreloadCache ? "Yes" : "No"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Tenderly Org:
+                        </span>
+                        <span>{tenderlyOrg || DEFAULT_TENDERLY_ORG}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Tenderly Project:
+                        </span>
+                        <span>
+                          {tenderlyProject || DEFAULT_TENDERLY_PROJECT}
+                        </span>
                       </div>
                     </div>
                   </div>

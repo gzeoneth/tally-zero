@@ -8,7 +8,14 @@ export const STORAGE_KEYS = {
   NERD_MODE: "tally-zero-nerd-mode",
   CACHE_TTL: "tally-zero-cache-ttl",
   SKIP_PRELOAD_CACHE: "tally-zero-skip-preload-cache",
+  TENDERLY_ORG: "tally-zero-tenderly-org",
+  TENDERLY_PROJECT: "tally-zero-tenderly-project",
+  TENDERLY_ACCESS_TOKEN: "tally-zero-tenderly-access-token",
 } as const;
+
+// Default Tenderly settings
+export const DEFAULT_TENDERLY_ORG = "ORG";
+export const DEFAULT_TENDERLY_PROJECT = "PROJECT";
 
 export const CACHE_VERSION = 1;
 export const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
