@@ -31,7 +31,11 @@ import { Input } from "@components/ui/Input";
 import { Label } from "@components/ui/Label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 
-import { CORE_GOVERNOR, TREASURY_GOVERNOR } from "@config/arbitrum-governance";
+import {
+  CORE_GOVERNOR,
+  L2_TREASURY_TIMELOCK,
+  TREASURY_GOVERNOR,
+} from "@config/arbitrum-governance";
 import { proposalSchema } from "@config/schema";
 import { cn } from "@lib/utils";
 import { formatEther } from "viem";
@@ -42,6 +46,7 @@ import type { DecodedCalldata, DecodedParameter } from "@lib/calldata-decoder";
 import {
   simulateCall,
   simulateRetryableTicket,
+  simulateTimelockBatch,
   type ChainType,
 } from "@lib/tenderly";
 import {
@@ -215,11 +220,13 @@ function SimulateCallButton({
   calldata,
   value,
   chain,
+  from,
 }: {
   target: string;
   calldata: string;
   value?: string;
   chain: ChainType;
+  from?: string;
 }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,6 +246,7 @@ function SimulateCallButton({
         calldata,
         value,
         chain,
+        from,
       });
       setSimulationResult({ link: result.link, success: result.success });
     } catch (err) {
@@ -246,7 +254,85 @@ function SimulateCallButton({
     } finally {
       setIsSimulating(false);
     }
-  }, [target, calldata, value, chain]);
+  }, [target, calldata, value, chain, from]);
+
+  if (simulationResult) {
+    return (
+      <a
+        href={simulationResult.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`inline-flex items-center gap-1 text-xs hover:underline ${
+          simulationResult.success
+            ? "text-green-600 dark:text-green-400"
+            : "text-red-600 dark:text-red-400"
+        }`}
+      >
+        <ExternalLinkIcon className="w-3 h-3" />
+        {simulationResult.success ? "Success" : "Failed"} - View Simulation
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleSimulate}
+        disabled={isSimulating}
+        className="text-xs h-7 px-2"
+      >
+        {isSimulating ? "Simulating..." : "Simulate (beta)"}
+      </Button>
+      {error && (
+        <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
+      )}
+    </div>
+  );
+}
+
+const TIMELOCK_CHAIN_IDS: Record<string, string> = {
+  L1: "1",
+  Arb1: "42161",
+  Nova: "42170",
+};
+
+function SimulateTimelockButton({
+  timelockAddress,
+  calldata,
+  chain,
+}: {
+  timelockAddress: string;
+  calldata: string;
+  chain: ChainType;
+}) {
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [simulationResult, setSimulationResult] = useState<{
+    link: string;
+    success: boolean;
+  } | null>(null);
+
+  const handleSimulate = useCallback(async () => {
+    setIsSimulating(true);
+    setError(null);
+    setSimulationResult(null);
+
+    try {
+      const networkId = TIMELOCK_CHAIN_IDS[chain] || TIMELOCK_CHAIN_IDS.L1;
+      const result = await simulateTimelockBatch({
+        timelockAddress,
+        calldata,
+        networkId,
+      });
+      setSimulationResult({ link: result.link, success: result.success });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Simulation failed");
+    } finally {
+      setIsSimulating(false);
+    }
+  }, [timelockAddress, calldata, chain]);
 
   if (simulationResult) {
     return (
@@ -392,12 +478,13 @@ function ParameterView({
                 (p) => p.type === "address"
               );
               if (!targetParam || !param.value) return null;
+              const chain = getChainTypeFromLabel(targetParam.chainLabel);
               return (
                 <div className="mt-2">
-                  <SimulateCallButton
-                    target={targetParam.value}
+                  <SimulateTimelockButton
+                    timelockAddress={targetParam.value}
                     calldata={param.value}
-                    chain="L1"
+                    chain={chain}
                   />
                 </div>
               );
@@ -666,6 +753,12 @@ function ActionView({
               target={target}
               calldata={effectiveCalldata}
               chain="Arb1"
+              from={
+                governorAddress.toLowerCase() ===
+                TREASURY_GOVERNOR.address.toLowerCase()
+                  ? L2_TREASURY_TIMELOCK.address
+                  : undefined
+              }
             />
           )}
 
