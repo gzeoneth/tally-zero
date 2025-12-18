@@ -136,7 +136,6 @@ function truncateValue(value: string, maxLength = 50): string {
   return value.slice(0, 24) + "..." + value.slice(-20);
 }
 
-// Simulate button for retryable tickets
 function SimulateButton({
   l2Target,
   l2Calldata,
@@ -150,12 +149,15 @@ function SimulateButton({
 }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [simulationLink, setSimulationLink] = useState<string | null>(null);
+  const [simulationResult, setSimulationResult] = useState<{
+    link: string;
+    success: boolean;
+  } | null>(null);
 
   const handleSimulate = useCallback(async () => {
     setIsSimulating(true);
     setError(null);
-    setSimulationLink(null);
+    setSimulationResult(null);
 
     try {
       const result = await simulateRetryableTicket({
@@ -164,7 +166,7 @@ function SimulateButton({
         l2Value,
         chain,
       });
-      setSimulationLink(result.link);
+      setSimulationResult({ link: result.link, success: result.success });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Simulation failed");
     } finally {
@@ -172,16 +174,20 @@ function SimulateButton({
     }
   }, [l2Target, l2Calldata, l2Value, chain]);
 
-  if (simulationLink) {
+  if (simulationResult) {
     return (
       <a
-        href={simulationLink}
+        href={simulationResult.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        className={`inline-flex items-center gap-1 text-xs hover:underline ${
+          simulationResult.success
+            ? "text-green-600 dark:text-green-400"
+            : "text-red-600 dark:text-red-400"
+        }`}
       >
         <ExternalLinkIcon className="w-3 h-3" />
-        View Simulation
+        {simulationResult.success ? "Success" : "Failed"} - View Simulation
       </a>
     );
   }
@@ -195,7 +201,7 @@ function SimulateButton({
         disabled={isSimulating}
         className="text-xs h-7 px-2"
       >
-        {isSimulating ? "Simulating..." : "Simulate"}
+        {isSimulating ? "Simulating..." : "Simulate (beta)"}
       </Button>
       {error && (
         <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
@@ -204,7 +210,6 @@ function SimulateButton({
   );
 }
 
-// Generic simulate button for any call (L1 or L2)
 function SimulateCallButton({
   target,
   calldata,
@@ -218,12 +223,15 @@ function SimulateCallButton({
 }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [simulationLink, setSimulationLink] = useState<string | null>(null);
+  const [simulationResult, setSimulationResult] = useState<{
+    link: string;
+    success: boolean;
+  } | null>(null);
 
   const handleSimulate = useCallback(async () => {
     setIsSimulating(true);
     setError(null);
-    setSimulationLink(null);
+    setSimulationResult(null);
 
     try {
       const result = await simulateCall({
@@ -232,7 +240,7 @@ function SimulateCallButton({
         value,
         chain,
       });
-      setSimulationLink(result.link);
+      setSimulationResult({ link: result.link, success: result.success });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Simulation failed");
     } finally {
@@ -240,16 +248,20 @@ function SimulateCallButton({
     }
   }, [target, calldata, value, chain]);
 
-  if (simulationLink) {
+  if (simulationResult) {
     return (
       <a
-        href={simulationLink}
+        href={simulationResult.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        className={`inline-flex items-center gap-1 text-xs hover:underline ${
+          simulationResult.success
+            ? "text-green-600 dark:text-green-400"
+            : "text-red-600 dark:text-red-400"
+        }`}
       >
         <ExternalLinkIcon className="w-3 h-3" />
-        View Simulation
+        {simulationResult.success ? "Success" : "Failed"} - View Simulation
       </a>
     );
   }
@@ -263,7 +275,7 @@ function SimulateCallButton({
         disabled={isSimulating}
         className="text-xs h-7 px-2"
       >
-        {isSimulating ? "Simulating..." : "Simulate"}
+        {isSimulating ? "Simulating..." : "Simulate (beta)"}
       </Button>
       {error && (
         <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
@@ -272,7 +284,6 @@ function SimulateCallButton({
   );
 }
 
-// Helper to derive chain type from chain label
 function getChainTypeFromLabel(chainLabel?: string): ChainType {
   if (!chainLabel) return "unknown";
   const label = chainLabel.toLowerCase();
@@ -282,13 +293,24 @@ function getChainTypeFromLabel(chainLabel?: string): ChainType {
   return "unknown";
 }
 
+function parseAddressArray(value: string): string[] {
+  const match = value.match(/\[(.*)\]/);
+  if (!match) return [];
+  return match[1]
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.startsWith("0x"));
+}
+
 // Display a single decoded parameter
 function ParameterView({
   param,
   index,
+  siblingParams,
 }: {
   param: DecodedParameter;
   index: number;
+  siblingParams?: DecodedParameter[];
 }) {
   // Check if this is a bytes[] with decoded nested array
   const hasNestedArray = param.nestedArray && param.nestedArray.length > 0;
@@ -364,39 +386,21 @@ function ParameterView({
             Nested call:
           </span>
           <DecodedCalldataView decoded={param.nested!} isDecoding={false} />
-          {/* Add Simulate button for nested execute() calls */}
-          {param.nested!.parameters &&
+          {param.nested!.functionName?.match(/^schedule(Batch)?$/) &&
             (() => {
-              const nested = param.nested!;
-              // Look for execute() pattern: [0] address, [1] bytes
-              const targetParam = nested.parameters?.find(
-                (p) =>
-                  p.type === "address" &&
-                  (p.name === "arg0" ||
-                    p.name.includes("target") ||
-                    p.name.includes("address"))
+              const targetParam = siblingParams?.find(
+                (p) => p.type === "address"
               );
-              const calldataParam = nested.parameters?.find(
-                (p) =>
-                  p.type === "bytes" &&
-                  (p.name === "arg1" ||
-                    p.name.includes("data") ||
-                    p.name.includes("calldata"))
+              if (!targetParam || !param.value) return null;
+              return (
+                <div className="mt-2">
+                  <SimulateCallButton
+                    target={targetParam.value}
+                    calldata={param.value}
+                    chain="L1"
+                  />
+                </div>
               );
-
-              if (targetParam && calldataParam) {
-                const chain = getChainTypeFromLabel(targetParam.chainLabel);
-                return (
-                  <div className="mt-2">
-                    <SimulateCallButton
-                      target={targetParam.value}
-                      calldata={calldataParam.value}
-                      chain={chain}
-                    />
-                  </div>
-                );
-              }
-              return null;
             })()}
         </div>
       )}
@@ -430,11 +434,9 @@ function ParameterView({
                     decoded={nestedCall}
                     isDecoding={false}
                   />
-                  {/* Add Simulate button for retryable tickets */}
                   {nestedCall.functionName?.startsWith("Retryable Ticket") &&
                     nestedCall.parameters &&
                     (() => {
-                      // Extract retryable data from parameters
                       const l2TargetParam = nestedCall.parameters.find(
                         (p) => p.name === "l2Target"
                       );
@@ -444,7 +446,6 @@ function ParameterView({
                       const l2ValueParam = nestedCall.parameters.find(
                         (p) => p.name === "l2Value"
                       );
-                      // Derive chain from function name
                       const chainFromName = nestedCall.functionName?.includes(
                         "Nova"
                       )
@@ -469,45 +470,26 @@ function ParameterView({
                       }
                       return null;
                     })()}
-                  {/* Add Simulate button for execute() and other calls */}
                   {!nestedCall.functionName?.startsWith("Retryable Ticket") &&
-                    nestedCall.parameters &&
                     (() => {
-                      // Look for execute() pattern: [0] address, [1] bytes
-                      const targetParam = nestedCall.parameters.find(
-                        (p) =>
-                          p.type === "address" &&
-                          (p.name === "arg0" ||
-                            p.name.includes("target") ||
-                            p.name.includes("address"))
+                      const addressArrayParam = siblingParams?.find(
+                        (p) => p.type === "address[]"
                       );
-                      const calldataParam = nestedCall.parameters.find(
-                        (p) =>
-                          p.type === "bytes" &&
-                          (p.name === "arg1" ||
-                            p.name.includes("data") ||
-                            p.name.includes("calldata"))
+                      if (!addressArrayParam) return null;
+                      const addresses = parseAddressArray(
+                        addressArrayParam.value
                       );
-
-                      // If we have both target and calldata, show simulate button
-                      if (targetParam && calldataParam) {
-                        const chain = getChainTypeFromLabel(
-                          targetParam.chainLabel
-                        );
-                        return (
-                          <div className="mt-2">
-                            <SimulateCallButton
-                              target={targetParam.value}
-                              calldata={calldataParam.value}
-                              chain={chain}
-                            />
-                          </div>
-                        );
-                      }
-
-                      // For perform() or simple calls, try to get target from parent context
-                      // Skip these as they don't have clear target/calldata
-                      return null;
+                      const batchTarget = addresses[nestedIdx];
+                      if (!batchTarget || !nestedCall.raw) return null;
+                      return (
+                        <div className="mt-2">
+                          <SimulateCallButton
+                            target={batchTarget}
+                            calldata={nestedCall.raw}
+                            chain="L1"
+                          />
+                        </div>
+                      );
                     })()}
                 </>
               ) : (
@@ -565,7 +547,12 @@ function DecodedCalldataView({
       {decoded.parameters && decoded.parameters.length > 0 && (
         <div className="space-y-1.5 pl-2 border-l-2 border-border">
           {decoded.parameters.map((param, idx) => (
-            <ParameterView key={idx} param={param} index={idx} />
+            <ParameterView
+              key={idx}
+              param={param}
+              index={idx}
+              siblingParams={decoded.parameters ?? undefined}
+            />
           ))}
         </div>
       )}
@@ -582,6 +569,7 @@ function ActionView({
   nerdMode = false,
   overriddenCalldata,
   onCalldataChange,
+  governorAddress,
 }: {
   index: number;
   target: string;
@@ -590,6 +578,7 @@ function ActionView({
   nerdMode?: boolean;
   overriddenCalldata?: string;
   onCalldataChange?: (newCalldata: string | undefined) => void;
+  governorAddress?: string;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(overriddenCalldata || calldata);
@@ -672,6 +661,14 @@ function ActionView({
             <DecodedCalldataView decoded={decoded} isDecoding={isDecoding} />
           )}
 
+          {showDecoded && !isEditing && governorAddress && (
+            <SimulateCallButton
+              target={target}
+              calldata={effectiveCalldata}
+              chain="Arb1"
+            />
+          )}
+
           {/* Editing mode */}
           {nerdMode && isEditing ? (
             <div className="space-y-2">
@@ -747,6 +744,7 @@ function PayloadView({
   nerdMode = false,
   calldataOverrides,
   onCalldataOverrideChange,
+  governorAddress,
 }: {
   targets: string[];
   values: string[];
@@ -757,6 +755,7 @@ function PayloadView({
     index: number,
     newCalldata: string | undefined
   ) => void;
+  governorAddress?: string;
 }) {
   if (targets.length === 0) {
     return (
@@ -790,6 +789,7 @@ function PayloadView({
           onCalldataChange={(newCalldata) =>
             onCalldataOverrideChange?.(idx, newCalldata)
           }
+          governorAddress={governorAddress}
         />
       ))}
     </div>
@@ -925,6 +925,7 @@ export default function VoteModel({
                 nerdMode={nerdMode}
                 calldataOverrides={calldataOverrides}
                 onCalldataOverrideChange={handleCalldataOverrideChange}
+                governorAddress={proposal.contractAddress}
               />
             </div>
           </TabsContent>
@@ -1054,6 +1055,7 @@ export default function VoteModel({
                 nerdMode={nerdMode}
                 calldataOverrides={calldataOverrides}
                 onCalldataOverrideChange={handleCalldataOverrideChange}
+                governorAddress={proposal.contractAddress}
               />
             </div>
           </TabsContent>
