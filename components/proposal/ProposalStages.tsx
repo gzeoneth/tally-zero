@@ -1,5 +1,6 @@
 "use client";
 
+import { TopDelegatesNotVoted } from "@/components/proposal/TopDelegatesNotVoted";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Progress } from "@/components/ui/Progress";
@@ -545,6 +546,8 @@ function StageItem({
   estimatedCompletion,
   votingTimeRange,
   governorType,
+  proposalId,
+  governorAddress,
 }: {
   stage?: ProposalStage;
   stageType: StageType;
@@ -557,6 +560,8 @@ function StageItem({
   estimatedCompletion?: EstimatedTimeRange;
   votingTimeRange?: VotingTimeRange | null;
   governorType: "core" | "treasury";
+  proposalId: string;
+  governorAddress: string;
 }) {
   const metadata = getStageMetadata(stageType, governorType);
   const status = stage?.status || "NOT_STARTED";
@@ -631,50 +636,57 @@ function StageItem({
           {metadata?.description}
         </p>
 
-        {stageType === "VOTING_ACTIVE" && votingTimeRange && (
+        {stageType === "VOTING_ACTIVE" && (
           <div className="mt-3 space-y-3">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-muted-foreground">
-                  Voting Period
-                </span>
-                <span className="text-foreground">
-                  {formatDateShort(votingTimeRange.votingStartDate)} →{" "}
-                  {stage?.data?.extensionPossible === false
-                    ? formatDateShort(votingTimeRange.votingEndMaxDate)
-                    : formatDateRange(
-                        votingTimeRange.votingEndMinDate,
-                        votingTimeRange.votingEndMaxDate
-                      )}
-                </span>
+            {votingTimeRange && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-muted-foreground">
+                    Voting Period
+                  </span>
+                  <span className="text-foreground">
+                    {formatDateShort(votingTimeRange.votingStartDate)} →{" "}
+                    {stage?.data?.extensionPossible === false
+                      ? formatDateShort(votingTimeRange.votingEndMaxDate)
+                      : formatDateRange(
+                          votingTimeRange.votingEndMinDate,
+                          votingTimeRange.votingEndMaxDate
+                        )}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {Boolean(stage?.data?.quorumReached) && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-xs py-0 px-1.5"
+                    >
+                      Quorum Reached
+                    </Badge>
+                  )}
+                  {Boolean(stage?.data?.wasExtended) && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 text-xs py-0 px-1.5"
+                    >
+                      Extended
+                    </Badge>
+                  )}
+                  {Boolean(
+                    stage?.data?.extensionPossible !== false &&
+                      !stage?.data?.wasExtended
+                  ) && (
+                    <Badge variant="outline" className="text-xs py-0 px-1.5">
+                      +2d extension possible
+                    </Badge>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {Boolean(stage?.data?.quorumReached) && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-xs py-0 px-1.5"
-                  >
-                    Quorum Reached
-                  </Badge>
-                )}
-                {Boolean(stage?.data?.wasExtended) && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 text-xs py-0 px-1.5"
-                  >
-                    Extended
-                  </Badge>
-                )}
-                {Boolean(
-                  stage?.data?.extensionPossible !== false &&
-                    !stage?.data?.wasExtended
-                ) && (
-                  <Badge variant="outline" className="text-xs py-0 px-1.5">
-                    +2d extension possible
-                  </Badge>
-                )}
-              </div>
-            </div>
+            )}
+
+            <TopDelegatesNotVoted
+              proposalId={proposalId}
+              governorAddress={governorAddress}
+            />
 
             {Boolean(stage?.data?.quorumRequired) && (
               <QuorumProgressBar
@@ -1025,6 +1037,8 @@ export default function ProposalStages({
               estimatedCompletion={estimatedCompletion}
               votingTimeRange={votingTimeRange}
               governorType={governorType}
+              proposalId={proposalId}
+              governorAddress={governorAddress}
             />
           );
         })}
