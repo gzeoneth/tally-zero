@@ -1,0 +1,211 @@
+"use client";
+
+import { ethers } from "ethers";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
+import type {
+  DelegateCache,
+  DelegateCacheStats,
+  DelegateInfo,
+} from "@/types/delegate";
+import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@config/arbitrum-governance";
+import ERC20Votes_ABI from "@data/ERC20Votes_ABI.json";
+
+export interface UseDelegateSearchOptions {
+  enabled: boolean;
+  customRpcUrl?: string;
+  minVotingPower?: string;
+  addressFilter?: string;
+}
+
+export interface UseDelegateSearchResult {
+  delegates: DelegateInfo[];
+  totalVotingPower: string;
+  totalSupply: string;
+  error: Error | null;
+  isLoading: boolean;
+  cacheStats?: DelegateCacheStats;
+  snapshotBlock: number;
+  refreshVisibleDelegates: (addresses: string[]) => Promise<void>;
+  isRefreshingVisible: boolean;
+}
+
+function filterDelegates(
+  delegates: DelegateInfo[],
+  options: {
+    minVotingPower?: string;
+    addressFilter?: string;
+  }
+): DelegateInfo[] {
+  let filtered = delegates;
+
+  // Filter by minimum voting power
+  if (options.minVotingPower) {
+    const minPower = BigInt(options.minVotingPower);
+    filtered = filtered.filter((d) => BigInt(d.votingPower) >= minPower);
+  }
+
+  // Filter by address (partial match, case-insensitive)
+  if (options.addressFilter && options.addressFilter.trim()) {
+    const searchTerm = options.addressFilter.toLowerCase().trim();
+    filtered = filtered.filter((d) =>
+      d.address.toLowerCase().includes(searchTerm)
+    );
+  }
+
+  return filtered;
+}
+
+export function useDelegateSearch({
+  enabled,
+  customRpcUrl,
+  minVotingPower,
+  addressFilter,
+}: UseDelegateSearchOptions): UseDelegateSearchResult {
+  const [delegates, setDelegates] = useState<DelegateInfo[]>([]);
+  const [totalVotingPower, setTotalVotingPower] = useState<string>("0");
+  const [totalSupply, setTotalSupply] = useState<string>("0");
+  const [snapshotBlock, setSnapshotBlock] = useState<number>(0);
+  const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshingVisible, setIsRefreshingVisible] = useState(false);
+  const [cacheStats, setCacheStats] = useState<DelegateCacheStats>();
+  const [cache, setCache] = useState<DelegateCache | null>(null);
+
+  // Track refreshed delegates to avoid re-fetching
+  const refreshedAddresses = useRef<Set<string>>(new Set());
+
+  const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
+
+  // Load cache on mount
+  useEffect(() => {
+    setIsLoading(true);
+    loadDelegateCache().then((loaded) => {
+      if (loaded) {
+        setCache(loaded);
+        // Show cached delegates immediately
+        const filtered = filterDelegates(loaded.delegates, {
+          minVotingPower,
+          addressFilter,
+        });
+        setDelegates(filtered);
+        setTotalVotingPower(loaded.totalVotingPower);
+        setTotalSupply(loaded.totalSupply);
+        setSnapshotBlock(loaded.snapshotBlock);
+        setCacheStats(getDelegateCacheStats(loaded));
+        console.log(
+          `[useDelegateSearch] Cache loaded: ${loaded.delegates.length} delegates (block ${loaded.snapshotBlock})`
+        );
+      }
+      setIsLoading(false);
+    });
+  }, []);
+
+  // Apply filters when they change
+  useEffect(() => {
+    if (cache) {
+      const filtered = filterDelegates(cache.delegates, {
+        minVotingPower,
+        addressFilter,
+      });
+      setDelegates(filtered);
+    }
+  }, [minVotingPower, addressFilter, cache]);
+
+  // Function to refresh voting power for specific visible delegates
+  const refreshVisibleDelegates = useCallback(
+    async (addresses: string[]) => {
+      if (!enabled || addresses.length === 0) return;
+
+      // Filter to only addresses we haven't refreshed yet
+      const toRefresh = addresses.filter(
+        (addr) => !refreshedAddresses.current.has(addr.toLowerCase())
+      );
+
+      if (toRefresh.length === 0) return;
+
+      setIsRefreshingVisible(true);
+
+      try {
+        const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        await provider.ready;
+
+        const contract = new ethers.Contract(
+          ARB_TOKEN.address,
+          ERC20Votes_ABI,
+          provider
+        );
+
+        // Fetch voting power for visible delegates in parallel
+        const refreshPromises = toRefresh.map(async (address) => {
+          try {
+            const votes = await contract.getCurrentVotes(address);
+            refreshedAddresses.current.add(address.toLowerCase());
+            return { address, votingPower: votes.toString() };
+          } catch (err) {
+            console.warn(`Failed to refresh voting power for ${address}:`, err);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(refreshPromises);
+        const successfulResults = results.filter(
+          (r): r is { address: string; votingPower: string } => r !== null
+        );
+
+        if (successfulResults.length > 0 && cache) {
+          // Update cache with refreshed values
+          const updatedDelegates = cache.delegates.map((d) => {
+            const refreshed = successfulResults.find(
+              (r) => r.address.toLowerCase() === d.address.toLowerCase()
+            );
+            return refreshed ? { ...d, votingPower: refreshed.votingPower } : d;
+          });
+
+          // Sort by voting power descending
+          updatedDelegates.sort((a, b) =>
+            Number(BigInt(b.votingPower) - BigInt(a.votingPower))
+          );
+
+          // Update cache in state
+          const newCache = { ...cache, delegates: updatedDelegates };
+          setCache(newCache);
+
+          // Apply filters
+          const filtered = filterDelegates(updatedDelegates, {
+            minVotingPower,
+            addressFilter,
+          });
+          setDelegates(filtered);
+
+          // Recalculate totals
+          const newTotalVotingPower = updatedDelegates
+            .reduce((sum, d) => sum + BigInt(d.votingPower), BigInt(0))
+            .toString();
+          setTotalVotingPower(newTotalVotingPower);
+        }
+      } catch (err) {
+        console.error(
+          "[useDelegateSearch] Error refreshing visible delegates:",
+          err
+        );
+      } finally {
+        setIsRefreshingVisible(false);
+      }
+    },
+    [enabled, rpcUrl, cache, minVotingPower, addressFilter]
+  );
+
+  return {
+    delegates,
+    totalVotingPower,
+    totalSupply,
+    error,
+    isLoading,
+    cacheStats,
+    snapshotBlock,
+    refreshVisibleDelegates,
+    isRefreshingVisible,
+  };
+}

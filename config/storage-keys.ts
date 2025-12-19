@@ -8,6 +8,8 @@ export const STORAGE_KEYS = {
   NERD_MODE: "tally-zero-nerd-mode",
   CACHE_TTL: "tally-zero-cache-ttl",
   SKIP_PRELOAD_CACHE: "tally-zero-skip-preload-cache",
+  SKIP_DELEGATE_CACHE: "tally-zero-skip-delegate-cache",
+  DELEGATE_MIN_POWER: "tally-zero-delegate-min-power",
   TENDERLY_ORG: "tally-zero-tenderly-org",
   TENDERLY_PROJECT: "tally-zero-tenderly-project",
   TENDERLY_ACCESS_TOKEN: "tally-zero-tenderly-access-token",
