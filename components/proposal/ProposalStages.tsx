@@ -20,6 +20,7 @@ import type {
   StageType,
 } from "@/types/proposal-stage";
 import {
+  CalendarIcon,
   CheckCircledIcon,
   CircleIcon,
   CrossCircledIcon,
@@ -518,6 +519,30 @@ function formatEstimatedCompletion(range: EstimatedTimeRange): string {
   return `${formatDate(range.minDate)} - ${formatDate(range.maxDate)}`;
 }
 
+function formatDateForGoogleCalendar(date: Date): string {
+  // Google Calendar expects: YYYYMMDDTHHmmssZ format
+  return date
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}/, "");
+}
+
+function createGoogleCalendarUrl(
+  stageTitle: string,
+  estimatedTime: EstimatedTimeRange,
+  proposalId: string
+): string {
+  const startDate = estimatedTime.minDate;
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  const title = encodeURIComponent(`Arbitrum DAO: ${stageTitle}`);
+  const details = encodeURIComponent(
+    `Estimated completion for proposal stage.\n\nProposal ID: ${proposalId}\nStage: ${stageTitle}\n\nView proposal at TallyZero`
+  );
+  const dates = `${formatDateForGoogleCalendar(startDate)}/${formatDateForGoogleCalendar(endDate)}`;
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
+}
+
 function StatusIcon({ status }: { status: StageStatus }) {
   switch (status) {
     case "COMPLETED":
@@ -705,9 +730,24 @@ function StageItem({
             )}
 
             {estimatedCompletion && (
-              <div className="text-xs text-blue-600 dark:text-blue-400">
-                Est. completion:{" "}
-                {formatEstimatedCompletion(estimatedCompletion)}
+              <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <span>
+                  Est. completion:{" "}
+                  {formatEstimatedCompletion(estimatedCompletion)}
+                </span>
+                <a
+                  href={createGoogleCalendarUrl(
+                    metadata?.title || stageType,
+                    estimatedCompletion,
+                    proposalId
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  title="Add to Google Calendar"
+                >
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                </a>
               </div>
             )}
           </div>
@@ -721,9 +761,24 @@ function StageItem({
                 <p>Est. duration: {metadata.estimatedDuration}</p>
               )}
               {estimatedCompletion && (
-                <p className="text-blue-600 dark:text-blue-400">
-                  Est. completion:{" "}
-                  {formatEstimatedCompletion(estimatedCompletion)}
+                <p className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5 not-italic">
+                  <span>
+                    Est. completion:{" "}
+                    {formatEstimatedCompletion(estimatedCompletion)}
+                  </span>
+                  <a
+                    href={createGoogleCalendarUrl(
+                      metadata?.title || stageType,
+                      estimatedCompletion,
+                      proposalId
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    title="Add to Google Calendar"
+                  >
+                    <CalendarIcon className="h-3.5 w-3.5" />
+                  </a>
                 </p>
               )}
             </div>
