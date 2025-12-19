@@ -1,6 +1,8 @@
 "use client";
 
 import { Button } from "@components/ui/Button";
+import { TenderlySetupDialog } from "@components/ui/TenderlySetupDialog";
+import { isTenderlyConfigured } from "@lib/tenderly";
 import { cn } from "@lib/utils";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { useCallback, useState } from "react";
@@ -65,10 +67,15 @@ export function SimulationButton({
   const [error, setError] = useState<string | null>(null);
   const [simulationResult, setSimulationResult] =
     useState<SimulationResult | null>(null);
+  const [showSetupDialog, setShowSetupDialog] = useState(false);
 
   const config = TYPE_CONFIG[type];
 
   const handleSimulate = useCallback(async () => {
+    if (!isTenderlyConfigured()) {
+      setShowSetupDialog(true);
+      return;
+    }
     setIsSimulating(true);
     setError(null);
     setSimulationResult(null);
@@ -105,22 +112,32 @@ export function SimulationButton({
   }
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleSimulate}
-        disabled={disabled || isSimulating}
-        className={cn("text-xs h-7 px-2", config.buttonClass)}
-      >
-        {isSimulating ? config.loadingLabel : label || config.defaultLabel}
-        {config.badge && !isSimulating && (
-          <span className="ml-1 text-[10px] opacity-60">({config.badge})</span>
+    <>
+      <div className={cn("flex items-center gap-2", className)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleSimulate}
+          disabled={disabled || isSimulating}
+          className={cn("text-xs h-7 px-2", config.buttonClass)}
+        >
+          {isSimulating ? config.loadingLabel : label || config.defaultLabel}
+          {config.badge && !isSimulating && (
+            <span className="ml-1 text-[10px] opacity-60">
+              ({config.badge})
+            </span>
+          )}
+        </Button>
+        {error && (
+          <span className="text-xs text-red-500 dark:text-red-400">
+            {error}
+          </span>
         )}
-      </Button>
-      {error && (
-        <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
-      )}
-    </div>
+      </div>
+      <TenderlySetupDialog
+        open={showSetupDialog}
+        onOpenChange={setShowSetupDialog}
+      />
+    </>
   );
 }

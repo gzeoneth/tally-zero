@@ -88,6 +88,15 @@ export function getTenderlySettings(): {
   return { org, project, accessToken };
 }
 
+export function isTenderlyConfigured(): boolean {
+  const { org, project, accessToken } = getTenderlySettings();
+  return (
+    Boolean(org && org !== DEFAULT_TENDERLY_ORG) &&
+    Boolean(project && project !== DEFAULT_TENDERLY_PROJECT) &&
+    Boolean(accessToken)
+  );
+}
+
 export function getSimulationLink(simulationId: string): string {
   const { org, project } = getTenderlySettings();
   return `https://dashboard.tenderly.co/public/${org}/${project}/simulator/${simulationId}`;

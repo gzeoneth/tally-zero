@@ -39,6 +39,7 @@ import {
   STORAGE_KEYS,
 } from "@/config/storage-keys";
 import { useNerdMode } from "@/context/NerdModeContext";
+import { useSettingsSheet } from "@/context/SettingsSheetContext";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
 // Get all TallyZero storage keys
@@ -48,7 +49,8 @@ const ALL_STORAGE_KEYS = Object.values(STORAGE_KEYS).filter(
 
 export function SettingsSheet() {
   const { theme, setTheme } = useTheme();
-  const [open, setOpen] = useState(false);
+  const { isOpen, activeTab, openSettings, closeSettings, setActiveTab } =
+    useSettingsSheet();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDangerZone, setShowDangerZone] = useState(false);
 
@@ -113,8 +115,8 @@ export function SettingsSheet() {
 
   // Sync local state when sheet opens
   const handleOpenChange = useCallback(
-    (isOpen: boolean) => {
-      if (isOpen) {
+    (open: boolean) => {
+      if (open) {
         setL2RpcInput(storedL2Rpc);
         setL1RpcInput(storedL1Rpc);
         setBlockRangeInput(String(blockRange));
@@ -125,8 +127,10 @@ export function SettingsSheet() {
         setTenderlyOrgInput(tenderlyOrg);
         setTenderlyProjectInput(tenderlyProject);
         setTenderlyAccessTokenInput(tenderlyAccessToken);
+        openSettings();
+      } else {
+        closeSettings();
       }
-      setOpen(isOpen);
     },
     [
       storedL2Rpc,
@@ -138,6 +142,8 @@ export function SettingsSheet() {
       tenderlyOrg,
       tenderlyProject,
       tenderlyAccessToken,
+      openSettings,
+      closeSettings,
     ]
   );
 
@@ -154,7 +160,7 @@ export function SettingsSheet() {
     setTenderlyOrg(tenderlyOrgInput || DEFAULT_TENDERLY_ORG);
     setTenderlyProject(tenderlyProjectInput || DEFAULT_TENDERLY_PROJECT);
     setTenderlyAccessToken(tenderlyAccessTokenInput);
-    setOpen(false);
+    closeSettings();
     // Reload to apply changes
     window.location.reload();
   }, [
@@ -176,6 +182,7 @@ export function SettingsSheet() {
     setTenderlyOrg,
     setTenderlyProject,
     setTenderlyAccessToken,
+    closeSettings,
   ]);
 
   // Clear all cache
@@ -317,7 +324,7 @@ export function SettingsSheet() {
   const totalStorage = getTotalStorageUsage();
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         <Button
           variant="ghost"
@@ -340,7 +347,10 @@ export function SettingsSheet() {
         </SheetHeader>
 
         <Tabs
-          defaultValue="general"
+          value={activeTab}
+          onValueChange={(value) =>
+            setActiveTab(value as "general" | "rpc" | "advanced")
+          }
           className="flex-1 flex flex-col mt-4 min-h-0"
         >
           <TabsList className="flex-shrink-0 w-full grid grid-cols-3">
@@ -816,7 +826,7 @@ export function SettingsSheet() {
             type="button"
             variant="outline"
             className="flex-1"
-            onClick={() => setOpen(false)}
+            onClick={() => closeSettings()}
           >
             Cancel
           </Button>
