@@ -181,16 +181,17 @@ export function getStageMetadata(
   return estimatedDuration ? { ...base, estimatedDuration } : { ...base };
 }
 
-/**
- * @deprecated Use getStageMetadata(type, governorType) instead for accurate durations
- * Legacy export for backwards compatibility - returns metadata with Core Governor durations
- */
-export const STAGE_METADATA: StageMetadata[] = BASE_STAGE_METADATA.map(
-  (base) => {
-    const estimatedDuration = getEstimatedDuration(base.type, "core");
+export function getAllStageMetadata(
+  governorType: "core" | "treasury" = "core"
+): StageMetadata[] {
+  return BASE_STAGE_METADATA.map((base) => {
+    const estimatedDuration = getEstimatedDuration(base.type, governorType);
     return estimatedDuration ? { ...base, estimatedDuration } : { ...base };
-  }
-);
+  });
+}
+
+/** @deprecated Use getAllStageMetadata(governorType) instead */
+export const STAGE_METADATA: StageMetadata[] = getAllStageMetadata("core");
 
 async function searchLogsInChunks(
   provider: ethers.providers.Provider,

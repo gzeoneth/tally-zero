@@ -11,14 +11,15 @@
 
 import {
   ARBITRUM_RPC_URL,
-  CORE_GOVERNOR,
   DEFAULT_CHUNKING_CONFIG,
   ETHEREUM_RPC_URL,
   L1_TIMELOCK,
-  L2_CORE_TIMELOCK,
-  L2_TREASURY_TIMELOCK,
-  TREASURY_GOVERNOR,
 } from "@/config/arbitrum-governance";
+import {
+  getGovernorByAddress,
+  isCoreGovernor as isCoreGov,
+  isTreasuryGovernor as isTreasuryGov,
+} from "@/config/governors";
 import type { ChunkingConfig, ProposalStage } from "@/types/proposal-stage";
 import { ArbitrumProvider } from "@arbitrum/sdk";
 import { ethers } from "ethers";
@@ -51,18 +52,12 @@ export interface TrackStagesResult {
 /**
  * Determine if a governor address is the Core Governor
  */
-export function isCoreGovernor(governorAddress: string): boolean {
-  return governorAddress.toLowerCase() === CORE_GOVERNOR.address.toLowerCase();
-}
+export const isCoreGovernor = isCoreGov;
 
 /**
  * Determine if a governor address is the Treasury Governor
  */
-export function isTreasuryGovernor(governorAddress: string): boolean {
-  return (
-    governorAddress.toLowerCase() === TREASURY_GOVERNOR.address.toLowerCase()
-  );
-}
+export const isTreasuryGovernor = isTreasuryGov;
 
 /**
  * Create an IncrementalStageTracker for the given governor
@@ -79,10 +74,8 @@ export function createTracker(
 
   const config = { ...DEFAULT_CHUNKING_CONFIG, ...chunkingConfig };
 
-  const isCore = isCoreGovernor(governorAddress);
-  const l2TimelockAddress = isCore
-    ? L2_CORE_TIMELOCK.address
-    : L2_TREASURY_TIMELOCK.address;
+  const governorConfig = getGovernorByAddress(governorAddress);
+  const l2TimelockAddress = governorConfig?.l2TimelockAddress ?? "";
 
   return new IncrementalStageTracker(
     l2Provider,
@@ -117,10 +110,8 @@ export async function trackProposalStages(
   } = options;
 
   // Validate governor address
-  if (
-    !isCoreGovernor(governorAddress) &&
-    !isTreasuryGovernor(governorAddress)
-  ) {
+  const governorConfig = getGovernorByAddress(governorAddress);
+  if (!governorConfig) {
     return {
       stages: [],
       error: `Unknown governor address: ${governorAddress}`,

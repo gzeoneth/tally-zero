@@ -8,6 +8,7 @@ import {
   DEFAULT_TENDERLY_PROJECT,
   STORAGE_KEYS,
 } from "@config/storage-keys";
+import { getStoredJsonString } from "@lib/storage-utils";
 import { encodeAbiParameters, keccak256 } from "viem";
 
 const ADDRESS_ALIAS_OFFSET = BigInt(
@@ -73,46 +74,16 @@ export function getTenderlySettings(): {
   project: string;
   accessToken: string | null;
 } {
-  if (typeof window === "undefined") {
-    return {
-      org: DEFAULT_TENDERLY_ORG,
-      project: DEFAULT_TENDERLY_PROJECT,
-      accessToken: null,
-    };
-  }
-
-  let org = DEFAULT_TENDERLY_ORG;
-  let project = DEFAULT_TENDERLY_PROJECT;
-  let accessToken: string | null = null;
-
-  try {
-    const storedOrg = localStorage.getItem(STORAGE_KEYS.TENDERLY_ORG);
-    if (storedOrg) {
-      org = JSON.parse(storedOrg) || DEFAULT_TENDERLY_ORG;
-    }
-  } catch {
-    // Use default
-  }
-
-  try {
-    const storedProject = localStorage.getItem(STORAGE_KEYS.TENDERLY_PROJECT);
-    if (storedProject) {
-      project = JSON.parse(storedProject) || DEFAULT_TENDERLY_PROJECT;
-    }
-  } catch {
-    // Use default
-  }
-
-  try {
-    const storedToken = localStorage.getItem(
-      STORAGE_KEYS.TENDERLY_ACCESS_TOKEN
-    );
-    if (storedToken) {
-      accessToken = JSON.parse(storedToken) || null;
-    }
-  } catch {
-    // No token
-  }
+  const org = getStoredJsonString(
+    STORAGE_KEYS.TENDERLY_ORG,
+    DEFAULT_TENDERLY_ORG
+  );
+  const project = getStoredJsonString(
+    STORAGE_KEYS.TENDERLY_PROJECT,
+    DEFAULT_TENDERLY_PROJECT
+  );
+  const accessToken =
+    getStoredJsonString(STORAGE_KEYS.TENDERLY_ACCESS_TOKEN, "") || null;
 
   return { org, project, accessToken };
 }

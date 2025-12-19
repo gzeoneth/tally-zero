@@ -1,15 +1,12 @@
 "use client";
 
-import {
-  CORE_GOVERNOR,
-  ETHEREUM_RPC_URL,
-  TREASURY_GOVERNOR,
-} from "@/config/arbitrum-governance";
+import { ETHEREUM_RPC_URL } from "@/config/arbitrum-governance";
+import { getGovernorByAddress, isCoreGovernor } from "@/config/governors";
 import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
 import {
-  STAGE_METADATA,
   createCoreGovernorTracker,
   createTreasuryGovernorTracker,
+  getAllStageMetadata,
   type StageProgressCallback,
 } from "@/lib/incremental-stage-tracker";
 import {
@@ -143,17 +140,12 @@ export function useProposalStages({
       });
 
       try {
-        const isCoreGovernor =
-          governorAddress.toLowerCase() === CORE_GOVERNOR.address.toLowerCase();
-        const isTreasuryGovernor =
-          governorAddress.toLowerCase() ===
-          TREASURY_GOVERNOR.address.toLowerCase();
-
-        if (!isCoreGovernor && !isTreasuryGovernor) {
+        const governorConfig = getGovernorByAddress(governorAddress);
+        if (!governorConfig) {
           throw new Error(`Unknown governor address: ${governorAddress}`);
         }
 
-        const tracker = isCoreGovernor
+        const tracker = isCoreGovernor(governorAddress)
           ? createCoreGovernorTracker(
               effectiveL2RpcUrl || undefined,
               effectiveL1RpcUrl || undefined
@@ -473,6 +465,6 @@ export function useProposalStages({
   };
 }
 
-export function getAllStageTypes() {
-  return STAGE_METADATA;
+export function getAllStageTypes(governorType: "core" | "treasury" = "core") {
+  return getAllStageMetadata(governorType);
 }

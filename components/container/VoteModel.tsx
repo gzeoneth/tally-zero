@@ -29,6 +29,7 @@ import {
 import { ErrorBoundary } from "@components/ui/ErrorBoundary";
 import { Input } from "@components/ui/Input";
 import { Label } from "@components/ui/Label";
+import { SimulationButton } from "@components/ui/SimulationButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 
 import {
@@ -52,7 +53,6 @@ import {
 import {
   CheckIcon,
   CopyIcon,
-  ExternalLinkIcon,
   Pencil1Icon,
   ResetIcon,
 } from "@radix-ui/react-icons";
@@ -141,234 +141,12 @@ function truncateValue(value: string, maxLength = 50): string {
   return value.slice(0, 24) + "..." + value.slice(-20);
 }
 
-function SimulateButton({
-  l2Target,
-  l2Calldata,
-  l2Value,
-  chain,
-}: {
-  l2Target: string;
-  l2Calldata: string;
-  l2Value?: string;
-  chain: "arb1" | "nova" | "unknown";
-}) {
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [simulationResult, setSimulationResult] = useState<{
-    link: string;
-    success: boolean;
-  } | null>(null);
-
-  const handleSimulate = useCallback(async () => {
-    setIsSimulating(true);
-    setError(null);
-    setSimulationResult(null);
-
-    try {
-      const result = await simulateRetryableTicket({
-        l2Target,
-        l2Calldata,
-        l2Value,
-        chain,
-      });
-      setSimulationResult({ link: result.link, success: result.success });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Simulation failed");
-    } finally {
-      setIsSimulating(false);
-    }
-  }, [l2Target, l2Calldata, l2Value, chain]);
-
-  if (simulationResult) {
-    return (
-      <a
-        href={simulationResult.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`inline-flex items-center gap-1 text-xs hover:underline ${
-          simulationResult.success
-            ? "text-green-600 dark:text-green-400"
-            : "text-red-600 dark:text-red-400"
-        }`}
-      >
-        <ExternalLinkIcon className="w-3 h-3" />
-        {simulationResult.success ? "Success" : "Failed"} - View Simulation
-      </a>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleSimulate}
-        disabled={isSimulating}
-        className="text-xs h-7 px-2"
-      >
-        {isSimulating ? "Simulating..." : "Simulate (beta)"}
-      </Button>
-      {error && (
-        <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
-      )}
-    </div>
-  );
-}
-
-function SimulateCallButton({
-  target,
-  calldata,
-  value,
-  chain,
-  from,
-}: {
-  target: string;
-  calldata: string;
-  value?: string;
-  chain: ChainType;
-  from?: string;
-}) {
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [simulationResult, setSimulationResult] = useState<{
-    link: string;
-    success: boolean;
-  } | null>(null);
-
-  const handleSimulate = useCallback(async () => {
-    setIsSimulating(true);
-    setError(null);
-    setSimulationResult(null);
-
-    try {
-      const result = await simulateCall({
-        target,
-        calldata,
-        value,
-        chain,
-        from,
-      });
-      setSimulationResult({ link: result.link, success: result.success });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Simulation failed");
-    } finally {
-      setIsSimulating(false);
-    }
-  }, [target, calldata, value, chain, from]);
-
-  if (simulationResult) {
-    return (
-      <a
-        href={simulationResult.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`inline-flex items-center gap-1 text-xs hover:underline ${
-          simulationResult.success
-            ? "text-green-600 dark:text-green-400"
-            : "text-red-600 dark:text-red-400"
-        }`}
-      >
-        <ExternalLinkIcon className="w-3 h-3" />
-        {simulationResult.success ? "Success" : "Failed"} - View Simulation
-      </a>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleSimulate}
-        disabled={isSimulating}
-        className="text-xs h-7 px-2"
-      >
-        {isSimulating ? "Simulating..." : "Simulate (beta)"}
-      </Button>
-      {error && (
-        <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
-      )}
-    </div>
-  );
-}
-
+// Chain ID mapping for timelock simulations
 const TIMELOCK_CHAIN_IDS: Record<string, string> = {
   L1: "1",
   Arb1: "42161",
   Nova: "42170",
 };
-
-function SimulateTimelockButton({
-  timelockAddress,
-  calldata,
-  chain,
-}: {
-  timelockAddress: string;
-  calldata: string;
-  chain: ChainType;
-}) {
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [simulationResult, setSimulationResult] = useState<{
-    link: string;
-    success: boolean;
-  } | null>(null);
-
-  const handleSimulate = useCallback(async () => {
-    setIsSimulating(true);
-    setError(null);
-    setSimulationResult(null);
-
-    try {
-      const networkId = TIMELOCK_CHAIN_IDS[chain] || TIMELOCK_CHAIN_IDS.L1;
-      const result = await simulateTimelockBatch({
-        timelockAddress,
-        calldata,
-        networkId,
-      });
-      setSimulationResult({ link: result.link, success: result.success });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Simulation failed");
-    } finally {
-      setIsSimulating(false);
-    }
-  }, [timelockAddress, calldata, chain]);
-
-  if (simulationResult) {
-    return (
-      <a
-        href={simulationResult.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`inline-flex items-center gap-1 text-xs hover:underline ${
-          simulationResult.success
-            ? "text-green-600 dark:text-green-400"
-            : "text-red-600 dark:text-red-400"
-        }`}
-      >
-        <ExternalLinkIcon className="w-3 h-3" />
-        {simulationResult.success ? "Success" : "Failed"} - View Simulation
-      </a>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleSimulate}
-        disabled={isSimulating}
-        className="text-xs h-7 px-2"
-      >
-        {isSimulating ? "Simulating..." : "Simulate (beta)"}
-      </Button>
-      {error && (
-        <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
-      )}
-    </div>
-  );
-}
 
 function getChainTypeFromLabel(chainLabel?: string): ChainType {
   if (!chainLabel) return "unknown";
@@ -479,12 +257,19 @@ function ParameterView({
               );
               if (!targetParam || !param.value) return null;
               const chain = getChainTypeFromLabel(targetParam.chainLabel);
+              const networkId =
+                TIMELOCK_CHAIN_IDS[chain] || TIMELOCK_CHAIN_IDS.L1;
               return (
                 <div className="mt-2">
-                  <SimulateTimelockButton
-                    timelockAddress={targetParam.value}
-                    calldata={param.value}
-                    chain={chain}
+                  <SimulationButton
+                    type="timelock"
+                    onSimulate={() =>
+                      simulateTimelockBatch({
+                        timelockAddress: targetParam.value,
+                        calldata: param.value,
+                        networkId,
+                      })
+                    }
                   />
                 </div>
               );
@@ -544,12 +329,18 @@ function ParameterView({
                       if (l2TargetParam && l2CalldataParam) {
                         return (
                           <div className="mt-2">
-                            <SimulateButton
-                              l2Target={l2TargetParam.value}
-                              l2Calldata={l2CalldataParam.value}
-                              l2Value={l2ValueParam?.value?.split(" ")[0]}
-                              chain={
-                                chainFromName as "arb1" | "nova" | "unknown"
+                            <SimulationButton
+                              type="retryable"
+                              onSimulate={() =>
+                                simulateRetryableTicket({
+                                  l2Target: l2TargetParam.value,
+                                  l2Calldata: l2CalldataParam.value,
+                                  l2Value: l2ValueParam?.value?.split(" ")[0],
+                                  chain: chainFromName as
+                                    | "arb1"
+                                    | "nova"
+                                    | "unknown",
+                                })
                               }
                             />
                           </div>
@@ -570,10 +361,15 @@ function ParameterView({
                       if (!batchTarget || !nestedCall.raw) return null;
                       return (
                         <div className="mt-2">
-                          <SimulateCallButton
-                            target={batchTarget}
-                            calldata={nestedCall.raw}
-                            chain="L1"
+                          <SimulationButton
+                            type="call"
+                            onSimulate={() =>
+                              simulateCall({
+                                target: batchTarget,
+                                calldata: nestedCall.raw,
+                                chain: "L1",
+                              })
+                            }
                           />
                         </div>
                       );
@@ -749,15 +545,19 @@ function ActionView({
           )}
 
           {showDecoded && !isEditing && governorAddress && (
-            <SimulateCallButton
-              target={target}
-              calldata={effectiveCalldata}
-              chain="Arb1"
-              from={
-                governorAddress.toLowerCase() ===
-                TREASURY_GOVERNOR.address.toLowerCase()
-                  ? L2_TREASURY_TIMELOCK.address
-                  : undefined
+            <SimulationButton
+              type="call"
+              onSimulate={() =>
+                simulateCall({
+                  target,
+                  calldata: effectiveCalldata,
+                  chain: "Arb1",
+                  from:
+                    governorAddress.toLowerCase() ===
+                    TREASURY_GOVERNOR.address.toLowerCase()
+                      ? L2_TREASURY_TIMELOCK.address
+                      : undefined,
+                })
               }
             />
           )}

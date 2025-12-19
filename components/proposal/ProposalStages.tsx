@@ -922,14 +922,15 @@ export default function ProposalStages({
   const currentL1Block =
     currentL1BlockProp ?? currentL1BlockFromHook ?? undefined;
 
-  const allStageTypes = getAllStageTypes();
+  const isTreasuryProposal =
+    governorAddress.toLowerCase() === TREASURY_GOVERNOR.address.toLowerCase();
+  const governorType = isTreasuryProposal ? "treasury" : "core";
+
+  const allStageTypes = getAllStageTypes(governorType);
   const stageMap = new Map<StageType, ProposalStage>();
   for (const stage of stages) {
     stageMap.set(stage.type, stage);
   }
-
-  const isTreasuryProposal =
-    governorAddress.toLowerCase() === TREASURY_GOVERNOR.address.toLowerCase();
   const isDefeated = result?.currentState === "Defeated";
 
   const relevantStageTypes = allStageTypes.filter((meta) => {
@@ -1023,7 +1024,7 @@ export default function ProposalStages({
               onRefresh={refetchFromStage}
               estimatedCompletion={estimatedCompletion}
               votingTimeRange={votingTimeRange}
-              governorType={isTreasuryProposal ? "treasury" : "core"}
+              governorType={governorType}
             />
           );
         })}

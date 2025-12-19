@@ -1,13 +1,4 @@
-/**
- * Stages Cache - Single source of truth for proposal stages caching
- *
- * This module consolidates all localStorage caching logic for proposal stages.
- * Used by both:
- * - hooks/use-proposal-stages.tsx (runtime tracking)
- * - lib/proposal-cache.ts (preload cache seeding)
- * - scripts/build-proposal-cache.ts (preload cache generation)
- */
-
+import { GOVERNORS, getFinalStageForGovernor } from "@/config/governors";
 import {
   CACHE_VERSION,
   DEFAULT_CACHE_TTL_MS,
@@ -16,54 +7,34 @@ import {
 import type {
   ProposalStage,
   ProposalTrackingResult,
-  StageType,
 } from "@/types/proposal-stage";
 
-/**
- * Governor addresses for determining final stage type
- */
-export const CORE_GOVERNOR_ADDRESS =
-  "0xf07DeD9dC292157749B6Fd268E37DF6EA38395B9".toLowerCase();
+/** @deprecated Use GOVERNORS from @/config/governors instead */
+export const CORE_GOVERNOR_ADDRESS = GOVERNORS.core.address.toLowerCase();
 export const TREASURY_GOVERNOR_ADDRESS =
-  "0x789fC99093B09aD01C34DC7251D0C89ce743e5a4".toLowerCase();
+  GOVERNORS.treasury.address.toLowerCase();
 
-/**
- * Final stage types per governor
- * - Core Governor: Full L1 round-trip ending with retryable redemption
- * - Treasury Governor: Ends at L2 timelock execution (no L1 round-trip)
- */
-export const FINAL_STAGE_BY_GOVERNOR: Record<string, StageType> = {
-  [CORE_GOVERNOR_ADDRESS]: "RETRYABLE_REDEEMED",
-  [TREASURY_GOVERNOR_ADDRESS]: "L2_TIMELOCK_EXECUTED",
+/** @deprecated Use getFinalStageForGovernor from @/config/governors instead */
+export const FINAL_STAGE_BY_GOVERNOR = {
+  [CORE_GOVERNOR_ADDRESS]: GOVERNORS.core.finalStage,
+  [TREASURY_GOVERNOR_ADDRESS]: GOVERNORS.treasury.finalStage,
 };
 
-/**
- * Time after proposal creation to stop tracking (60 days in ms)
- * Prevents old proposals without retryables from being re-tracked forever
- */
+// Time after proposal creation to stop tracking (60 days)
 export const MAX_TRACKING_AGE_MS = 60 * 24 * 60 * 60 * 1000;
 
-/**
- * Cached stages result stored in localStorage
- */
 export interface CachedStagesResult {
   version: number;
   timestamp: number;
   result: ProposalTrackingResult;
 }
 
-/**
- * Result from loading cached stages
- */
 export interface CacheLoadResult {
   result: ProposalTrackingResult | null;
   isExpired: boolean;
   isComplete: boolean;
 }
 
-/**
- * Generate localStorage key for a proposal's stages
- */
 export function getCacheKey(
   proposalId: string,
   governorAddress: string
@@ -71,8 +42,46 @@ export function getCacheKey(
   return `${STORAGE_KEYS.STAGES_CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
 }
 
+export type CompletionStatus =
+  | "pending"
+  | "completed"
+  | "failed"
+  | "incomplete";
+
+export function getCompletionStatus(
+  stages: ProposalStage[],
+  governorAddress: string
+): CompletionStatus {
+  if (!stages || stages.length === 0) return "pending";
+
+  const lastStage = stages[stages.length - 1];
+
+  // Failed proposals are complete (defeated, canceled, expired)
+  if (lastStage.status === "FAILED") {
+    return "failed";
+  }
+
+  // Check if we've reached the expected final stage for this governor
+  const expectedFinalStage = getFinalStageForGovernor(governorAddress);
+
+  if (!expectedFinalStage) {
+    // Unknown governor - fall back to basic completion check
+    return lastStage.status === "COMPLETED" ? "completed" : "incomplete";
+  }
+
+  // Check if the expected final stage exists and is COMPLETED
+  const finalStage = stages.find((s) => s.type === expectedFinalStage);
+  if (finalStage?.status === "COMPLETED") {
+    return "completed";
+  }
+
+  return "incomplete";
+}
+
 /**
  * Check if stages are complete (have reached a terminal state)
+ *
+ * @deprecated Use getCompletionStatus() for more precise status
  *
  * Terminal states:
  * - COMPLETED: Proposal successfully executed through all stages
@@ -87,41 +96,14 @@ export function areStagesComplete(stages: ProposalStage[]): boolean {
 /**
  * Check if stages have reached the final stage for a specific governor
  *
- * This is more precise than areStagesComplete because it accounts for:
- * - Core Governor: Must reach RETRYABLE_REDEEMED (unless proposal failed)
- * - Treasury Governor: Must reach L2_TIMELOCK_EXECUTED (unless proposal failed)
- * - Failed proposals: VOTING_ACTIVE with FAILED status is terminal
- *
- * @param stages - The proposal stages
- * @param governorAddress - The governor contract address
- * @returns true if the proposal has reached its final stage
+ * @deprecated Use getCompletionStatus() for more precise status
  */
 export function hasReachedFinalStage(
   stages: ProposalStage[],
   governorAddress: string
 ): boolean {
-  if (!stages || stages.length === 0) return false;
-
-  const lastStage = stages[stages.length - 1];
-
-  // Failed proposals are complete (defeated, canceled, expired)
-  if (lastStage.status === "FAILED") {
-    return true;
-  }
-
-  // Check if we've reached the expected final stage for this governor
-  const normalizedAddress = governorAddress.toLowerCase();
-  const expectedFinalStage = FINAL_STAGE_BY_GOVERNOR[normalizedAddress];
-
-  if (!expectedFinalStage) {
-    // Unknown governor - fall back to basic completion check
-    return lastStage.status === "COMPLETED";
-  }
-
-  // Check if the expected final stage exists and is COMPLETED
-  // (it may not be the last stage if additional tracking stages were added)
-  const finalStage = stages.find((s) => s.type === expectedFinalStage);
-  return finalStage?.status === "COMPLETED";
+  const status = getCompletionStatus(stages, governorAddress);
+  return status === "completed" || status === "failed";
 }
 
 /**
