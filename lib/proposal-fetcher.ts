@@ -277,7 +277,9 @@ export async function parseProposals(
         ...proposal,
         contractAddress: proposal.contractAddress as Address,
         networkId: String(ARBITRUM_CHAIN_ID),
-        state: (ProposalState[proposalState] as string)?.toLowerCase(),
+        state: (
+          ProposalState[proposalState] as string
+        )?.toLowerCase() as ParsedProposal["state"],
         governorName: governor?.name || "Unknown",
         votes: {
           againstVotes: votes.againstVotes.toString(),
@@ -339,7 +341,9 @@ export async function refreshProposalStates(
 
       refreshed.push({
         ...proposal,
-        state: (ProposalState[proposalState] as string)?.toLowerCase(),
+        state: (
+          ProposalState[proposalState] as string
+        )?.toLowerCase() as ParsedProposal["state"],
         votes: {
           againstVotes: votes.againstVotes.toString(),
           forVotes: votes.forVotes.toString(),

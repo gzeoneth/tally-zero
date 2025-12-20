@@ -257,7 +257,9 @@ async function refreshProposalStates(
 
       refreshed.push({
         ...proposal,
-        state: (ProposalState[proposalState] as string)?.toLowerCase(),
+        state: (
+          ProposalState[proposalState] as string
+        )?.toLowerCase() as ParsedProposal["state"],
         votes: {
           againstVotes: votes.againstVotes.toString(),
           forVotes: votes.forVotes.toString(),
@@ -455,7 +457,6 @@ export function useMultiGovernorSearch({
 
         // Fetch from RPC if needed
         if (searchPlan.rpcRanges.length > 0) {
-          const progressMap: Record<string, number> = {};
           const totalRanges =
             searchPlan.rpcRanges.length * ARBITRUM_GOVERNORS.length;
           let completedQueries = 0;

@@ -40,13 +40,11 @@ function filterDelegates(
 ): DelegateInfo[] {
   let filtered = delegates;
 
-  // Filter by minimum voting power
   if (options.minVotingPower) {
     const minPower = BigInt(options.minVotingPower);
     filtered = filtered.filter((d) => BigInt(d.votingPower) >= minPower);
   }
 
-  // Filter by address (partial match, case-insensitive)
   if (options.addressFilter && options.addressFilter.trim()) {
     const searchTerm = options.addressFilter.toLowerCase().trim();
     filtered = filtered.filter((d) =>
@@ -73,18 +71,17 @@ export function useDelegateSearch({
   const [cacheStats, setCacheStats] = useState<DelegateCacheStats>();
   const [cache, setCache] = useState<DelegateCache | null>(null);
 
-  // Track refreshed delegates to avoid re-fetching
   const refreshedAddresses = useRef<Set<string>>(new Set());
 
   const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
 
-  // Load cache on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setIsLoading(true);
     loadDelegateCache().then((loaded) => {
       if (loaded) {
         setCache(loaded);
-        // Show cached delegates immediately
+        // Show cached delegates immediately with initial filters
         const filtered = filterDelegates(loaded.delegates, {
           minVotingPower,
           addressFilter,
@@ -113,12 +110,10 @@ export function useDelegateSearch({
     }
   }, [minVotingPower, addressFilter, cache]);
 
-  // Function to refresh voting power for specific visible delegates
   const refreshVisibleDelegates = useCallback(
     async (addresses: string[]) => {
       if (!enabled || addresses.length === 0) return;
 
-      // Filter to only addresses we haven't refreshed yet
       const toRefresh = addresses.filter(
         (addr) => !refreshedAddresses.current.has(addr.toLowerCase())
       );
@@ -137,7 +132,6 @@ export function useDelegateSearch({
           provider
         );
 
-        // Fetch voting power for visible delegates in parallel
         const refreshPromises = toRefresh.map(async (address) => {
           try {
             const votes = await contract.getCurrentVotes(address);
@@ -155,7 +149,6 @@ export function useDelegateSearch({
         );
 
         if (successfulResults.length > 0 && cache) {
-          // Update cache with refreshed values
           const updatedDelegates = cache.delegates.map((d) => {
             const refreshed = successfulResults.find(
               (r) => r.address.toLowerCase() === d.address.toLowerCase()
@@ -163,23 +156,20 @@ export function useDelegateSearch({
             return refreshed ? { ...d, votingPower: refreshed.votingPower } : d;
           });
 
-          // Sort by voting power descending
-          updatedDelegates.sort((a, b) =>
-            Number(BigInt(b.votingPower) - BigInt(a.votingPower))
-          );
+          updatedDelegates.sort((a, b) => {
+            const diff = BigInt(b.votingPower) - BigInt(a.votingPower);
+            return diff > BigInt(0) ? 1 : diff < BigInt(0) ? -1 : 0;
+          });
 
-          // Update cache in state
           const newCache = { ...cache, delegates: updatedDelegates };
           setCache(newCache);
 
-          // Apply filters
           const filtered = filterDelegates(updatedDelegates, {
             minVotingPower,
             addressFilter,
           });
           setDelegates(filtered);
 
-          // Recalculate totals
           const newTotalVotingPower = updatedDelegates
             .reduce((sum, d) => sum + BigInt(d.votingPower), BigInt(0))
             .toString();

@@ -42,7 +42,12 @@ export interface Proposal {
   againstVotes: number;
   canceled: boolean;
   executed: boolean;
-  actions: any[];
+  actions: Array<{
+    target: string;
+    value: string;
+    signature: string;
+    calldata: string;
+  }>;
 }
 
 export type ProposalList = Proposal[];

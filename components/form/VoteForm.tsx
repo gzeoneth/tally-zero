@@ -111,14 +111,10 @@ export default function VoteForm({
     }
   }, [hash]);
 
-  async function onSubmit(values: z.infer<typeof voteSchema>) {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      if (simulateData?.request) {
-        writeContract(simulateData.request);
-      }
-    } catch {
-      // Vote submission error handled by wagmi
+  async function onSubmit(_values: z.infer<typeof voteSchema>) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (simulateData?.request) {
+      writeContract(simulateData.request);
     }
   }
 

@@ -57,8 +57,8 @@ const GOVERNORS = [
   },
 ];
 
-// Proposal state names
-const PROPOSAL_STATE_NAMES: Record<number, string> = {
+// Proposal state names (matches ProposalStateName type)
+const PROPOSAL_STATE_NAMES: Record<number, ParsedProposal["state"]> = {
   0: "pending",
   1: "active",
   2: "canceled",
@@ -298,7 +298,7 @@ async function parseProposals(
         ...proposal,
         contractAddress: proposal.contractAddress as Address,
         networkId: String(ARBITRUM_CHAIN_ID),
-        state: PROPOSAL_STATE_NAMES[proposalState] || "unknown",
+        state: PROPOSAL_STATE_NAMES[proposalState] ?? "pending",
         governorName: governor?.name || "Unknown",
         votes: {
           againstVotes: votes.againstVotes.toString(),
@@ -542,7 +542,7 @@ async function refreshProposalStates(
 
       refreshed.push({
         ...proposal,
-        state: PROPOSAL_STATE_NAMES[proposalState] || "unknown",
+        state: PROPOSAL_STATE_NAMES[proposalState] ?? "pending",
         votes: {
           againstVotes: votes.againstVotes.toString(),
           forVotes: votes.forVotes.toString(),

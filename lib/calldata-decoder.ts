@@ -386,10 +386,6 @@ export function decodeParameters(
   }
 }
 
-/**
- * Main entry point - decode calldata
- * @param chainContext - The chain context for address links (arb1, nova, ethereum)
- */
 export async function decodeCalldata(
   calldata: string,
   _targetAddress?: string,

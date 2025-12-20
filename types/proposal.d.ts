@@ -1,5 +1,8 @@
+import type { FinalizedState, PendingState } from "@/types/proposal-cache";
 import type { ProposalStage } from "@/types/proposal-stage";
 import type { Address } from "@/types/search";
+
+export type ProposalStateName = FinalizedState | PendingState;
 
 export type Proposal = {
   id: string;
@@ -35,13 +38,11 @@ export type ParsedProposal = {
   endBlock: string;
   description: string;
   networkId: string;
-  state: string;
+  state: ProposalStateName;
   votes?: ProposalVotes;
   governorName?: string;
   creationTxHash?: string;
-  /** Lifecycle stages tracked at build time (optional) */
   stages?: ProposalStage[];
-  /** ISO timestamp when stages were last tracked */
   stagesTrackedAt?: string;
 };
 
