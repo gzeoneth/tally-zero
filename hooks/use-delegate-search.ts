@@ -91,7 +91,7 @@ export function useDelegateSearch({
         setTotalSupply(loaded.totalSupply);
         setSnapshotBlock(loaded.snapshotBlock);
         setCacheStats(getDelegateCacheStats(loaded));
-        console.log(
+        console.debug(
           `[useDelegateSearch] Cache loaded: ${loaded.delegates.length} delegates (block ${loaded.snapshotBlock})`
         );
       }

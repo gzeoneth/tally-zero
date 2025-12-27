@@ -58,7 +58,7 @@ let cacheValidated = false;
 
 export async function loadDelegateCache(): Promise<DelegateCache | null> {
   if (getSkipDelegateCacheSetting()) {
-    console.log("[delegate-cache] Skipping preload cache (setting enabled)");
+    console.debug("[delegate-cache] Skipping preload cache (setting enabled)");
     return null;
   }
 
@@ -93,7 +93,7 @@ export async function loadDelegateCache(): Promise<DelegateCache | null> {
 
   validatedCacheData = staticCacheData;
 
-  console.log(
+  console.debug(
     `[delegate-cache] Loaded ${validatedCacheData.delegates.length} delegates from cache (block ${validatedCacheData.snapshotBlock})`
   );
 

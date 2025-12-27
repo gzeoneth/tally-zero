@@ -71,7 +71,7 @@ let stagesSeeded = false;
 
 export async function loadProposalCache(): Promise<ProposalCache | null> {
   if (getSkipPreloadCacheSetting()) {
-    console.log("[proposal-cache] Skipping preload cache (setting enabled)");
+    console.debug("[proposal-cache] Skipping preload cache (setting enabled)");
     return null;
   }
 
@@ -110,7 +110,7 @@ export async function loadProposalCache(): Promise<ProposalCache | null> {
 
   validatedCacheData = staticCacheData;
 
-  console.log(
+  console.debug(
     `[proposal-cache] Loaded ${validatedCacheData.proposals.length} proposals from cache (block ${validatedCacheData.snapshotBlock})`
   );
 
@@ -213,7 +213,7 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
   if (typeof window === "undefined") return 0;
 
   if (getSkipPreloadCacheSetting()) {
-    console.log("[proposal-cache] Skipping stages seeding (setting enabled)");
+    console.debug("[proposal-cache] Skipping stages seeding (setting enabled)");
     return 0;
   }
 
@@ -225,7 +225,7 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
   }
 
   if (seededCount > 0) {
-    console.log(
+    console.debug(
       `[proposal-cache] Seeded ${seededCount} proposals with preloaded stages`
     );
   }

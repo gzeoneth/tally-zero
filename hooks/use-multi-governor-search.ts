@@ -397,7 +397,7 @@ export function useMultiGovernorSearch({
           cacheUsed: true,
           rangeInfo: `Cache loaded: blocks ${loaded.startBlock.toLocaleString()}-${loaded.snapshotBlock.toLocaleString()}`,
         });
-        console.log(
+        console.debug(
           `[useMultiGovernorSearch] Cache loaded: ${loaded.proposals.length} proposals (blocks ${loaded.startBlock}-${loaded.snapshotBlock})`
         );
       }
@@ -450,7 +450,7 @@ export function useMultiGovernorSearch({
           skipCache
         );
 
-        console.log(`[useMultiGovernorSearch] ${searchPlan.rangeInfo}`);
+        console.debug(`[useMultiGovernorSearch] ${searchPlan.rangeInfo}`);
 
         let rpcProposals: ParsedProposal[] = [];
         let cachedProposals: ParsedProposal[] = [];
@@ -505,7 +505,7 @@ export function useMultiGovernorSearch({
 
         if (searchPlan.useCache && cache) {
           cachedProposals = cache.proposals;
-          console.log(
+          console.debug(
             `[useMultiGovernorSearch] Using ${cachedProposals.length} cached proposals`
           );
         }
@@ -517,7 +517,7 @@ export function useMultiGovernorSearch({
         );
 
         if (proposalsToRefresh.length > 0) {
-          console.log(
+          console.debug(
             `[useMultiGovernorSearch] Refreshing ${proposalsToRefresh.length} pending/active proposals`
           );
           const refreshed = await refreshProposalStates(
