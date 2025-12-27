@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef, Row } from "@tanstack/react-table";
+import { ColumnDef, Row, Table } from "@tanstack/react-table";
 import { BigNumber } from "ethers";
 
 import { DataTableColumnHeader } from "@components/table/ColumnHeader";
@@ -16,6 +16,8 @@ import { DelegateInfo } from "@/types/delegate";
 import { ExternalLinkIcon } from "lucide-react";
 
 declare module "@tanstack/react-table" {
+  // TData is required for module augmentation but not used in this interface
+  // biome-ignore lint: required for type augmentation
   interface TableMeta<TData> {
     totalVotingPower?: string;
   }
@@ -97,7 +99,13 @@ export const columns: ColumnDef<DelegateInfo>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="% of Total" />
     ),
-    cell: ({ row, table }: { row: Row<DelegateInfo>; table: any }) => {
+    cell: ({
+      row,
+      table,
+    }: {
+      row: Row<DelegateInfo>;
+      table: Table<DelegateInfo>;
+    }) => {
       const votingPower = row.getValue("votingPower") as string;
       const totalVotingPower = table.options.meta?.totalVotingPower;
 

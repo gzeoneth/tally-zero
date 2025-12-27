@@ -75,28 +75,39 @@ export function useDelegateSearch({
 
   const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Load cache on mount - filters are applied in a separate effect
   useEffect(() => {
+    let cancelled = false;
+
     setIsLoading(true);
-    loadDelegateCache().then((loaded) => {
-      if (loaded) {
-        setCache(loaded);
-        // Show cached delegates immediately with initial filters
-        const filtered = filterDelegates(loaded.delegates, {
-          minVotingPower,
-          addressFilter,
-        });
-        setDelegates(filtered);
-        setTotalVotingPower(loaded.totalVotingPower);
-        setTotalSupply(loaded.totalSupply);
-        setSnapshotBlock(loaded.snapshotBlock);
-        setCacheStats(getDelegateCacheStats(loaded));
-        console.debug(
-          `[useDelegateSearch] Cache loaded: ${loaded.delegates.length} delegates (block ${loaded.snapshotBlock})`
-        );
-      }
-      setIsLoading(false);
-    });
+    setError(null);
+
+    loadDelegateCache()
+      .then((loaded) => {
+        if (cancelled) return;
+
+        if (loaded) {
+          setCache(loaded);
+          setTotalVotingPower(loaded.totalVotingPower);
+          setTotalSupply(loaded.totalSupply);
+          setSnapshotBlock(loaded.snapshotBlock);
+          setCacheStats(getDelegateCacheStats(loaded));
+          console.debug(
+            `[useDelegateSearch] Cache loaded: ${loaded.delegates.length} delegates (block ${loaded.snapshotBlock})`
+          );
+        }
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[useDelegateSearch] Failed to load cache:", err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+        setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Apply filters when they change
