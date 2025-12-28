@@ -3,6 +3,7 @@
 import VoteModel from "@/components/container/VoteModel";
 import { Badge } from "@/components/ui/Badge";
 import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
+import { getGovernorTypeFromName } from "@/config/governors";
 import { proposalSchema } from "@/config/schema";
 import { states } from "@/data/table/data";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
@@ -55,12 +56,12 @@ export function MobileProposalCard({ proposal }: MobileProposalCardProps) {
                     variant="outline"
                     className={cn(
                       "text-[10px] font-medium px-2 py-0.5",
-                      proposal.governorName.toLowerCase().includes("core")
+                      getGovernorTypeFromName(proposal.governorName) === "core"
                         ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
                         : "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300"
                     )}
                   >
-                    {proposal.governorName.toLowerCase().includes("core")
+                    {getGovernorTypeFromName(proposal.governorName) === "core"
                       ? "Core"
                       : "Treasury"}
                   </Badge>

@@ -15,6 +15,7 @@ import {
 import { LifecycleCell } from "@components/ui/LifecycleCell";
 import { VoteDisplay } from "@components/ui/VoteDisplay";
 
+import { getGovernorTypeFromName } from "@/config/governors";
 import { ParsedProposal } from "@/types/proposal";
 import { states } from "@data/table/data";
 import { cn } from "@lib/utils";
@@ -74,8 +75,8 @@ export const columns: ColumnDef<ParsedProposal>[] = [
       <DataTableColumnHeader column={column} title="Governor" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
-      const governorName = row.original.governorName || "Unknown";
-      const isCore = governorName.toLowerCase().includes("core");
+      const governorType = getGovernorTypeFromName(row.original.governorName);
+      const isCore = governorType === "core";
       return (
         <Badge
           variant="outline"

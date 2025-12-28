@@ -79,3 +79,14 @@ export function getGovernorType(address: string): GovernorType | undefined {
   const config = getGovernorByAddress(address);
   return config?.type;
 }
+
+/**
+ * Determine governor type from governor name string
+ * Used for display logic in UI components
+ */
+export function getGovernorTypeFromName(
+  governorName: string | undefined
+): GovernorType {
+  if (!governorName) return "treasury";
+  return governorName.toLowerCase().includes("core") ? "core" : "treasury";
+}
