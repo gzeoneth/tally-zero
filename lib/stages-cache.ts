@@ -1,4 +1,4 @@
-import { GOVERNORS, getFinalStageForGovernor } from "@/config/governors";
+import { getFinalStageForGovernor } from "@/config/governors";
 import {
   CACHE_VERSION,
   DEFAULT_CACHE_TTL_MS,
@@ -8,17 +8,6 @@ import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
-
-/** @deprecated Use GOVERNORS from @/config/governors instead */
-export const CORE_GOVERNOR_ADDRESS = GOVERNORS.core.address.toLowerCase();
-export const TREASURY_GOVERNOR_ADDRESS =
-  GOVERNORS.treasury.address.toLowerCase();
-
-/** @deprecated Use getFinalStageForGovernor from @/config/governors instead */
-export const FINAL_STAGE_BY_GOVERNOR = {
-  [CORE_GOVERNOR_ADDRESS]: GOVERNORS.core.finalStage,
-  [TREASURY_GOVERNOR_ADDRESS]: GOVERNORS.treasury.finalStage,
-};
 
 // Time after proposal creation to stop tracking (60 days)
 export const MAX_TRACKING_AGE_MS = 60 * 24 * 60 * 60 * 1000;
