@@ -7,6 +7,7 @@ import {
   loadProposalCache,
   mergeProposals,
   needsStateRefresh,
+  sortProposals,
   type ProposalCache,
 } from "@/lib/proposal-cache";
 import {
@@ -382,12 +383,7 @@ export function useMultiGovernorSearch({
       if (loaded) {
         setCache(loaded);
         // Show cached proposals immediately (sorted)
-        const sorted = [...loaded.proposals].sort((a, b) => {
-          if (a.state === "Active" && b.state !== "Active") return -1;
-          if (a.state !== "Active" && b.state === "Active") return 1;
-          return parseInt(b.startBlock) - parseInt(a.startBlock);
-        });
-        setProposals(sorted);
+        setProposals(sortProposals(loaded.proposals));
         setCacheInfo({
           loaded: true,
           snapshotBlock: loaded.snapshotBlock,
@@ -539,13 +535,7 @@ export function useMultiGovernorSearch({
         const allProposals = mergeProposals(cachedProposals, rpcProposals);
 
         // Sort: active first, then by startBlock descending
-        const sorted = allProposals.sort((a, b) => {
-          if (a.state === "Active" && b.state !== "Active") return -1;
-          if (a.state !== "Active" && b.state === "Active") return 1;
-          return parseInt(b.startBlock) - parseInt(a.startBlock);
-        });
-
-        setProposals(sorted);
+        setProposals(sortProposals(allProposals));
         setCacheInfo({
           loaded: cache !== null,
           snapshotBlock: cache?.snapshotBlock ?? 0,
