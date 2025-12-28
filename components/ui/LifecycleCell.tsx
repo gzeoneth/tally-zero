@@ -55,7 +55,9 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
   const { queuePosition, currentStageIndex, stages, isBackgroundRefreshing } =
     proposalStages;
 
-  const stateValue = states.find((state) => state.value === proposal.state);
+  const stateValue = states.find(
+    (state) => state.value.toLowerCase() === proposal.state?.toLowerCase()
+  );
 
   if (!proposal.creationTxHash || !stateValue) {
     return <span className="text-xs text-muted-foreground">-</span>;

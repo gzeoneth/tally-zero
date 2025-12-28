@@ -24,7 +24,9 @@ function truncateText(text: string, maxLength = 80) {
 
 export function MobileProposalCard({ proposal }: MobileProposalCardProps) {
   const parsedProposal = proposalSchema.parse(proposal);
-  const stateValue = states.find((state) => state.value === proposal.state);
+  const stateValue = states.find(
+    (state) => state.value.toLowerCase() === proposal.state?.toLowerCase()
+  );
   const plainText = truncateText(stripMarkdownAndHtml(proposal.description));
 
   if (!stateValue) {

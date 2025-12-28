@@ -35,7 +35,9 @@ export function ClickableDescriptionCell({
 }) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const parsedProposal = proposalSchema.parse(proposal);
-  const stateValue = states.find((state) => state.value === proposal.state);
+  const stateValue = states.find(
+    (state) => state.value.toLowerCase() === proposal.state?.toLowerCase()
+  );
 
   if (!stateValue) {
     return <DescriptionCell mdxContent={proposal.description} />;

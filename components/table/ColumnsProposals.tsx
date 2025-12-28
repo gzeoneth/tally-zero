@@ -97,8 +97,9 @@ export const columns: ColumnDef<ParsedProposal>[] = [
       <DataTableColumnHeader column={column} title="State" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
+      const rowState = (row.getValue("state") as string)?.toLowerCase();
       const stateValue = states.find(
-        (state) => state.value === row.getValue("state")
+        (state) => state.value.toLowerCase() === rowState
       );
       if (!stateValue) return null;
 
@@ -114,8 +115,9 @@ export const columns: ColumnDef<ParsedProposal>[] = [
         </Badge>
       );
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
+    filterFn: (row, id, value: string[]) => {
+      const rowState = (row.getValue(id) as string)?.toLowerCase();
+      return value.some((v) => v.toLowerCase() === rowState);
     },
   },
   {
