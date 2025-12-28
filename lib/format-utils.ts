@@ -23,11 +23,6 @@ export function formatVotingPower(weiValue: string): string {
     const bn = BigNumber.from(weiValue);
 
     // Convert from wei to token units (18 decimals)
-    // Using formatUnits would give us a decimal string
-    const divisor = BigNumber.from(10).pow(18);
-    const tokenValue = bn.div(divisor);
-
-    // Get the integer part for formatting
     const value = parseFloat(bn.toString()) / Math.pow(10, 18);
 
     // Format with appropriate suffix
