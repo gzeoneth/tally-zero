@@ -19,6 +19,7 @@ import {
   loadCachedStages,
   saveCachedStages,
 } from "@/lib/stages-cache";
+import { getStoredJsonString, getStoredNumber } from "@/lib/storage-utils";
 import type {
   ProposalStage,
   ProposalTrackingResult,
@@ -49,34 +50,13 @@ interface UseProposalStagesResult {
   isBackgroundRefreshing: boolean;
 }
 
-function getStoredRpc(key: string, defaultValue: string): string {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      // Values are stored via useLocalStorage which uses JSON.stringify
-      const parsed = JSON.parse(stored);
-      return parsed || defaultValue;
-    }
-  }
-  return defaultValue;
-}
-
 function getStoredCacheTtlMs(): number {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem(STORAGE_KEYS.CACHE_TTL);
-    if (stored) {
-      try {
-        // Stored value is in seconds, convert to ms
-        const seconds = JSON.parse(stored);
-        if (typeof seconds === "number" && seconds > 0) {
-          return seconds * 1000;
-        }
-      } catch {
-        // Fall through to default
-      }
-    }
-  }
-  return DEFAULT_CACHE_TTL_MS;
+  // Stored value is in seconds, convert to ms
+  const seconds = getStoredNumber(
+    STORAGE_KEYS.CACHE_TTL,
+    DEFAULT_CACHE_TTL_MS / 1000
+  );
+  return seconds > 0 ? seconds * 1000 : DEFAULT_CACHE_TTL_MS;
 }
 
 export function useProposalStages({
@@ -87,8 +67,11 @@ export function useProposalStages({
   l1RpcUrl,
   l2RpcUrl,
 }: UseProposalStagesOptions): UseProposalStagesResult {
-  const storedL1Rpc = getStoredRpc(STORAGE_KEYS.L1_RPC, ETHEREUM_RPC_URL);
-  const storedL2Rpc = getStoredRpc(STORAGE_KEYS.L2_RPC, "");
+  const storedL1Rpc = getStoredJsonString(
+    STORAGE_KEYS.L1_RPC,
+    ETHEREUM_RPC_URL
+  );
+  const storedL2Rpc = getStoredJsonString(STORAGE_KEYS.L2_RPC, "");
 
   const effectiveL1RpcUrl = l1RpcUrl || storedL1Rpc;
   const effectiveL2RpcUrl = l2RpcUrl || storedL2Rpc;
