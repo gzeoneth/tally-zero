@@ -66,16 +66,16 @@ export interface ProposalCache {
 export function isProposalFinalized(state: string): boolean;
 
 /**
- * Constants for proposal states
+ * Proposal state types matching PROPOSAL_STATE_NAMES in config/arbitrum-governance.ts
  */
 export type FinalizedState =
-  | "canceled"
-  | "defeated"
-  | "succeeded"
-  | "queued"
-  | "expired"
-  | "executed";
+  | "Canceled"
+  | "Defeated"
+  | "Succeeded"
+  | "Queued"
+  | "Expired"
+  | "Executed";
 
-export type PendingState = "pending" | "active";
+export type PendingState = "Pending" | "Active";
 
 export const CURRENT_CACHE_VERSION = 1;

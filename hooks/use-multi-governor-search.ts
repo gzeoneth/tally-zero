@@ -383,8 +383,8 @@ export function useMultiGovernorSearch({
         setCache(loaded);
         // Show cached proposals immediately (sorted)
         const sorted = [...loaded.proposals].sort((a, b) => {
-          if (a.state === "active" && b.state !== "active") return -1;
-          if (a.state !== "active" && b.state === "active") return 1;
+          if (a.state === "Active" && b.state !== "Active") return -1;
+          if (a.state !== "Active" && b.state === "Active") return 1;
           return parseInt(b.startBlock) - parseInt(a.startBlock);
         });
         setProposals(sorted);
@@ -540,8 +540,8 @@ export function useMultiGovernorSearch({
 
         // Sort: active first, then by startBlock descending
         const sorted = allProposals.sort((a, b) => {
-          if (a.state === "active" && b.state !== "active") return -1;
-          if (a.state !== "active" && b.state === "active") return 1;
+          if (a.state === "Active" && b.state !== "Active") return -1;
+          if (a.state !== "Active" && b.state === "Active") return 1;
           return parseInt(b.startBlock) - parseInt(a.startBlock);
         });
 

@@ -85,18 +85,3 @@ export interface TrackProposalParams {
   l1TimelockAddress?: string;
   chunkingConfig?: Partial<ChunkingConfig>;
 }
-
-/**
- * Proposal state enum from OpenZeppelin Governor
- */
-export type ProposalStateNumber = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
-
-export type ProposalStateName =
-  | "Pending"
-  | "Active"
-  | "Canceled"
-  | "Defeated"
-  | "Succeeded"
-  | "Queued"
-  | "Expired"
-  | "Executed";
