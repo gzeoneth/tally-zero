@@ -5,6 +5,7 @@ import type {
   DelegateInfo,
 } from "@/types/delegate";
 import delegateLabelsData from "@data/delegate-labels.json";
+import { formatCacheAge } from "./format-utils";
 import { getStoredValue } from "./storage-utils";
 
 export const CURRENT_DELEGATE_CACHE_VERSION = 1;
@@ -107,22 +108,12 @@ export function getDelegateCacheStats(
   cache: DelegateCache
 ): DelegateCacheStats {
   const generatedAt = new Date(cache.generatedAt);
-  const ageMs = Date.now() - generatedAt.getTime();
-  const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
-  const ageDays = Math.floor(ageHours / 24);
-
-  const age =
-    ageDays > 0
-      ? `${ageDays}d ${ageHours % 24}h`
-      : ageHours > 0
-        ? `${ageHours}h`
-        : "< 1h";
 
   return {
     totalDelegates: cache.stats.totalDelegates,
     snapshotBlock: cache.snapshotBlock,
     generatedAt,
-    age,
+    age: formatCacheAge(generatedAt),
     totalVotingPower: cache.totalVotingPower,
     totalSupply: cache.totalSupply,
   };

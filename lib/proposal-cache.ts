@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal } from "@/types/proposal";
+import { formatCacheAge } from "./format-utils";
 import { seedStagesFromProposal } from "./stages-cache";
 import { getStoredValue } from "./storage-utils";
 
@@ -177,16 +178,6 @@ export function getCacheStats(cache: ProposalCache): {
   stateDistribution: Record<string, number>;
 } {
   const generatedAt = new Date(cache.generatedAt);
-  const ageMs = Date.now() - generatedAt.getTime();
-  const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
-  const ageDays = Math.floor(ageHours / 24);
-
-  const age =
-    ageDays > 0
-      ? `${ageDays}d ${ageHours % 24}h`
-      : ageHours > 0
-        ? `${ageHours}h`
-        : "< 1h";
 
   const stateDistribution: Record<string, number> = {};
   for (const p of cache.proposals) {
@@ -197,7 +188,7 @@ export function getCacheStats(cache: ProposalCache): {
     totalProposals: cache.proposals.length,
     snapshotBlock: cache.snapshotBlock,
     generatedAt,
-    age,
+    age: formatCacheAge(generatedAt),
     stateDistribution,
   };
 }

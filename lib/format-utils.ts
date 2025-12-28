@@ -83,3 +83,24 @@ export function shortenAddress(address: string, chars: number = 4): string {
     return address;
   }
 }
+
+/**
+ * Format cache age from a timestamp to human-readable format
+ *
+ * @param generatedAt - Date string or Date object of when cache was generated
+ * @returns Human-readable age string (e.g., "2d 5h", "3h", "< 1h")
+ */
+export function formatCacheAge(generatedAt: string | Date): string {
+  const generatedDate =
+    typeof generatedAt === "string" ? new Date(generatedAt) : generatedAt;
+  const ageMs = Date.now() - generatedDate.getTime();
+  const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+  const ageDays = Math.floor(ageHours / 24);
+
+  if (ageDays > 0) {
+    return `${ageDays}d ${ageHours % 24}h`;
+  } else if (ageHours > 0) {
+    return `${ageHours}h`;
+  }
+  return "< 1h";
+}
