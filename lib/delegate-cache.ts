@@ -5,6 +5,7 @@ import type {
   DelegateInfo,
 } from "@/types/delegate";
 import delegateLabelsData from "@data/delegate-labels.json";
+import { getStoredValue } from "./storage-utils";
 
 export const CURRENT_DELEGATE_CACHE_VERSION = 1;
 
@@ -33,17 +34,9 @@ export function getDelegateLabel(address: string): string | undefined {
 }
 
 function getSkipDelegateCacheSetting(): boolean {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem(STORAGE_KEYS.SKIP_DELEGATE_CACHE);
-    if (stored) {
-      try {
-        return JSON.parse(stored) === true;
-      } catch {
-        return false;
-      }
-    }
-  }
-  return false;
+  return (
+    getStoredValue<boolean>(STORAGE_KEYS.SKIP_DELEGATE_CACHE, false) === true
+  );
 }
 
 let staticCacheData: DelegateCache | null = null;

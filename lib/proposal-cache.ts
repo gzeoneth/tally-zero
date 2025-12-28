@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal } from "@/types/proposal";
 import { seedStagesFromProposal } from "./stages-cache";
+import { getStoredValue } from "./storage-utils";
 
 // Re-export stages cache functions for convenience
 export {
@@ -10,17 +11,9 @@ export {
 } from "./stages-cache";
 
 function getSkipPreloadCacheSetting(): boolean {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem(STORAGE_KEYS.SKIP_PRELOAD_CACHE);
-    if (stored) {
-      try {
-        return JSON.parse(stored) === true;
-      } catch {
-        return false;
-      }
-    }
-  }
-  return false;
+  return (
+    getStoredValue<boolean>(STORAGE_KEYS.SKIP_PRELOAD_CACHE, false) === true
+  );
 }
 
 export interface ProposalCache {
