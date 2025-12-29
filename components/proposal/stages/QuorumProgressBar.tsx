@@ -3,6 +3,7 @@
 import { memo } from "react";
 
 import { Progress } from "@/components/ui/Progress";
+import { STATUS_TEXT_COLORS } from "@/lib/badge-colors";
 import { formatCompactNumber } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +32,7 @@ export const QuorumProgressBar = memo(function QuorumProgressBar({
         <span
           className={cn(
             "text-xs font-semibold",
-            reached ? "text-green-600 dark:text-green-400" : "text-foreground"
+            reached ? STATUS_TEXT_COLORS.success : "text-foreground"
           )}
         >
           {percentage.toFixed(0)}%

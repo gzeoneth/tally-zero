@@ -2,6 +2,9 @@
 
 import { memo } from "react";
 
+import { VOTE_COLORS } from "@/lib/badge-colors";
+import { cn } from "@/lib/utils";
+
 export interface VoteDistributionBarProps {
   forVotes: string;
   againstVotes: string;
@@ -30,39 +33,41 @@ export const VoteDistributionBar = memo(function VoteDistributionBar({
       <div className="flex h-2 rounded-full overflow-hidden bg-secondary">
         {forPct > 0 && (
           <div
-            className="bg-green-500 dark:bg-green-400 transition-all"
+            className={cn(VOTE_COLORS.for.bg, "transition-all")}
             style={{ width: `${forPct}%` }}
           />
         )}
         {againstPct > 0 && (
           <div
-            className="bg-red-500 dark:bg-red-400 transition-all"
+            className={cn(VOTE_COLORS.against.bg, "transition-all")}
             style={{ width: `${againstPct}%` }}
           />
         )}
         {abstainPct > 0 && (
           <div
-            className="bg-gray-400 dark:bg-gray-500 transition-all"
+            className={cn(VOTE_COLORS.abstain.bg, "transition-all")}
             style={{ width: `${abstainPct}%` }}
           />
         )}
       </div>
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400" />
-          <span className="text-green-600 dark:text-green-400">
-            {forPct.toFixed(1)}%
-          </span>
+          <span className={cn("w-2 h-2 rounded-full", VOTE_COLORS.for.dot)} />
+          <span className={VOTE_COLORS.for.text}>{forPct.toFixed(1)}%</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400" />
-          <span className="text-red-600 dark:text-red-400">
+          <span
+            className={cn("w-2 h-2 rounded-full", VOTE_COLORS.against.dot)}
+          />
+          <span className={VOTE_COLORS.against.text}>
             {againstPct.toFixed(1)}%
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500" />
-          <span className="text-muted-foreground">
+          <span
+            className={cn("w-2 h-2 rounded-full", VOTE_COLORS.abstain.dot)}
+          />
+          <span className={VOTE_COLORS.abstain.text}>
             {abstainPct.toFixed(1)}%
           </span>
         </div>

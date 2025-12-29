@@ -1,4 +1,6 @@
+import { VOTE_COLORS } from "@/lib/badge-colors";
 import { formatVotingPower } from "@/lib/format-utils";
+import { cn } from "@/lib/utils";
 import { ProposalVotes } from "@/types/proposal";
 
 interface VoteDisplayProps {
@@ -6,7 +8,6 @@ interface VoteDisplayProps {
 }
 
 export function VoteDisplay({ votes }: VoteDisplayProps) {
-  // Check if votes is actually provided
   if (!votes || !votes.forVotes || !votes.againstVotes || !votes.abstainVotes) {
     return <div className="text-sm text-muted-foreground">No vote data</div>;
   }
@@ -19,19 +20,17 @@ export function VoteDisplay({ votes }: VoteDisplayProps) {
   return (
     <div className="flex flex-col gap-1 text-sm">
       <div className="flex items-center gap-2">
-        <span className="text-green-600 dark:text-green-400 font-medium">
-          For:
-        </span>
+        <span className={cn(VOTE_COLORS.for.text, "font-medium")}>For:</span>
         <span>{formatVotingPower(votes.forVotes)}</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-red-600 dark:text-red-400 font-medium">
+        <span className={cn(VOTE_COLORS.against.text, "font-medium")}>
           Against:
         </span>
         <span>{formatVotingPower(votes.againstVotes)}</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-gray-600 dark:text-gray-400 font-medium">
+        <span className={cn(VOTE_COLORS.abstain.text, "font-medium")}>
           Abstain:
         </span>
         <span>{formatVotingPower(votes.abstainVotes)}</span>
