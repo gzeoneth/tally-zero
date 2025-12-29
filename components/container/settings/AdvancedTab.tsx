@@ -1,12 +1,11 @@
 "use client";
 
-import { AlertTriangle, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { Separator } from "@/components/ui/Separator";
 import { CACHE_TTL_OPTIONS } from "@/config/storage-keys";
 
 import { BackupRestoreSection } from "./BackupRestoreSection";
@@ -72,12 +71,10 @@ export function AdvancedTab({
   nerdMode,
   storedSettings,
 }: AdvancedTabProps) {
-  const [showDangerZone, setShowDangerZone] = useState(false);
-
   return (
     <div className="mt-0 space-y-6">
       {/* Cache Duration */}
-      <div className="space-y-3">
+      <div className="glass-subtle rounded-lg p-4 space-y-3 transition-all duration-200 hover:shadow-md">
         <Label className="text-sm font-medium">Cache Duration</Label>
         <div className="grid grid-cols-3 gap-2">
           {CACHE_TTL_OPTIONS.map((option) => (
@@ -90,6 +87,7 @@ export function AdvancedTab({
                 setTtlInput(option.value);
                 setTtlCustomInput(String(option.value));
               }}
+              className="transition-all duration-200"
             >
               {option.label}
             </Button>
@@ -120,10 +118,8 @@ export function AdvancedTab({
         </p>
       </div>
 
-      <Separator />
-
       {/* Skip Preload Cache */}
-      <div className="flex items-center justify-between">
+      <div className="glass-subtle rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md">
         <div className="space-y-0.5">
           <Label>Skip Preload Cache</Label>
           <p className="text-xs text-muted-foreground">
@@ -135,12 +131,11 @@ export function AdvancedTab({
           variant={skipPreloadCache ? "default" : "outline"}
           size="sm"
           onClick={() => setSkipPreloadCache(!skipPreloadCache)}
+          className="transition-all duration-200"
         >
           {skipPreloadCache ? "On" : "Off"}
         </Button>
       </div>
-
-      <Separator />
 
       {/* Tenderly Configuration */}
       <TenderlyConfigSection
@@ -152,8 +147,6 @@ export function AdvancedTab({
         setTenderlyAccessTokenInput={setTenderlyAccessTokenInput}
       />
 
-      <Separator />
-
       {/* Cache Management */}
       <CacheManagementSection
         cacheStats={cacheStats}
@@ -161,34 +154,20 @@ export function AdvancedTab({
         onClearCache={onClearCache}
       />
 
-      <Separator />
-
       {/* Backup & Restore */}
       <BackupRestoreSection
         onExportSettings={onExportSettings}
         onImportSettings={onImportSettings}
       />
 
-      <Separator />
-
       {/* Danger Zone */}
-      <div className="space-y-3">
-        <button
-          type="button"
-          onClick={() => setShowDangerZone(!showDangerZone)}
-          className="flex items-center text-sm text-destructive hover:text-destructive/80 transition-colors w-full"
+      <div className="glass-subtle rounded-lg p-4 transition-all duration-200 hover:shadow-md">
+        <CollapsibleSection
+          title="Danger Zone"
+          icon={<AlertTriangle className="w-4 h-4" />}
+          variant="destructive"
         >
-          {showDangerZone ? (
-            <ChevronUp className="w-4 h-4 mr-2" />
-          ) : (
-            <ChevronDown className="w-4 h-4 mr-2" />
-          )}
-          <AlertTriangle className="w-4 h-4 mr-2" />
-          Danger Zone
-        </button>
-
-        {showDangerZone && (
-          <div className="space-y-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-destructive">
                 Reset to Defaults
@@ -200,16 +179,14 @@ export function AdvancedTab({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="w-full"
+                className="w-full transition-all duration-200"
                 onClick={onResetDefaults}
               >
                 Reset Form to Defaults
               </Button>
             </div>
 
-            <Separator />
-
-            <div className="space-y-2">
+            <div className="pt-3 border-t border-[var(--glass-border)] space-y-2">
               <Label className="text-sm font-medium text-destructive">
                 Factory Reset
               </Label>
@@ -220,7 +197,7 @@ export function AdvancedTab({
                 type="button"
                 variant="destructive"
                 size="sm"
-                className="w-full"
+                className="w-full transition-all duration-200"
                 onClick={onClearAllSettings}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -228,16 +205,11 @@ export function AdvancedTab({
               </Button>
             </div>
           </div>
-        )}
+        </CollapsibleSection>
       </div>
 
       {/* Debug Info (Nerd Mode Only) */}
-      {nerdMode && (
-        <>
-          <Separator />
-          <DebugInfoSection storedSettings={storedSettings} />
-        </>
-      )}
+      {nerdMode && <DebugInfoSection storedSettings={storedSettings} />}
     </div>
   );
 }

@@ -57,19 +57,32 @@ export function StageItem({
       {!isLast && (
         <div
           className={cn(
-            "absolute left-[10px] top-7 w-0.5 h-[calc(100%-12px)]",
-            status === "COMPLETED" ? "bg-green-500" : "bg-muted"
+            "absolute left-[14px] top-8 w-0.5 h-[calc(100%-16px)]",
+            status === "COMPLETED"
+              ? "bg-gradient-to-b from-green-500 to-green-500/50"
+              : "bg-gradient-to-b from-muted to-muted/30"
           )}
         />
       )}
 
       {/* Status icon */}
       <div className="relative z-10 flex-shrink-0 mt-0.5">
-        {isActive || isRefreshing ? (
-          <ReloadIcon className="h-5 w-5 text-blue-500 animate-spin" />
-        ) : (
-          <StatusIcon status={status} />
-        )}
+        <div
+          className={cn(
+            "rounded-full p-1",
+            status === "COMPLETED"
+              ? "bg-green-500/20 dark:bg-green-500/25"
+              : status === "PENDING"
+                ? "bg-yellow-500/20 dark:bg-yellow-500/25"
+                : "glass-subtle"
+          )}
+        >
+          {isActive || isRefreshing ? (
+            <ReloadIcon className="h-5 w-5 text-blue-500 animate-spin" />
+          ) : (
+            <StatusIcon status={status} />
+          )}
+        </div>
       </div>
 
       {/* Content */}
@@ -165,12 +178,12 @@ function StageHeader({
       </h4>
       <span
         className={cn(
-          "text-xs px-1.5 py-0.5 rounded",
+          "text-xs px-2 py-0.5 rounded-full font-medium",
           metadata?.chain === "L1"
-            ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+            ? "bg-blue-500/20 dark:bg-blue-500/25 text-blue-700 dark:text-blue-300"
             : metadata?.chain === "L2"
-              ? "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-              : "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+              ? "bg-purple-500/20 dark:bg-purple-500/25 text-purple-700 dark:text-purple-300"
+              : "bg-orange-500/20 dark:bg-orange-500/25 text-orange-700 dark:text-orange-300"
         )}
       >
         {metadata?.chain}
@@ -183,7 +196,7 @@ function StageHeader({
       {canRefresh && (
         <button
           onClick={() => onRefresh(stageIndex)}
-          className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          className="p-1 rounded-full glass-subtle hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all duration-200"
           title="Re-track from this stage"
         >
           <ReloadIcon className="h-3.5 w-3.5" />
@@ -212,12 +225,12 @@ function EstimatedCompletionDisplay({
   proposalId,
 }: EstimatedCompletionDisplayProps) {
   return (
-    <div className="text-xs text-muted-foreground mt-1 italic space-y-0.5">
+    <div className="text-xs text-muted-foreground mt-2 space-y-1 glass-subtle rounded-lg px-3 py-2">
       {metadata?.estimatedDuration && (
-        <p>Est. duration: {metadata.estimatedDuration}</p>
+        <p className="italic">Est. duration: {metadata.estimatedDuration}</p>
       )}
       {estimatedCompletion && (
-        <p className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5 not-italic">
+        <p className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
           <span>
             Est. completion: {formatEstimatedCompletion(estimatedCompletion)}
           </span>
@@ -229,7 +242,7 @@ function EstimatedCompletionDisplay({
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="inline-flex items-center p-1 rounded-full hover:bg-blue-500/10 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
             title="Add to Google Calendar"
           >
             <CalendarIcon className="h-3.5 w-3.5" />

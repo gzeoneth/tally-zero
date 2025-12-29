@@ -47,6 +47,7 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "@reown/appkit": "^1.8.14",
     "@reown/appkit-adapter-wagmi": "^1.8.14",
     "@t3-oss/env-nextjs": "^0.10.1",

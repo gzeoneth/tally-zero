@@ -260,7 +260,7 @@ export function SettingsSheet() {
       </SheetTrigger>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-md flex flex-col overflow-hidden"
+        className="w-full sm:max-w-md flex flex-col overflow-hidden border-l-[var(--glass-border)]"
       >
         <SheetHeader className="flex-shrink-0">
           <SheetTitle>Settings</SheetTitle>
@@ -352,16 +352,20 @@ export function SettingsSheet() {
           </div>
         </Tabs>
 
-        <div className="flex-shrink-0 flex gap-2 pt-4 border-t mt-4">
+        <div className="flex-shrink-0 flex gap-2 pt-4 border-t border-[var(--glass-border)] mt-4">
           <Button
             type="button"
             variant="outline"
-            className="flex-1"
+            className="flex-1 transition-all duration-200 hover:bg-white/20 dark:hover:bg-white/10"
             onClick={() => closeSettings()}
           >
             Cancel
           </Button>
-          <Button type="button" className="flex-1" onClick={handleSave}>
+          <Button
+            type="button"
+            className="flex-1 transition-all duration-200"
+            onClick={handleSave}
+          >
             Save & Reload
           </Button>
         </div>

@@ -109,13 +109,13 @@ export default function VoteForm({
   }
 
   return (
-    <Card className="border-0 -m-4 mt-2">
+    <Card variant="glass" className="border-0 -m-4 mt-2">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="grid gap-1">
             {/* Voting Power Display */}
             {isConnected && (
-              <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+              <div className="mb-4 p-3 glass-subtle rounded-lg">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
                     Your Voting Power (at snapshot)
@@ -151,7 +151,7 @@ export default function VoteForm({
                       defaultValue={field.value}
                       className="flex flex-col space-y-1"
                     >
-                      <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-accent hover:text-accent-foreground">
+                      <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-white/20 dark:hover:bg-white/10 hover:backdrop-blur-sm">
                         <FormItem className="flex items-center space-x-3 space-y-0 py-2 px-2">
                           <FormControl>
                             <RadioGroupItem value="1" />
@@ -161,7 +161,7 @@ export default function VoteForm({
                           </FormLabel>
                         </FormItem>
                       </div>
-                      <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-accent hover:text-accent-foreground">
+                      <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-white/20 dark:hover:bg-white/10 hover:backdrop-blur-sm">
                         <FormItem className="flex items-center space-x-3 space-y-0  py-2 px-2">
                           <FormControl>
                             <RadioGroupItem value="0" />
@@ -171,7 +171,7 @@ export default function VoteForm({
                           </FormLabel>
                         </FormItem>
                       </div>
-                      <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-accent hover:text-accent-foreground">
+                      <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-white/20 dark:hover:bg-white/10 hover:backdrop-blur-sm">
                         <FormItem className="flex items-center space-x-3 space-y-0 py-2 px-2">
                           <FormControl>
                             <RadioGroupItem value="2" />

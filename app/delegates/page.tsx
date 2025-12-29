@@ -27,13 +27,19 @@ export default function DelegatesPage() {
 function DelegateSearchSkeleton() {
   return (
     <div className="space-y-4">
+      {/* Stats cards skeleton */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+          <div
+            key={i}
+            className="floating-card glow-border h-24 animate-pulse"
+          />
         ))}
       </div>
-      <div className="h-12 bg-muted animate-pulse rounded-lg" />
-      <div className="h-96 bg-muted animate-pulse rounded-lg" />
+      {/* Toolbar skeleton */}
+      <div className="glass-subtle h-12 animate-pulse rounded-xl" />
+      {/* Table skeleton */}
+      <div className="glass h-96 animate-pulse rounded-2xl" />
     </div>
   );
 }

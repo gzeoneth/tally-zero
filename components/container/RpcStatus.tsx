@@ -28,25 +28,25 @@ function StatusIndicator({ result }: { result: RpcHealthResult }) {
     checking: {
       icon: <ReloadIcon className="h-3 w-3 animate-spin" />,
       color: "text-muted-foreground",
-      bgColor: "bg-muted",
+      bgColor: "bg-white/20 dark:bg-white/10",
       label: "Checking...",
     },
     healthy: {
       icon: <CheckCircledIcon className="h-3 w-3" />,
-      color: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-100 dark:bg-green-900/30",
+      color: "text-green-700 dark:text-green-400",
+      bgColor: "bg-green-500/20 dark:bg-green-500/25",
       label: result.latencyMs ? `${result.latencyMs}ms` : "OK",
     },
     degraded: {
       icon: <CheckCircledIcon className="h-3 w-3" />,
-      color: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-100 dark:bg-yellow-900/30",
+      color: "text-yellow-700 dark:text-yellow-400",
+      bgColor: "bg-yellow-500/20 dark:bg-yellow-500/25",
       label: result.latencyMs ? `${result.latencyMs}ms (slow)` : "Slow",
     },
     down: {
       icon: <CrossCircledIcon className="h-3 w-3" />,
-      color: "text-red-600 dark:text-red-400",
-      bgColor: "bg-red-100 dark:bg-red-900/30",
+      color: "text-red-700 dark:text-red-400",
+      bgColor: "bg-red-500/20 dark:bg-red-500/25",
       label: "Down",
     },
   };
@@ -56,7 +56,8 @@ function StatusIndicator({ result }: { result: RpcHealthResult }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs",
+        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs",
+        "glass-subtle",
         config.bgColor,
         config.color
       )}
@@ -64,7 +65,7 @@ function StatusIndicator({ result }: { result: RpcHealthResult }) {
     >
       {config.icon}
       <span className="font-medium">{result.name}</span>
-      <span className="opacity-75">{config.label}</span>
+      <span className="opacity-80">{config.label}</span>
     </div>
   );
 }
@@ -94,7 +95,7 @@ export default function RpcStatus({
     summary && (!summary.allHealthy || !summary.requiredHealthy);
 
   return (
-    <div className="space-y-2">
+    <div className="glass rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
         {isMobile ? (
           <button
@@ -105,10 +106,10 @@ export default function RpcStatus({
             <span>RPC Status</span>
             <span
               className={cn(
-                "px-1.5 py-0.5 rounded text-[10px] font-bold",
+                "px-2 py-1 rounded-md text-[10px] font-bold glass-subtle",
                 hasIssues
-                  ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                  : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  ? "bg-yellow-500/20 text-yellow-700 dark:bg-yellow-500/25 dark:text-yellow-400"
+                  : "bg-green-500/20 text-green-700 dark:bg-green-500/25 dark:text-green-400"
               )}
             >
               {healthyCount}/{totalCount}
@@ -128,7 +129,11 @@ export default function RpcStatus({
           type="button"
           onClick={() => checkHealth()}
           disabled={isChecking}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2"
+          className={cn(
+            "text-xs text-muted-foreground hover:text-foreground transition-all disabled:opacity-50",
+            "min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2",
+            "rounded-lg hover:bg-white/10 dark:hover:bg-white/5"
+          )}
         >
           {isChecking ? (
             <ReloadIcon className="h-4 w-4 animate-spin" />
@@ -147,13 +152,13 @@ export default function RpcStatus({
           </div>
 
           {summary && !summary.requiredHealthy && (
-            <p className="text-xs text-red-600 dark:text-red-400">
+            <p className="text-xs text-red-700 dark:text-red-400 glass-subtle rounded-md px-3 py-2 bg-red-500/10 dark:bg-red-500/15">
               Arbitrum One RPC is required for proposal search
             </p>
           )}
 
           {summary && summary.requiredHealthy && !summary.allHealthy && (
-            <p className="text-xs text-yellow-600 dark:text-yellow-400">
+            <p className="text-xs text-yellow-700 dark:text-yellow-400 glass-subtle rounded-md px-3 py-2 bg-yellow-500/10 dark:bg-yellow-500/15">
               Some RPCs are unavailable. Lifecycle tracking may be incomplete.
             </p>
           )}

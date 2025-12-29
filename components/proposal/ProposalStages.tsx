@@ -91,7 +91,7 @@ export default function ProposalStages({
 
   if (error) {
     return (
-      <div className="p-4 text-center">
+      <div className="p-4 text-center glass-subtle rounded-xl">
         <p className="text-sm text-red-500 mb-3">{error}</p>
         <Button variant="outline" size="sm" onClick={() => refetchFromStage(0)}>
           <ReloadIcon className="mr-2 h-4 w-4" />
@@ -103,7 +103,7 @@ export default function ProposalStages({
 
   if (isQueued) {
     return (
-      <div className="p-4 text-center">
+      <div className="p-4 text-center glass-subtle rounded-xl">
         <div className="flex items-center justify-center gap-2 mb-2">
           <ReloadIcon className="h-4 w-4 text-yellow-500 animate-spin" />
           <span className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
@@ -122,9 +122,9 @@ export default function ProposalStages({
   }
 
   return (
-    <div className="p-4">
+    <div className="glass rounded-xl p-4">
       {/* Header */}
-      <div className="mb-4">
+      <div className="mb-4 pb-3 border-b border-border/50">
         <h3 className="text-sm font-semibold">Governance Lifecycle</h3>
         {result?.currentState && (
           <p className="text-xs text-muted-foreground">

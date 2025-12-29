@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { Separator } from "@/components/ui/Separator";
 import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 
 interface GeneralTabProps {
@@ -28,7 +27,7 @@ export function GeneralTab({
 }: GeneralTabProps) {
   return (
     <div className="mt-0 space-y-6">
-      <div className="space-y-3">
+      <div className="glass-subtle rounded-lg p-4 space-y-3 transition-all duration-200 hover:shadow-md">
         <Label className="text-sm font-medium">Theme</Label>
         <div className="grid grid-cols-3 gap-2">
           {(["light", "dark", "system"] as const).map((t) => (
@@ -38,7 +37,7 @@ export function GeneralTab({
               variant={theme === t ? "default" : "outline"}
               size="sm"
               onClick={() => setTheme(t)}
-              className="capitalize"
+              className="capitalize transition-all duration-200"
             >
               {t}
             </Button>
@@ -46,9 +45,7 @@ export function GeneralTab({
         </div>
       </div>
 
-      <Separator />
-
-      <div className="space-y-2">
+      <div className="glass-subtle rounded-lg p-4 space-y-2 transition-all duration-200 hover:shadow-md">
         <Label htmlFor="days-search">Days to Search</Label>
         <Input
           id="days-search"
@@ -64,9 +61,7 @@ export function GeneralTab({
         </p>
       </div>
 
-      <Separator />
-
-      <div className="flex items-center justify-between">
+      <div className="glass-subtle rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md">
         <div className="space-y-0.5">
           <Label>Nerd Mode</Label>
           <p className="text-xs text-muted-foreground">
@@ -78,6 +73,7 @@ export function GeneralTab({
           variant={nerdMode ? "default" : "outline"}
           size="sm"
           onClick={toggleNerdMode}
+          className="transition-all duration-200"
         >
           {nerdMode ? "On" : "Off"}
         </Button>

@@ -59,7 +59,7 @@ export function ButtonNav() {
   return (
     <nav className="flex-shrink-0">
       {isExplore ? (
-        <div className="flex items-center gap-1 sm:gap-2 px-0 sm:px-4 py-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 glass-subtle rounded-xl p-2">
           <SettingsSheet />
           {loading ? (
             <div className="flex items-center gap-1 sm:gap-2">
@@ -78,7 +78,7 @@ export function ButtonNav() {
           href="/explore"
           className={cn(
             buttonVariants({ variant: "default", size: "sm" }),
-            "px-3 sm:px-4 min-h-[44px]"
+            "px-3 sm:px-4 min-h-[44px] transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
           )}
         >
           <Icons.search className="w-4 h-4 sm:mr-2" />

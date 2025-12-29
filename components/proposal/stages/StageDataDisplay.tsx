@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { formatEtaTimestamp } from "@/lib/date-utils";
 
 import {
@@ -11,9 +13,11 @@ export interface StageDataDisplayProps {
   data: Record<string, unknown>;
 }
 
-export function StageDataDisplay({ data }: StageDataDisplayProps) {
+export const StageDataDisplay = memo(function StageDataDisplay({
+  data,
+}: StageDataDisplayProps) {
   return (
-    <div className="mt-2 text-xs">
+    <div className="mt-2 text-xs glass-subtle rounded-lg px-3 py-2 space-y-1">
       {"eta" in data && data.eta ? (
         <p className="text-muted-foreground">
           ETA: {formatEtaTimestamp(String(data.eta))}
@@ -37,4 +41,4 @@ export function StageDataDisplay({ data }: StageDataDisplayProps) {
       ) : null}
     </div>
   );
-}
+});

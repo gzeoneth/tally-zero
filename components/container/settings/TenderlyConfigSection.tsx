@@ -1,6 +1,6 @@
 "use client";
 
-import { Input } from "@/components/ui/Input";
+import { FormInputField } from "@/components/ui/FormInputField";
 import { Label } from "@/components/ui/Label";
 import {
   DEFAULT_TENDERLY_ORG,
@@ -28,51 +28,41 @@ export function TenderlyConfigSection({
   setTenderlyAccessTokenInput,
 }: TenderlyConfigSectionProps) {
   return (
-    <div className="space-y-3">
-      <Label className="text-sm font-medium">Tenderly Simulation</Label>
-      <p className="text-xs text-muted-foreground">
-        Configure Tenderly project for simulating retryable ticket executions
-      </p>
-      <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
-        <div className="space-y-2">
-          <Label htmlFor="tenderly-org" className="text-xs">
-            Organization/User Name
-          </Label>
-          <Input
-            id="tenderly-org"
-            type="text"
-            value={tenderlyOrgInput}
-            onChange={(e) => setTenderlyOrgInput(e.target.value)}
-            placeholder={DEFAULT_TENDERLY_ORG}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="tenderly-project" className="text-xs">
-            Project Slug
-          </Label>
-          <Input
-            id="tenderly-project"
-            type="text"
-            value={tenderlyProjectInput}
-            onChange={(e) => setTenderlyProjectInput(e.target.value)}
-            placeholder={DEFAULT_TENDERLY_PROJECT}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="tenderly-token" className="text-xs">
-            Access Token
-          </Label>
-          <Input
-            id="tenderly-token"
-            type="password"
-            value={tenderlyAccessTokenInput}
-            onChange={(e) => setTenderlyAccessTokenInput(e.target.value)}
-            placeholder="Enter your Tenderly access token"
-          />
-          <p className="text-[10px] text-muted-foreground">
-            Required for simulation. Get from dashboard.tenderly.co
-          </p>
-        </div>
+    <div className="glass-subtle rounded-lg p-4 space-y-3 transition-all duration-200 hover:shadow-md">
+      <div>
+        <Label className="text-sm font-medium">Tenderly Simulation</Label>
+        <p className="text-xs text-muted-foreground mt-1">
+          Configure Tenderly project for simulating retryable ticket executions
+        </p>
+      </div>
+      <div className="space-y-3 pt-2 border-t border-[var(--glass-border)]">
+        <FormInputField
+          id="tenderly-org"
+          label="Organization/User Name"
+          value={tenderlyOrgInput}
+          onChange={setTenderlyOrgInput}
+          placeholder={DEFAULT_TENDERLY_ORG}
+          labelClassName="text-xs"
+        />
+        <FormInputField
+          id="tenderly-project"
+          label="Project Slug"
+          value={tenderlyProjectInput}
+          onChange={setTenderlyProjectInput}
+          placeholder={DEFAULT_TENDERLY_PROJECT}
+          labelClassName="text-xs"
+        />
+        <FormInputField
+          id="tenderly-token"
+          label="Access Token"
+          type="password"
+          value={tenderlyAccessTokenInput}
+          onChange={setTenderlyAccessTokenInput}
+          placeholder="Enter your Tenderly access token"
+          helpText="Required for simulation. Get from dashboard.tenderly.co"
+          labelClassName="text-xs"
+          helpTextClassName="text-[10px] text-muted-foreground"
+        />
       </div>
     </div>
   );
