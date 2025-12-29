@@ -3,7 +3,7 @@
 import VoteModel from "@/components/container/VoteModel";
 import { Badge } from "@/components/ui/Badge";
 import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
-import { getGovernorTypeFromName } from "@/config/governors";
+import { GovernorBadge } from "@/components/ui/GovernorBadge";
 import { proposalSchema } from "@/config/schema";
 import { findStateByValue } from "@/lib/state-utils";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
@@ -50,19 +50,10 @@ export function MobileProposalCard({ proposal }: MobileProposalCardProps) {
                   {stateValue.label}
                 </Badge>
                 {proposal.governorName && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] font-medium px-2 py-0.5",
-                      getGovernorTypeFromName(proposal.governorName) === "core"
-                        ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
-                        : "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300"
-                    )}
-                  >
-                    {getGovernorTypeFromName(proposal.governorName) === "core"
-                      ? "Core"
-                      : "Treasury"}
-                  </Badge>
+                  <GovernorBadge
+                    governorName={proposal.governorName}
+                    size="sm"
+                  />
                 )}
               </div>
             </div>

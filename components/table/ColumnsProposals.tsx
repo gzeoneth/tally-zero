@@ -7,6 +7,7 @@ import { DataTableColumnHeader } from "@components/table/ColumnHeader";
 import { DataTableRowActions } from "@components/table/RowActions";
 import { Badge } from "@components/ui/Badge";
 import { ClickableDescriptionCell } from "@components/ui/DescriptionCell";
+import { GovernorBadge } from "@components/ui/GovernorBadge";
 import {
   HoverCard,
   HoverCardContent,
@@ -15,7 +16,6 @@ import {
 import { LifecycleCell } from "@components/ui/LifecycleCell";
 import { VoteDisplay } from "@components/ui/VoteDisplay";
 
-import { getGovernorTypeFromName } from "@/config/governors";
 import { findStateByValue } from "@/lib/state-utils";
 import { ParsedProposal } from "@/types/proposal";
 import { cn } from "@lib/utils";
@@ -75,21 +75,9 @@ export const columns: ColumnDef<ParsedProposal>[] = [
       <DataTableColumnHeader column={column} title="Governor" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
-      const governorType = getGovernorTypeFromName(row.original.governorName);
-      const isCore = governorType === "core";
-      return (
-        <Badge
-          variant="outline"
-          className={cn(
-            "text-xs font-medium",
-            isCore
-              ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
-              : "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300"
-          )}
-        >
-          {isCore ? "Core" : "Treasury"}
-        </Badge>
-      );
+      const { governorName } = row.original;
+      if (!governorName) return null;
+      return <GovernorBadge governorName={governorName} />;
     },
   },
   {
