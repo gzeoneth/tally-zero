@@ -3,8 +3,7 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+import { FormInputField } from "@/components/ui/FormInputField";
 import { Separator } from "@/components/ui/Separator";
 import {
   ARBITRUM_RPC_URL,
@@ -40,33 +39,25 @@ export function RpcTab({
 
   return (
     <div className="mt-0 space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="l2-rpc">Arbitrum RPC URL</Label>
-        <Input
-          id="l2-rpc"
-          type="url"
-          value={l2RpcInput}
-          onChange={(e) => setL2RpcInput(e.target.value)}
-          placeholder={ARBITRUM_RPC_URL}
-        />
-        <p className="text-xs text-muted-foreground">
-          Custom Arbitrum One RPC endpoint (optional)
-        </p>
-      </div>
+      <FormInputField
+        id="l2-rpc"
+        label="Arbitrum RPC URL"
+        type="url"
+        value={l2RpcInput}
+        onChange={setL2RpcInput}
+        placeholder={ARBITRUM_RPC_URL}
+        helpText="Custom Arbitrum One RPC endpoint (optional)"
+      />
 
-      <div className="space-y-2">
-        <Label htmlFor="l1-rpc">Ethereum L1 RPC URL</Label>
-        <Input
-          id="l1-rpc"
-          type="url"
-          value={l1RpcInput}
-          onChange={(e) => setL1RpcInput(e.target.value)}
-          placeholder={ETHEREUM_RPC_URL}
-        />
-        <p className="text-xs text-muted-foreground">
-          Custom Ethereum mainnet RPC endpoint (optional)
-        </p>
-      </div>
+      <FormInputField
+        id="l1-rpc"
+        label="Ethereum L1 RPC URL"
+        type="url"
+        value={l1RpcInput}
+        onChange={setL1RpcInput}
+        placeholder={ETHEREUM_RPC_URL}
+        helpText="Custom Ethereum mainnet RPC endpoint (optional)"
+      />
 
       <Separator />
 
@@ -85,35 +76,27 @@ export function RpcTab({
 
       {showAdvanced && (
         <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-          <div className="space-y-2">
-            <Label htmlFor="block-range">Arbitrum Block Range</Label>
-            <Input
-              id="block-range"
-              type="number"
-              value={blockRangeInput}
-              onChange={(e) => setBlockRangeInput(e.target.value)}
-              placeholder={String(DEFAULT_FORM_VALUES.blockRange)}
-              min={100}
-            />
-            <p className="text-xs text-muted-foreground">
-              Query chunk size for Arbitrum (default: 10,000,000)
-            </p>
-          </div>
+          <FormInputField
+            id="block-range"
+            label="Arbitrum Block Range"
+            type="number"
+            value={blockRangeInput}
+            onChange={setBlockRangeInput}
+            placeholder={String(DEFAULT_FORM_VALUES.blockRange)}
+            min={100}
+            helpText="Query chunk size for Arbitrum (default: 10,000,000)"
+          />
 
-          <div className="space-y-2">
-            <Label htmlFor="l1-block-range">L1 Block Range</Label>
-            <Input
-              id="l1-block-range"
-              type="number"
-              value={l1BlockRangeInput}
-              onChange={(e) => setL1BlockRangeInput(e.target.value)}
-              placeholder={String(DEFAULT_FORM_VALUES.l1BlockRange)}
-              min={100}
-            />
-            <p className="text-xs text-muted-foreground">
-              Query chunk size for Ethereum L1 (default: 1,000)
-            </p>
-          </div>
+          <FormInputField
+            id="l1-block-range"
+            label="L1 Block Range"
+            type="number"
+            value={l1BlockRangeInput}
+            onChange={setL1BlockRangeInput}
+            placeholder={String(DEFAULT_FORM_VALUES.l1BlockRange)}
+            min={100}
+            helpText="Query chunk size for Ethereum L1 (default: 1,000)"
+          />
         </div>
       )}
     </div>
