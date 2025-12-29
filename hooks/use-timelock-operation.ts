@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  ARBITRUM_RPC_URL,
-  DEFAULT_FORM_VALUES,
-  ETHEREUM_RPC_URL,
-} from "@/config/arbitrum-governance";
+import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 import {
   CACHE_VERSION,
   DEFAULT_CACHE_TTL_MS,
@@ -20,7 +16,7 @@ import type { StageProgressCallback } from "@/lib/stage-tracker/types";
 import { getStoredNumber } from "@/lib/storage-utils";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocalStorage } from "./use-local-storage";
+import { useRpcSettings } from "./use-rpc-settings";
 
 interface CachedTimelockResult {
   version: number;
@@ -107,23 +103,15 @@ export function useTimelockOperation({
   l1RpcUrl,
   l2RpcUrl,
 }: UseTimelockOperationOptions): UseTimelockOperationResult {
-  const [storedL1Rpc, , l1RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L1_RPC,
-    ETHEREUM_RPC_URL
-  );
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
-  const rpcHydrated = l1RpcHydrated && l2RpcHydrated;
+  const { l1Rpc, l2Rpc, isHydrated: rpcHydrated } = useRpcSettings();
 
   const storedL1BlockRange = getStoredNumber(
     STORAGE_KEYS.L1_BLOCK_RANGE,
     DEFAULT_FORM_VALUES.l1BlockRange
   );
 
-  const effectiveL1RpcUrl = l1RpcUrl || storedL1Rpc;
-  const effectiveL2RpcUrl = l2RpcUrl || storedL2Rpc;
+  const effectiveL1RpcUrl = l1RpcUrl || l1Rpc;
+  const effectiveL2RpcUrl = l2RpcUrl || l2Rpc;
 
   const [operations, setOperations] = useState<TimelockOperationInfo[]>([]);
   const [selectedOperation, setSelectedOperation] =
@@ -158,7 +146,7 @@ export function useTimelockOperation({
     try {
       const { ethers } = await import("ethers");
       const l2Provider = new ethers.providers.JsonRpcProvider(
-        effectiveL2RpcUrl || ARBITRUM_RPC_URL
+        effectiveL2RpcUrl
       );
 
       const ops = await parseTimelockTransaction(txHash, l2Provider);

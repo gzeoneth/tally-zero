@@ -13,6 +13,7 @@ import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useMultiGovernorSearch } from "@/hooks/use-multi-governor-search";
+import { useRpcSettings } from "@/hooks/use-rpc-settings";
 
 export default function Search() {
   const searchParams = useSearchParams();
@@ -23,14 +24,6 @@ export default function Search() {
     STORAGE_KEYS.DAYS_TO_SEARCH,
     DEFAULT_FORM_VALUES.daysToSearch
   );
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
-  const [storedL1Rpc, , l1RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L1_RPC,
-    ""
-  );
   const [storedBlockRange] = useLocalStorage<number>(
     STORAGE_KEYS.BLOCK_RANGE,
     DEFAULT_FORM_VALUES.blockRange
@@ -40,23 +33,23 @@ export default function Search() {
     false
   );
 
-  const rpcSettingsHydrated = l2RpcHydrated && l1RpcHydrated;
+  const { l1Rpc, l2Rpc, isHydrated: rpcSettingsHydrated } = useRpcSettings();
 
   const daysToSearch =
     parseInt(searchParams.get("days") || "") ||
     storedDays ||
     DEFAULT_FORM_VALUES.daysToSearch;
   const rpcFromUrl = searchParams.get("rpc") || "";
-  const customRpc = rpcFromUrl || storedL2Rpc;
+  const customRpc = rpcFromUrl || l2Rpc;
   const skipCacheFromUrl = searchParams.get("skipCache") === "true";
   const skipCache = skipCacheFromUrl || storedSkipCache;
 
   const customRpcUrls = useMemo(
     () => ({
-      arb1: customRpc || undefined,
-      l1: storedL1Rpc || undefined,
+      arb1: customRpc,
+      l1: l1Rpc,
     }),
-    [customRpc, storedL1Rpc]
+    [customRpc, l1Rpc]
   );
 
   const handleRpcHealthChecked = useCallback(

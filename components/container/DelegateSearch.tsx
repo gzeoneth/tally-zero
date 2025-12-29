@@ -10,9 +10,8 @@ import {
   DelegatesTable,
   SnapshotBlockNotice,
 } from "@/components/container/delegate";
-import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useDelegateSearch } from "@/hooks/use-delegate-search";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useRpcSettings } from "@/hooks/use-rpc-settings";
 
 export default function DelegateSearch() {
   const searchParams = useSearchParams();
@@ -20,26 +19,17 @@ export default function DelegateSearch() {
   const [rpcHealthy, setRpcHealthy] = useState<boolean | null>(null);
   const [minPowerFilter, setMinPowerFilter] = useState<string>("");
 
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
-  const [storedL1Rpc, , l1RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L1_RPC,
-    ""
-  );
-
-  const rpcSettingsHydrated = l2RpcHydrated && l1RpcHydrated;
+  const { l1Rpc, l2Rpc, isHydrated: rpcSettingsHydrated } = useRpcSettings();
 
   const rpcFromUrl = searchParams.get("rpc") || "";
-  const customRpc = rpcFromUrl || storedL2Rpc;
+  const customRpc = rpcFromUrl || l2Rpc;
 
   const customRpcUrls = useMemo(
     () => ({
-      arb1: customRpc || undefined,
-      l1: storedL1Rpc || undefined,
+      arb1: customRpc,
+      l1: l1Rpc,
     }),
-    [customRpc, storedL1Rpc]
+    [customRpc, l1Rpc]
   );
 
   const handleRpcHealthChecked = useCallback(

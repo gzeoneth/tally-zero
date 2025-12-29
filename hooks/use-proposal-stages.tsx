@@ -1,6 +1,5 @@
 "use client";
 
-import { ETHEREUM_RPC_URL } from "@/config/arbitrum-governance";
 import { getGovernorByAddress, isCoreGovernor } from "@/config/governors";
 import {
   CACHE_TTL_CHECK_INTERVAL_MS,
@@ -30,7 +29,7 @@ import type {
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocalStorage } from "./use-local-storage";
+import { useRpcSettings } from "./use-rpc-settings";
 
 interface UseProposalStagesOptions {
   proposalId: string;
@@ -73,18 +72,10 @@ export function useProposalStages({
   l1RpcUrl,
   l2RpcUrl,
 }: UseProposalStagesOptions): UseProposalStagesResult {
-  const [storedL1Rpc, , l1RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L1_RPC,
-    ETHEREUM_RPC_URL
-  );
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
-  const rpcHydrated = l1RpcHydrated && l2RpcHydrated;
+  const { l1Rpc, l2Rpc, isHydrated: rpcHydrated } = useRpcSettings();
 
-  const effectiveL1RpcUrl = l1RpcUrl || storedL1Rpc;
-  const effectiveL2RpcUrl = l2RpcUrl || storedL2Rpc;
+  const effectiveL1RpcUrl = l1RpcUrl || l1Rpc;
+  const effectiveL2RpcUrl = l2RpcUrl || l2Rpc;
 
   // Local state that syncs with the global session
   const [stages, setStages] = useState<ProposalStage[]>([]);

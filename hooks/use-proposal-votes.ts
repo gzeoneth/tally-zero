@@ -3,13 +3,8 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
-import {
-  ARBITRUM_RPC_URL,
-  CORE_GOVERNOR,
-  TREASURY_GOVERNOR,
-} from "@/config/arbitrum-governance";
-import { STORAGE_KEYS } from "@/config/storage-keys";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { CORE_GOVERNOR, TREASURY_GOVERNOR } from "@/config/arbitrum-governance";
+import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { delay } from "@/lib/delay-utils";
 import { getDelegateLabel } from "@/lib/delegate-cache";
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
@@ -83,16 +78,13 @@ export function useProposalVotes({
   enabled = true,
   customRpcUrl,
 }: UseProposalVotesOptions): UseProposalVotesReturn {
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
+  const { l2Rpc, isHydrated } = useRpcSettings();
 
   const [result, setResult] = useState<ProposalVotesResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
+  const rpcUrl = customRpcUrl || l2Rpc;
 
   const fetchProposalVotes = useCallback(async () => {
     if (!proposalId || !enabled) return;
@@ -247,14 +239,14 @@ export function useProposalVotes({
   }, [proposalId, enabled, rpcUrl]);
 
   useEffect(() => {
-    if (!l2RpcHydrated) return;
+    if (!isHydrated) return;
     if (proposalId && enabled) {
       fetchProposalVotes();
     } else {
       setResult(null);
       setError(null);
     }
-  }, [l2RpcHydrated, proposalId, enabled, fetchProposalVotes]);
+  }, [isHydrated, proposalId, enabled, fetchProposalVotes]);
 
   return {
     result,
