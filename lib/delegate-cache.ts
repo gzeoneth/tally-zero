@@ -5,6 +5,8 @@ import type {
   DelegateInfo,
 } from "@/types/delegate";
 import delegateLabelsData from "@data/delegate-labels.json";
+import { formatCacheAge } from "./format-utils";
+import { getStoredValue } from "./storage-utils";
 
 export const CURRENT_DELEGATE_CACHE_VERSION = 1;
 
@@ -33,17 +35,9 @@ export function getDelegateLabel(address: string): string | undefined {
 }
 
 function getSkipDelegateCacheSetting(): boolean {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem(STORAGE_KEYS.SKIP_DELEGATE_CACHE);
-    if (stored) {
-      try {
-        return JSON.parse(stored) === true;
-      } catch {
-        return false;
-      }
-    }
-  }
-  return false;
+  return (
+    getStoredValue<boolean>(STORAGE_KEYS.SKIP_DELEGATE_CACHE, false) === true
+  );
 }
 
 let staticCacheData: DelegateCache | null = null;
@@ -58,7 +52,7 @@ let cacheValidated = false;
 
 export async function loadDelegateCache(): Promise<DelegateCache | null> {
   if (getSkipDelegateCacheSetting()) {
-    console.log("[delegate-cache] Skipping preload cache (setting enabled)");
+    console.debug("[delegate-cache] Skipping preload cache (setting enabled)");
     return null;
   }
 
@@ -93,7 +87,7 @@ export async function loadDelegateCache(): Promise<DelegateCache | null> {
 
   validatedCacheData = staticCacheData;
 
-  console.log(
+  console.debug(
     `[delegate-cache] Loaded ${validatedCacheData.delegates.length} delegates from cache (block ${validatedCacheData.snapshotBlock})`
   );
 
@@ -114,22 +108,12 @@ export function getDelegateCacheStats(
   cache: DelegateCache
 ): DelegateCacheStats {
   const generatedAt = new Date(cache.generatedAt);
-  const ageMs = Date.now() - generatedAt.getTime();
-  const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
-  const ageDays = Math.floor(ageHours / 24);
-
-  const age =
-    ageDays > 0
-      ? `${ageDays}d ${ageHours % 24}h`
-      : ageHours > 0
-        ? `${ageHours}h`
-        : "< 1h";
 
   return {
     totalDelegates: cache.stats.totalDelegates,
     snapshotBlock: cache.snapshotBlock,
     generatedAt,
-    age,
+    age: formatCacheAge(generatedAt),
     totalVotingPower: cache.totalVotingPower,
     totalSupply: cache.totalSupply,
   };

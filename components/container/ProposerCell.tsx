@@ -1,3 +1,4 @@
+import { getAddressExplorerUrl, getExplorerName } from "@/lib/explorer-utils";
 import type { Address } from "@/types/search";
 import { Addreth, AddrethConfig } from "addreth";
 import { useTheme } from "next-themes";
@@ -12,8 +13,8 @@ export function ProposerCell({ proposer }: { proposer: Address }) {
         address={proposer}
         theme={theme === "dark" ? "dark" : "light"}
         explorer={(address) => ({
-          name: "Arbiscan",
-          accountUrl: `https://arbiscan.io/address/${address}`,
+          name: getExplorerName("arb1"),
+          accountUrl: getAddressExplorerUrl(address),
         })}
       />
     </AddrethConfig>

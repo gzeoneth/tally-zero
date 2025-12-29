@@ -18,6 +18,7 @@ import { ethers } from "ethers";
 import * as fs from "fs";
 import * as path from "path";
 
+import { addressesEqual } from "../lib/address-utils";
 import type { DelegateCache, DelegateInfo } from "../types/delegate";
 import type { Address } from "../types/search";
 
@@ -171,7 +172,7 @@ async function fetchDelegateEvents(
       const { delegate, previousBalance, newBalance } = args;
 
       // Skip excluded address
-      if (delegate.toLowerCase() === EXCLUDED_ADDRESS.toLowerCase()) {
+      if (addressesEqual(delegate, EXCLUDED_ADDRESS)) {
         continue;
       }
 

@@ -1,0 +1,53 @@
+/**
+ * Block explorer URL utilities
+ * Centralized explorer URL generation for Ethereum, Arbitrum One, and Arbitrum Nova
+ */
+
+export type ChainId = "ethereum" | "arb1" | "nova";
+
+const EXPLORER_BASE_URLS: Record<ChainId, string> = {
+  ethereum: "https://etherscan.io",
+  arb1: "https://arbiscan.io",
+  nova: "https://nova.arbiscan.io",
+};
+
+/**
+ * Get block explorer base URL for a chain
+ */
+export function getExplorerBaseUrl(chain: ChainId): string {
+  return EXPLORER_BASE_URLS[chain];
+}
+
+/**
+ * Get block explorer URL for an address
+ */
+export function getAddressExplorerUrl(
+  address: string,
+  chain: ChainId = "arb1"
+): string {
+  return `${EXPLORER_BASE_URLS[chain]}/address/${address}`;
+}
+
+/**
+ * Get block explorer URL for a transaction hash
+ */
+export function getTxExplorerUrl(
+  hash: string,
+  chain: ChainId = "arb1"
+): string {
+  return `${EXPLORER_BASE_URLS[chain]}/tx/${hash}`;
+}
+
+/**
+ * Get explorer name for a chain
+ */
+export function getExplorerName(chain: ChainId): string {
+  switch (chain) {
+    case "ethereum":
+      return "Etherscan";
+    case "arb1":
+      return "Arbiscan";
+    case "nova":
+      return "Nova Explorer";
+  }
+}

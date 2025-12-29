@@ -111,7 +111,6 @@ function LogoIcon({ className }: { className?: string } = { className: "" }) {
       className={className}
       width={30}
       height={30}
-      layout="fixed"
     />
   );
 }

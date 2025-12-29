@@ -1,3 +1,4 @@
+import { addressesEqual, findByAddress } from "@/lib/address-utils";
 import type { StageType } from "@/types/proposal-stage";
 
 export type GovernorType = "core" | "treasury";
@@ -54,18 +55,19 @@ export const GOVERNOR_LIST: GovernorConfig[] = Object.values(GOVERNORS);
 export function getGovernorByAddress(
   address: string
 ): GovernorConfig | undefined {
-  const normalized = address.toLowerCase();
-  return GOVERNOR_LIST.find((g) => g.address.toLowerCase() === normalized);
+  return findByAddress(GOVERNOR_LIST, address);
 }
 
 export function isCoreGovernor(address: string): boolean {
-  return address.toLowerCase() === CORE_GOVERNOR_CONFIG.address.toLowerCase();
+  return addressesEqual(address, CORE_GOVERNOR_CONFIG.address);
 }
 
 export function isTreasuryGovernor(address: string): boolean {
-  return (
-    address.toLowerCase() === TREASURY_GOVERNOR_CONFIG.address.toLowerCase()
-  );
+  return addressesEqual(address, TREASURY_GOVERNOR_CONFIG.address);
+}
+
+export function isArbitrumGovernor(address: string): boolean {
+  return isCoreGovernor(address) || isTreasuryGovernor(address);
 }
 
 export function getFinalStageForGovernor(
@@ -78,4 +80,15 @@ export function getFinalStageForGovernor(
 export function getGovernorType(address: string): GovernorType | undefined {
   const config = getGovernorByAddress(address);
   return config?.type;
+}
+
+/**
+ * Determine governor type from governor name string
+ * Used for display logic in UI components
+ */
+export function getGovernorTypeFromName(
+  governorName: string | undefined
+): GovernorType {
+  if (!governorName) return "treasury";
+  return governorName.toLowerCase().includes("core") ? "core" : "treasury";
 }

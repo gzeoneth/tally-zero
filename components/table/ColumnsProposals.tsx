@@ -7,6 +7,7 @@ import { DataTableColumnHeader } from "@components/table/ColumnHeader";
 import { DataTableRowActions } from "@components/table/RowActions";
 import { Badge } from "@components/ui/Badge";
 import { ClickableDescriptionCell } from "@components/ui/DescriptionCell";
+import { GovernorBadge } from "@components/ui/GovernorBadge";
 import {
   HoverCard,
   HoverCardContent,
@@ -15,8 +16,8 @@ import {
 import { LifecycleCell } from "@components/ui/LifecycleCell";
 import { VoteDisplay } from "@components/ui/VoteDisplay";
 
+import { findStateByValue } from "@/lib/state-utils";
 import { ParsedProposal } from "@/types/proposal";
-import { states } from "@data/table/data";
 import { cn } from "@lib/utils";
 
 import { DotIcon } from "lucide-react";
@@ -74,21 +75,9 @@ export const columns: ColumnDef<ParsedProposal>[] = [
       <DataTableColumnHeader column={column} title="Governor" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
-      const governorName = row.original.governorName || "Unknown";
-      const isCore = governorName.toLowerCase().includes("core");
-      return (
-        <Badge
-          variant="outline"
-          className={cn(
-            "text-xs font-medium",
-            isCore
-              ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
-              : "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300"
-          )}
-        >
-          {isCore ? "Core" : "Treasury"}
-        </Badge>
-      );
+      const { governorName } = row.original;
+      if (!governorName) return null;
+      return <GovernorBadge governorName={governorName} />;
     },
   },
   {
@@ -97,9 +86,7 @@ export const columns: ColumnDef<ParsedProposal>[] = [
       <DataTableColumnHeader column={column} title="State" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
-      const stateValue = states.find(
-        (state) => state.value === row.getValue("state")
-      );
+      const stateValue = findStateByValue(row.getValue("state") as string);
       if (!stateValue) return null;
 
       return (
@@ -114,8 +101,9 @@ export const columns: ColumnDef<ParsedProposal>[] = [
         </Badge>
       );
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
+    filterFn: (row, id, value: string[]) => {
+      const rowState = (row.getValue(id) as string)?.toLowerCase();
+      return value.some((v) => v.toLowerCase() === rowState);
     },
   },
   {

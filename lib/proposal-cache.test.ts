@@ -24,32 +24,32 @@ const createProposal = (
   endBlock: "24043807",
   description: "Test proposal",
   networkId: "42161",
-  state: "executed",
+  state: "Executed",
   governorName: "Core Governor",
   ...overrides,
 });
 
 const activeProposal = createProposal({
   id: "53154361738756237993090798888616593723057470462495169047773178676976253908001",
-  state: "active",
+  state: "Active",
   startBlock: "23943007",
 });
 
 const executedProposal = createProposal({
   id: "57495998481040869152703890521939307107269690440073097268210566577740258992963",
-  state: "executed",
+  state: "Executed",
   startBlock: "23593417",
 });
 
 const pendingProposal = createProposal({
   id: "3",
-  state: "pending",
+  state: "Pending",
   startBlock: "24000000",
 });
 
 const defeatedProposal = createProposal({
   id: "4",
-  state: "defeated",
+  state: "Defeated",
   startBlock: "22000000",
 });
 
@@ -137,7 +137,7 @@ describe("proposal-cache", () => {
 
       const needingRefresh = getProposalsNeedingRefresh(cache);
       expect(needingRefresh).toHaveLength(2);
-      expect(needingRefresh.map((p) => p.state)).toEqual(["active", "pending"]);
+      expect(needingRefresh.map((p) => p.state)).toEqual(["Active", "Pending"]);
     });
 
     it("returns empty array when no proposals need refresh", () => {
@@ -192,7 +192,7 @@ describe("proposal-cache", () => {
       const cached = [executedProposal];
       const newProposal = createProposal({
         id: "new-proposal",
-        state: "active",
+        state: "Active",
       });
 
       const merged = mergeProposals(cached, [newProposal]);
@@ -213,21 +213,21 @@ describe("proposal-cache", () => {
 
       const updatedActive = createProposal({
         ...activeProposal,
-        state: "succeeded",
+        state: "Succeeded",
       });
       const brandNewProposal = createProposal({
         id: "brand-new",
-        state: "pending",
+        state: "Pending",
       });
 
       const merged = mergeProposals(cached, [updatedActive, brandNewProposal]);
 
       expect(merged).toHaveLength(3);
       expect(merged.find((p) => p.id === executedProposal.id)?.state).toBe(
-        "executed"
+        "Executed"
       );
       expect(merged.find((p) => p.id === activeProposal.id)?.state).toBe(
-        "succeeded"
+        "Succeeded"
       );
       expect(merged.map((p) => p.id)).toContain("brand-new");
     });
@@ -238,23 +238,23 @@ describe("proposal-cache", () => {
       const proposals = [executedProposal, activeProposal, defeatedProposal];
       const sorted = sortProposals(proposals);
 
-      expect(sorted[0].state).toBe("active");
+      expect(sorted[0].state).toBe("Active");
     });
 
     it("sorts by startBlock descending within same state", () => {
       const active1 = createProposal({
         id: "a1",
-        state: "active",
+        state: "Active",
         startBlock: "1000",
       });
       const active2 = createProposal({
         id: "a2",
-        state: "active",
+        state: "Active",
         startBlock: "2000",
       });
       const active3 = createProposal({
         id: "a3",
-        state: "active",
+        state: "Active",
         startBlock: "1500",
       });
 
@@ -265,16 +265,16 @@ describe("proposal-cache", () => {
 
     it("handles mixed states", () => {
       const proposals = [
-        createProposal({ id: "1", state: "executed", startBlock: "3000" }),
-        createProposal({ id: "2", state: "active", startBlock: "1000" }),
-        createProposal({ id: "3", state: "pending", startBlock: "4000" }),
-        createProposal({ id: "4", state: "active", startBlock: "2000" }),
+        createProposal({ id: "1", state: "Executed", startBlock: "3000" }),
+        createProposal({ id: "2", state: "Active", startBlock: "1000" }),
+        createProposal({ id: "3", state: "Pending", startBlock: "4000" }),
+        createProposal({ id: "4", state: "Active", startBlock: "2000" }),
       ];
 
       const sorted = sortProposals(proposals);
 
-      expect(sorted[0].state).toBe("active");
-      expect(sorted[1].state).toBe("active");
+      expect(sorted[0].state).toBe("Active");
+      expect(sorted[1].state).toBe("Active");
       expect(sorted[0].startBlock).toBe("2000");
       expect(sorted[1].startBlock).toBe("1000");
     });
@@ -302,7 +302,7 @@ describe("proposal-cache", () => {
           executedProposal,
           pendingProposal,
           defeatedProposal,
-          createProposal({ id: "5", state: "executed" }),
+          createProposal({ id: "5", state: "Executed" }),
         ],
         governorStats: {},
       };
@@ -311,10 +311,10 @@ describe("proposal-cache", () => {
 
       expect(stats.totalProposals).toBe(5);
       expect(stats.stateDistribution).toEqual({
-        active: 1,
-        executed: 2,
-        pending: 1,
-        defeated: 1,
+        Active: 1,
+        Executed: 2,
+        Pending: 1,
+        Defeated: 1,
       });
     });
 

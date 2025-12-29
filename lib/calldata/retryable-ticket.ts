@@ -1,0 +1,54 @@
+import { ethers } from "ethers";
+
+import type { RetryableTicketData } from "./types";
+
+// Retryable ticket magic address - bytes are ABI encoded tuple, not calldata
+const RETRYABLE_TICKET_MAGIC = "0xa723c008e76e379c55599d2e4d93879beafda79c";
+
+// Inbox addresses to identify chain
+const ARB1_INBOX = "0x4dbd4fc535ac27206064b68ffcf827b0a60bab3f";
+const NOVA_INBOX = "0xc4448b71118c9071bcb9734a0eac55d18a153949";
+
+/**
+ * Check if target is the retryable ticket magic address
+ */
+export function isRetryableTicketMagic(target: string): boolean {
+  return target.toLowerCase() === RETRYABLE_TICKET_MAGIC;
+}
+
+/**
+ * Decode retryable ticket data from bytes (not calldata - raw ABI encoded tuple)
+ */
+export function decodeRetryableTicket(
+  bytes: string
+): RetryableTicketData | null {
+  try {
+    const abiCoder = new ethers.utils.AbiCoder();
+    // Decode as tuple: (address, address, uint256, uint256, uint256, bytes)
+    const decoded = abiCoder.decode(
+      ["address", "address", "uint256", "uint256", "uint256", "bytes"],
+      bytes
+    );
+
+    const targetInbox = decoded[0].toLowerCase();
+    let chain: "arb1" | "nova" | "unknown" = "unknown";
+    if (targetInbox === ARB1_INBOX) {
+      chain = "arb1";
+    } else if (targetInbox === NOVA_INBOX) {
+      chain = "nova";
+    }
+
+    return {
+      targetInbox: decoded[0],
+      l2Target: decoded[1],
+      l2Value: decoded[2].toString(),
+      gasLimit: decoded[3].toString(),
+      maxFeePerGas: decoded[4].toString(),
+      l2Calldata: decoded[5],
+      chain,
+    };
+  } catch (error) {
+    console.warn("Failed to decode retryable ticket:", error);
+    return null;
+  }
+}

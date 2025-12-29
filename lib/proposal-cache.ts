@@ -1,6 +1,8 @@
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal } from "@/types/proposal";
+import { formatCacheAge } from "./format-utils";
 import { seedStagesFromProposal } from "./stages-cache";
+import { getStoredValue } from "./storage-utils";
 
 // Re-export stages cache functions for convenience
 export {
@@ -10,17 +12,9 @@ export {
 } from "./stages-cache";
 
 function getSkipPreloadCacheSetting(): boolean {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem(STORAGE_KEYS.SKIP_PRELOAD_CACHE);
-    if (stored) {
-      try {
-        return JSON.parse(stored) === true;
-      } catch {
-        return false;
-      }
-    }
-  }
-  return false;
+  return (
+    getStoredValue<boolean>(STORAGE_KEYS.SKIP_PRELOAD_CACHE, false) === true
+  );
 }
 
 export interface ProposalCache {
@@ -71,7 +65,7 @@ let stagesSeeded = false;
 
 export async function loadProposalCache(): Promise<ProposalCache | null> {
   if (getSkipPreloadCacheSetting()) {
-    console.log("[proposal-cache] Skipping preload cache (setting enabled)");
+    console.debug("[proposal-cache] Skipping preload cache (setting enabled)");
     return null;
   }
 
@@ -110,7 +104,7 @@ export async function loadProposalCache(): Promise<ProposalCache | null> {
 
   validatedCacheData = staticCacheData;
 
-  console.log(
+  console.debug(
     `[proposal-cache] Loaded ${validatedCacheData.proposals.length} proposals from cache (block ${validatedCacheData.snapshotBlock})`
   );
 
@@ -170,9 +164,9 @@ export function mergeProposals(
 
 export function sortProposals(proposals: ParsedProposal[]): ParsedProposal[] {
   return [...proposals].sort((a, b) => {
-    if (a.state === "active" && b.state !== "active") return -1;
-    if (a.state !== "active" && b.state === "active") return 1;
-    return parseInt(b.startBlock) - parseInt(a.startBlock);
+    if (a.state === "Active" && b.state !== "Active") return -1;
+    if (a.state !== "Active" && b.state === "Active") return 1;
+    return parseInt(b.startBlock, 10) - parseInt(a.startBlock, 10);
   });
 }
 
@@ -184,16 +178,6 @@ export function getCacheStats(cache: ProposalCache): {
   stateDistribution: Record<string, number>;
 } {
   const generatedAt = new Date(cache.generatedAt);
-  const ageMs = Date.now() - generatedAt.getTime();
-  const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
-  const ageDays = Math.floor(ageHours / 24);
-
-  const age =
-    ageDays > 0
-      ? `${ageDays}d ${ageHours % 24}h`
-      : ageHours > 0
-        ? `${ageHours}h`
-        : "< 1h";
 
   const stateDistribution: Record<string, number> = {};
   for (const p of cache.proposals) {
@@ -204,7 +188,7 @@ export function getCacheStats(cache: ProposalCache): {
     totalProposals: cache.proposals.length,
     snapshotBlock: cache.snapshotBlock,
     generatedAt,
-    age,
+    age: formatCacheAge(generatedAt),
     stateDistribution,
   };
 }
@@ -213,7 +197,7 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
   if (typeof window === "undefined") return 0;
 
   if (getSkipPreloadCacheSetting()) {
-    console.log("[proposal-cache] Skipping stages seeding (setting enabled)");
+    console.debug("[proposal-cache] Skipping stages seeding (setting enabled)");
     return 0;
   }
 
@@ -225,7 +209,7 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
   }
 
   if (seededCount > 0) {
-    console.log(
+    console.debug(
       `[proposal-cache] Seeded ${seededCount} proposals with preloaded stages`
     );
   }

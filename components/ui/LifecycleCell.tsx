@@ -11,7 +11,6 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/HoverCard";
 import { proposalSchema } from "@/config/schema";
-import { states } from "@/data/table/data";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useProposalStages } from "@/hooks/use-proposal-stages";
 import {
@@ -19,6 +18,7 @@ import {
   formatStageName,
   getStateStyle,
 } from "@/lib/lifecycle-utils";
+import { findStateByValue } from "@/lib/state-utils";
 import { cn } from "@/lib/utils";
 import {
   CheckCircledIcon,
@@ -55,7 +55,7 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
   const { queuePosition, currentStageIndex, stages, isBackgroundRefreshing } =
     proposalStages;
 
-  const stateValue = states.find((state) => state.value === proposal.state);
+  const stateValue = findStateByValue(proposal.state);
 
   if (!proposal.creationTxHash || !stateValue) {
     return <span className="text-xs text-muted-foreground">-</span>;

@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef, Row } from "@tanstack/react-table";
+import { ColumnDef, Row, Table } from "@tanstack/react-table";
 import { BigNumber } from "ethers";
 
 import { DataTableColumnHeader } from "@components/table/ColumnHeader";
@@ -11,11 +11,14 @@ import {
 } from "@components/ui/HoverCard";
 
 import { getDelegateLabel } from "@/lib/delegate-cache";
+import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 import { formatVotingPower, shortenAddress } from "@/lib/format-utils";
 import { DelegateInfo } from "@/types/delegate";
 import { ExternalLinkIcon } from "lucide-react";
 
 declare module "@tanstack/react-table" {
+  // TData is required for module augmentation but not used in this interface
+  // biome-ignore lint: required for type augmentation
   interface TableMeta<TData> {
     totalVotingPower?: string;
   }
@@ -51,7 +54,7 @@ export const columns: ColumnDef<DelegateInfo>[] = [
               {label && <p className="text-sm font-semibold">{label}</p>}
               <p className="text-sm font-mono break-all">{address}</p>
               <a
-                href={`https://arbiscan.io/address/${address}`}
+                href={getAddressExplorerUrl(address)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -97,7 +100,13 @@ export const columns: ColumnDef<DelegateInfo>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="% of Total" />
     ),
-    cell: ({ row, table }: { row: Row<DelegateInfo>; table: any }) => {
+    cell: ({
+      row,
+      table,
+    }: {
+      row: Row<DelegateInfo>;
+      table: Table<DelegateInfo>;
+    }) => {
       const votingPower = row.getValue("votingPower") as string;
       const totalVotingPower = table.options.meta?.totalVotingPower;
 

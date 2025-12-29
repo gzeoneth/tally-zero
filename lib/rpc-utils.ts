@@ -20,7 +20,7 @@ export async function queryWithRetry<T>(
   queryFn: () => Promise<T>,
   options: RetryOptions = DEFAULT_RETRY_OPTIONS
 ): Promise<T> {
-  let lastError: Error;
+  let lastError: Error = new Error("All retry attempts failed");
   let delay = options.initialDelay || 1000;
 
   for (let attempt = 0; attempt <= (options.maxRetries || 3); attempt++) {
@@ -52,7 +52,7 @@ export async function queryWithRetry<T>(
     }
   }
 
-  throw lastError!;
+  throw lastError;
 }
 
 export async function batchQueryWithRateLimit<T>(

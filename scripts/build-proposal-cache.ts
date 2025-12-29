@@ -21,6 +21,7 @@ import { ethers } from "ethers";
 import * as fs from "fs";
 import * as path from "path";
 
+import { addressesEqual, findByAddress } from "../lib/address-utils";
 import { trackProposalStages } from "../lib/stage-tracker-core";
 import {
   hasExceededTrackingAge,
@@ -59,14 +60,14 @@ const GOVERNORS = [
 
 // Proposal state names (matches ProposalStateName type)
 const PROPOSAL_STATE_NAMES: Record<number, ParsedProposal["state"]> = {
-  0: "pending",
-  1: "active",
-  2: "canceled",
-  3: "defeated",
-  4: "succeeded",
-  5: "queued",
-  6: "expired",
-  7: "executed",
+  0: "Pending",
+  1: "Active",
+  2: "Canceled",
+  3: "Defeated",
+  4: "Succeeded",
+  5: "Queued",
+  6: "Expired",
+  7: "Executed",
 };
 
 // Minimal ABI for Governor contract
@@ -289,10 +290,7 @@ async function parseProposals(
         }
       }
 
-      const governor = GOVERNORS.find(
-        (g) =>
-          g.address.toLowerCase() === proposal.contractAddress.toLowerCase()
-      );
+      const governor = findByAddress(GOVERNORS, proposal.contractAddress);
 
       parsed.push({
         ...proposal,
@@ -655,8 +653,8 @@ async function main() {
     newRawProposals.push(...proposals);
 
     // Count total proposals for this governor (existing + new)
-    const existingCount = existingProposals.filter(
-      (p) => p.contractAddress.toLowerCase() === governor.address.toLowerCase()
+    const existingCount = existingProposals.filter((p) =>
+      addressesEqual(p.contractAddress, governor.address)
     ).length;
     governorStats[governor.address] = {
       name: governor.name,
@@ -674,7 +672,7 @@ async function main() {
 
   // Refresh state for pending/active proposals from existing cache
   const proposalsToRefresh = existingProposals.filter(
-    (p) => p.state === "pending" || p.state === "active"
+    (p) => p.state === "Pending" || p.state === "Active"
   );
 
   let refreshedProposals: ParsedProposal[] = [];
@@ -690,7 +688,7 @@ async function main() {
   // 2. Refreshed pending/active proposals
   // 3. New proposals
   const finalizedExisting = existingProposals.filter(
-    (p) => p.state !== "pending" && p.state !== "active"
+    (p) => p.state !== "Pending" && p.state !== "Active"
   );
 
   const refreshedMap = new Map(refreshedProposals.map((p) => [p.id, p]));
@@ -714,18 +712,17 @@ async function main() {
 
   // Sort: active first, then by startBlock descending
   allProposals.sort((a, b) => {
-    if (a.state === "active" && b.state !== "active") return -1;
-    if (a.state !== "active" && b.state === "active") return 1;
-    return parseInt(b.startBlock) - parseInt(a.startBlock);
+    if (a.state === "Active" && b.state !== "Active") return -1;
+    if (a.state !== "Active" && b.state === "Active") return 1;
+    return parseInt(b.startBlock, 10) - parseInt(a.startBlock, 10);
   });
 
   // Update governor stats
   for (const governor of GOVERNORS) {
     governorStats[governor.address] = {
       name: governor.name,
-      proposalCount: allProposals.filter(
-        (p) =>
-          p.contractAddress.toLowerCase() === governor.address.toLowerCase()
+      proposalCount: allProposals.filter((p) =>
+        addressesEqual(p.contractAddress, governor.address)
       ).length,
     };
   }

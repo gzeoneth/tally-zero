@@ -1,15 +1,17 @@
+import { GOVERNORS } from "@/config/governors";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import { describe, expect, it } from "vitest";
 import {
-  CORE_GOVERNOR_ADDRESS,
   MAX_TRACKING_AGE_MS,
-  TREASURY_GOVERNOR_ADDRESS,
   areStagesComplete,
   getCacheKey,
   hasExceededTrackingAge,
   hasReachedFinalStage,
   isCacheExpired,
 } from "./stages-cache";
+
+const CORE_GOVERNOR_ADDRESS = GOVERNORS.core.address.toLowerCase();
+const TREASURY_GOVERNOR_ADDRESS = GOVERNORS.treasury.address.toLowerCase();
 
 const createStage = (
   type: StageType,

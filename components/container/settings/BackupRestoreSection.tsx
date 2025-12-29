@@ -1,0 +1,48 @@
+"use client";
+
+import { Download, Upload } from "lucide-react";
+
+import { Button } from "@/components/ui/Button";
+import { Label } from "@/components/ui/Label";
+
+interface BackupRestoreSectionProps {
+  onExportSettings: () => void;
+  onImportSettings: () => void;
+}
+
+/**
+ * Backup and restore settings section
+ */
+export function BackupRestoreSection({
+  onExportSettings,
+  onImportSettings,
+}: BackupRestoreSectionProps) {
+  return (
+    <div className="space-y-3">
+      <Label className="text-sm font-medium">Backup & Restore</Label>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onExportSettings}
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Export
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onImportSettings}
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          Import
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Export settings to a file or import from a backup
+      </p>
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
-import { type Step } from "@/types/steps";
+import { type StepTypeWithReactName } from "@/types/steps";
 
 export type FeatureProps = {
-  step: Step;
+  step: StepTypeWithReactName;
   isActive?: boolean;
 } & React.ComponentPropsWithoutRef<"div">;

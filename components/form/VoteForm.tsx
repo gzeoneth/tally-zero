@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { formatUnits } from "viem";
 import {
   useAccount,
   useReadContract,
@@ -29,6 +28,7 @@ import { ReloadIcon } from "@radix-ui/react-icons";
 
 import { ARB_TOKEN } from "@config/arbitrum-governance";
 import { proposalSchema, voteSchema } from "@config/schema";
+import { formatVotingPower } from "@lib/format-utils";
 import { toast } from "sonner";
 
 import OZ_Governor_ABI from "@data/OzGovernor_ABI.json";
@@ -46,16 +46,6 @@ const ERC20_VOTES_ABI = [
     type: "function",
   },
 ] as const;
-
-function formatVotingPower(value: bigint): string {
-  const formatted = formatUnits(value, 18);
-  const num = parseFloat(formatted);
-  if (num === 0) return "0";
-  if (num < 0.01) return "< 0.01";
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
-  return num.toFixed(2);
-}
 
 export default function VoteForm({
   proposal,

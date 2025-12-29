@@ -5,20 +5,10 @@ import { Dialog, DialogTrigger } from "@/components/ui/Dialog";
 import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
 
 import { proposalSchema } from "@/config/schema";
-import { states } from "@/data/table/data";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { findStateByValue } from "@/lib/state-utils";
+import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
 import { ParsedProposal } from "@/types/proposal";
-
-function stripMarkdownAndHtml(text: string) {
-  // Remove HTML tags first
-  const withoutHtml = text.replace(/<[^>]*>/g, "");
-  // Remove markdown syntax
-  return withoutHtml.replace(/(\[.*?\]\(.*?\)|[*_`#>])/g, "");
-}
-
-function truncateText(text: string, maxLength = 100) {
-  return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
-}
 
 export function DescriptionCell({ mdxContent }: { mdxContent: string }) {
   const plainText = truncateText(stripMarkdownAndHtml(mdxContent));
@@ -35,7 +25,7 @@ export function ClickableDescriptionCell({
 }) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const parsedProposal = proposalSchema.parse(proposal);
-  const stateValue = states.find((state) => state.value === proposal.state);
+  const stateValue = findStateByValue(proposal.state);
 
   if (!stateValue) {
     return <DescriptionCell mdxContent={proposal.description} />;
