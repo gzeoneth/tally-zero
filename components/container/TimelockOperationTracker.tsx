@@ -25,6 +25,7 @@ import {
 } from "@radix-ui/react-icons";
 import { useCallback, useMemo, useState } from "react";
 
+import { ActionView } from "../payload/ActionView";
 import { LoadingSkeleton, StageItem } from "../proposal/stages";
 
 interface TimelockOperationTrackerProps {
@@ -125,13 +126,28 @@ export function TimelockOperationTracker({
 
         {/* Lifecycle stages */}
         {selectedOperation && (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto space-y-4">
             <OperationHeader
               operation={selectedOperation}
               isLoading={isLoading}
               onRefresh={refetch}
             />
-            <div className="mt-4 glass rounded-xl p-4">
+
+            {/* Operation Payload with decoded calldata */}
+            <div className="glass rounded-xl p-4">
+              <div className="mb-4 pb-3 border-b border-border/50">
+                <h3 className="text-sm font-semibold">Operation Payload</h3>
+              </div>
+              <ActionView
+                index={0}
+                target={selectedOperation.target}
+                value={selectedOperation.value}
+                calldata={selectedOperation.data}
+                governorAddress={selectedOperation.timelockAddress}
+              />
+            </div>
+
+            <div className="glass rounded-xl p-4">
               <div className="mb-4 pb-3 border-b border-border/50">
                 <h3 className="text-sm font-semibold">Operation Lifecycle</h3>
               </div>
