@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   BLOCK_RANGE: "tally-zero-block-range",
   L1_BLOCK_RANGE: "tally-zero-l1-block-range",
   STAGES_CACHE_PREFIX: "tally-zero-stages-",
+  TIMELOCK_OP_CACHE_PREFIX: "tally-zero-timelock-op-",
   DAYS_TO_SEARCH: "tally-zero-days-to-search",
   NERD_MODE: "tally-zero-nerd-mode",
   CACHE_TTL: "tally-zero-cache-ttl",
