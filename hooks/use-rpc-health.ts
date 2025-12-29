@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   checkAllRpcHealth,
+  DEFAULT_RPC_ENDPOINTS,
   getRpcHealthSummary,
   type RpcHealthResult,
 } from "@/lib/rpc-health";
@@ -47,11 +48,14 @@ export function useRpcHealth({
   const checkHealth = useCallback(async () => {
     setIsChecking(true);
 
-    setResults([
-      { id: "arb1", name: "Arbitrum One", url: "", status: "checking" },
-      { id: "nova", name: "Arbitrum Nova", url: "", status: "checking" },
-      { id: "l1", name: "Ethereum", url: "", status: "checking" },
-    ]);
+    setResults(
+      DEFAULT_RPC_ENDPOINTS.map((endpoint) => ({
+        id: endpoint.id,
+        name: endpoint.name,
+        url: "",
+        status: "checking" as const,
+      }))
+    );
 
     try {
       const healthResults = await checkAllRpcHealth(customUrls, chunkSizes);
