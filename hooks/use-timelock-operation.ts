@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ARBITRUM_RPC_URL,
   DEFAULT_FORM_VALUES,
   ETHEREUM_RPC_URL,
 } from "@/config/arbitrum-governance";
@@ -16,9 +17,10 @@ import {
   type TimelockTrackingResult,
 } from "@/lib/stage-tracker/timelock-operation-tracker";
 import type { StageProgressCallback } from "@/lib/stage-tracker/types";
-import { getStoredJsonString, getStoredNumber } from "@/lib/storage-utils";
+import { getStoredNumber } from "@/lib/storage-utils";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocalStorage } from "./use-local-storage";
 
 interface CachedTimelockResult {
   version: number;
@@ -105,11 +107,16 @@ export function useTimelockOperation({
   l1RpcUrl,
   l2RpcUrl,
 }: UseTimelockOperationOptions): UseTimelockOperationResult {
-  const storedL1Rpc = getStoredJsonString(
+  const [storedL1Rpc, , l1RpcHydrated] = useLocalStorage(
     STORAGE_KEYS.L1_RPC,
     ETHEREUM_RPC_URL
   );
-  const storedL2Rpc = getStoredJsonString(STORAGE_KEYS.L2_RPC, "");
+  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+  const rpcHydrated = l1RpcHydrated && l2RpcHydrated;
+
   const storedL1BlockRange = getStoredNumber(
     STORAGE_KEYS.L1_BLOCK_RANGE,
     DEFAULT_FORM_VALUES.l1BlockRange
@@ -133,7 +140,7 @@ export function useTimelockOperation({
 
   // Parse transaction to find CallScheduled events
   const parseTransaction = useCallback(async () => {
-    if (!txHash || !enabled) return;
+    if (!txHash || !enabled || !rpcHydrated) return;
 
     // Validate tx hash format
     if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
@@ -151,7 +158,7 @@ export function useTimelockOperation({
     try {
       const { ethers } = await import("ethers");
       const l2Provider = new ethers.providers.JsonRpcProvider(
-        effectiveL2RpcUrl || "https://arb1.arbitrum.io/rpc"
+        effectiveL2RpcUrl || ARBITRUM_RPC_URL
       );
 
       const ops = await parseTimelockTransaction(txHash, l2Provider);
@@ -177,12 +184,12 @@ export function useTimelockOperation({
       setError(err instanceof Error ? err.message : String(err));
       setIsParsing(false);
     }
-  }, [txHash, enabled, effectiveL2RpcUrl]);
+  }, [txHash, enabled, rpcHydrated, effectiveL2RpcUrl]);
 
   // Track selected operation
   const trackOperation = useCallback(
     async (forceRefresh: boolean = false) => {
-      if (!selectedOperation || !enabled) return;
+      if (!selectedOperation || !enabled || !rpcHydrated) return;
 
       // Check cache first (unless forcing refresh)
       if (!forceRefresh) {
@@ -271,6 +278,7 @@ export function useTimelockOperation({
     [
       selectedOperation,
       enabled,
+      rpcHydrated,
       effectiveL1RpcUrl,
       effectiveL2RpcUrl,
       storedL1BlockRange,

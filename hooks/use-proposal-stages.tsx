@@ -19,12 +19,13 @@ import {
   loadCachedStages,
   saveCachedStages,
 } from "@/lib/stages-cache";
-import { getStoredJsonString, getStoredNumber } from "@/lib/storage-utils";
+import { getStoredNumber } from "@/lib/storage-utils";
 import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocalStorage } from "./use-local-storage";
 
 interface UseProposalStagesOptions {
   proposalId: string;
@@ -67,11 +68,15 @@ export function useProposalStages({
   l1RpcUrl,
   l2RpcUrl,
 }: UseProposalStagesOptions): UseProposalStagesResult {
-  const storedL1Rpc = getStoredJsonString(
+  const [storedL1Rpc, , l1RpcHydrated] = useLocalStorage(
     STORAGE_KEYS.L1_RPC,
     ETHEREUM_RPC_URL
   );
-  const storedL2Rpc = getStoredJsonString(STORAGE_KEYS.L2_RPC, "");
+  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+  const rpcHydrated = l1RpcHydrated && l2RpcHydrated;
 
   const effectiveL1RpcUrl = l1RpcUrl || storedL1Rpc;
   const effectiveL2RpcUrl = l2RpcUrl || storedL2Rpc;
@@ -278,7 +283,7 @@ export function useProposalStages({
 
   // Fetch current L1 block for timing calculations
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !rpcHydrated) return;
 
     const fetchL1Block = async () => {
       try {
@@ -308,7 +313,7 @@ export function useProposalStages({
     const interval = setInterval(fetchL1Block, 60000);
 
     return () => clearInterval(interval);
-  }, [enabled, effectiveL1RpcUrl]);
+  }, [enabled, rpcHydrated, effectiveL1RpcUrl]);
 
   // Function to trigger background refresh
   const triggerBackgroundRefresh = useCallback(() => {
@@ -337,7 +342,13 @@ export function useProposalStages({
 
   // Subscribe to session and start tracking if needed
   useEffect(() => {
-    if (!enabled || !proposalId || !creationTxHash || !governorAddress) {
+    if (
+      !enabled ||
+      !proposalId ||
+      !creationTxHash ||
+      !governorAddress ||
+      !rpcHydrated
+    ) {
       return;
     }
 
@@ -400,6 +411,7 @@ export function useProposalStages({
     creationTxHash,
     governorAddress,
     enabled,
+    rpcHydrated,
     syncFromSession,
     startTracking,
     triggerBackgroundRefresh,
