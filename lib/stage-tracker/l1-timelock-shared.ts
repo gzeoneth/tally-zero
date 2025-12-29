@@ -17,6 +17,7 @@ import { ChildTransactionReceipt } from "@arbitrum/sdk";
 import { ethers } from "ethers";
 import { findL1ExecutionTransaction } from "./l1-message-utils";
 import { getL1BlockNumberFromReceipt, searchLogsInChunks } from "./log-search";
+import { checkTimelockAndBuildStage } from "./timelock-utils";
 
 export interface L1TimelockTrackingParams {
   l2Provider: ethers.providers.Provider;
@@ -259,44 +260,12 @@ async function trackL1TimelockExecution(
     };
   }
 
-  // Check timelock state to determine if it's pending or not started
-  const timelock = new ethers.Contract(
+  // Check timelock state using shared utility
+  return await checkTimelockAndBuildStage(
     l1TimelockAddress,
-    TimelockABI,
-    l1Provider
+    l1Provider,
+    operationId,
+    "L1_TIMELOCK_EXECUTED",
+    "trackL1TimelockExecution"
   );
-  try {
-    const isReady = await timelock.isOperationReady(operationId);
-    if (isReady) {
-      return {
-        type: "L1_TIMELOCK_EXECUTED",
-        status: "PENDING",
-        transactions: [],
-        data: { operationId, message: "Operation ready for execution" },
-      };
-    }
-
-    const isPending = await timelock.isOperationPending(operationId);
-    if (isPending) {
-      const timestamp = await timelock.getTimestamp(operationId);
-      return {
-        type: "L1_TIMELOCK_EXECUTED",
-        status: "PENDING",
-        transactions: [],
-        data: { operationId, eta: timestamp.toString() },
-      };
-    }
-  } catch (e) {
-    console.debug(
-      "[trackL1TimelockExecution] Failed to check timelock state:",
-      e
-    );
-  }
-
-  return {
-    type: "L1_TIMELOCK_EXECUTED",
-    status: "NOT_STARTED",
-    transactions: [],
-    data: { operationId },
-  };
 }

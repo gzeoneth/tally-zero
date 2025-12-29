@@ -1,7 +1,7 @@
-import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { ethers } from "ethers";
 import { searchLogsInChunks } from "../log-search";
+import { checkTimelockAndBuildStage } from "../timelock-utils";
 import type { TrackingContext } from "../types";
 
 /**
@@ -103,54 +103,12 @@ export async function trackL2TimelockExecution(
     };
   }
 
-  // Check timelock state
-  const timelock = new ethers.Contract(
+  // Check timelock state using shared utility
+  return await checkTimelockAndBuildStage(
     ctx.l2TimelockAddress,
-    TimelockABI,
-    ctx.l2Provider
+    ctx.l2Provider,
+    operationId,
+    "L2_TIMELOCK_EXECUTED",
+    "trackL2TimelockExecution"
   );
-  try {
-    const isOperation = await timelock.isOperation(operationId);
-    if (!isOperation) {
-      return {
-        type: "L2_TIMELOCK_EXECUTED",
-        status: "NOT_STARTED",
-        transactions: [],
-        data: { operationId },
-      };
-    }
-
-    const isReady = await timelock.isOperationReady(operationId);
-    if (isReady) {
-      return {
-        type: "L2_TIMELOCK_EXECUTED",
-        status: "PENDING",
-        transactions: [],
-        data: { operationId, message: "Operation ready for execution" },
-      };
-    }
-
-    const isPending = await timelock.isOperationPending(operationId);
-    if (isPending) {
-      const timestamp = await timelock.getTimestamp(operationId);
-      return {
-        type: "L2_TIMELOCK_EXECUTED",
-        status: "PENDING",
-        transactions: [],
-        data: { operationId, eta: timestamp.toString() },
-      };
-    }
-  } catch (e) {
-    console.debug(
-      "[trackL2TimelockExecution] Failed to check timelock state:",
-      e
-    );
-  }
-
-  return {
-    type: "L2_TIMELOCK_EXECUTED",
-    status: "NOT_STARTED",
-    transactions: [],
-    data: { operationId },
-  };
 }

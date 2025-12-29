@@ -23,6 +23,7 @@ import {
 import { ethers } from "ethers";
 import { trackL1TimelockStages } from "./l1-timelock-shared";
 import { searchLogsInChunks } from "./log-search";
+import { checkTimelockAndBuildStage } from "./timelock-utils";
 import type { StageProgressCallback } from "./types";
 
 export interface TimelockOperationInfo {
@@ -254,67 +255,14 @@ export class TimelockOperationTracker {
       };
     }
 
-    // Check timelock state
-    const timelock = new ethers.Contract(
+    // Check timelock state using shared utility
+    return await checkTimelockAndBuildStage(
       ctx.operationInfo.timelockAddress,
-      TimelockABI,
-      ctx.l2Provider
+      ctx.l2Provider,
+      ctx.operationInfo.operationId,
+      "L2_TIMELOCK_EXECUTED",
+      "trackL2Execution"
     );
-    try {
-      const isOperation = await timelock.isOperation(
-        ctx.operationInfo.operationId
-      );
-      if (!isOperation) {
-        return {
-          type: "L2_TIMELOCK_EXECUTED",
-          status: "NOT_STARTED",
-          transactions: [],
-          data: { operationId: ctx.operationInfo.operationId },
-        };
-      }
-
-      const isReady = await timelock.isOperationReady(
-        ctx.operationInfo.operationId
-      );
-      if (isReady) {
-        return {
-          type: "L2_TIMELOCK_EXECUTED",
-          status: "PENDING",
-          transactions: [],
-          data: {
-            operationId: ctx.operationInfo.operationId,
-            message: "Operation ready for execution",
-          },
-        };
-      }
-
-      const isPending = await timelock.isOperationPending(
-        ctx.operationInfo.operationId
-      );
-      if (isPending) {
-        const timestamp = await timelock.getTimestamp(
-          ctx.operationInfo.operationId
-        );
-        return {
-          type: "L2_TIMELOCK_EXECUTED",
-          status: "PENDING",
-          transactions: [],
-          data: {
-            operationId: ctx.operationInfo.operationId,
-            eta: timestamp.toString(),
-          },
-        };
-      }
-    } catch (e) {
-      console.debug("[trackL2Execution] Failed to check timelock state:", e);
-    }
-
-    return {
-      type: "L2_TIMELOCK_EXECUTED",
-      status: "NOT_STARTED",
-      transactions: [],
-      data: { operationId: ctx.operationInfo.operationId },
-    };
   }
 
   private async trackL2ToL1Message(
