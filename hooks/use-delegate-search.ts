@@ -3,6 +3,7 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { addressesEqual } from "@/lib/address-utils";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
 import type {
   DelegateCache,
@@ -161,8 +162,8 @@ export function useDelegateSearch({
 
         if (successfulResults.length > 0 && cache) {
           const updatedDelegates = cache.delegates.map((d) => {
-            const refreshed = successfulResults.find(
-              (r) => r.address.toLowerCase() === d.address.toLowerCase()
+            const refreshed = successfulResults.find((r) =>
+              addressesEqual(r.address, d.address)
             );
             return refreshed ? { ...d, votingPower: refreshed.votingPower } : d;
           });

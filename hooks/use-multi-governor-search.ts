@@ -3,6 +3,7 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
+import { findByAddress } from "@/lib/address-utils";
 import {
   loadProposalCache,
   mergeProposals,
@@ -198,9 +199,9 @@ async function parseProposals(
         }
       }
 
-      const governor = ARBITRUM_GOVERNORS.find(
-        (g) =>
-          g.address.toLowerCase() === proposal.contractAddress.toLowerCase()
+      const governor = findByAddress(
+        ARBITRUM_GOVERNORS,
+        proposal.contractAddress
       );
 
       parsed.push({

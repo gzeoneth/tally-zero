@@ -14,6 +14,7 @@ import {
 } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import GovernorABI from "@/data/L2ArbitrumGovernor_ABI.json";
+import { addressesEqual } from "@/lib/address-utils";
 import { queryWithRetry } from "@/lib/rpc-utils";
 import type {
   ChunkingConfig,
@@ -549,7 +550,7 @@ export class IncrementalStageTracker {
     const createdLog = ctx.creationReceipt!.logs.find(
       (log) =>
         log.topics[0] === proposalCreatedTopic &&
-        log.address.toLowerCase() === ctx.governorAddress.toLowerCase()
+        addressesEqual(log.address, ctx.governorAddress)
     );
 
     if (!createdLog) {
@@ -1233,11 +1234,11 @@ export class IncrementalStageTracker {
     }
 
     // Detect target chains by checking which inboxes were interacted with
-    const hasArb1Inbox = receipt.logs.some(
-      (log) => log.address.toLowerCase() === DELAYED_INBOX.ARB1.toLowerCase()
+    const hasArb1Inbox = receipt.logs.some((log) =>
+      addressesEqual(log.address, DELAYED_INBOX.ARB1)
     );
-    const hasNovaInbox = receipt.logs.some(
-      (log) => log.address.toLowerCase() === DELAYED_INBOX.NOVA.toLowerCase()
+    const hasNovaInbox = receipt.logs.some((log) =>
+      addressesEqual(log.address, DELAYED_INBOX.NOVA)
     );
 
     type ChainInfo = {

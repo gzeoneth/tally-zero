@@ -21,6 +21,7 @@ import { ethers } from "ethers";
 import * as fs from "fs";
 import * as path from "path";
 
+import { addressesEqual, findByAddress } from "../lib/address-utils";
 import { trackProposalStages } from "../lib/stage-tracker-core";
 import {
   hasExceededTrackingAge,
@@ -289,10 +290,7 @@ async function parseProposals(
         }
       }
 
-      const governor = GOVERNORS.find(
-        (g) =>
-          g.address.toLowerCase() === proposal.contractAddress.toLowerCase()
-      );
+      const governor = findByAddress(GOVERNORS, proposal.contractAddress);
 
       parsed.push({
         ...proposal,
@@ -655,8 +653,8 @@ async function main() {
     newRawProposals.push(...proposals);
 
     // Count total proposals for this governor (existing + new)
-    const existingCount = existingProposals.filter(
-      (p) => p.contractAddress.toLowerCase() === governor.address.toLowerCase()
+    const existingCount = existingProposals.filter((p) =>
+      addressesEqual(p.contractAddress, governor.address)
     ).length;
     governorStats[governor.address] = {
       name: governor.name,
@@ -723,9 +721,8 @@ async function main() {
   for (const governor of GOVERNORS) {
     governorStats[governor.address] = {
       name: governor.name,
-      proposalCount: allProposals.filter(
-        (p) =>
-          p.contractAddress.toLowerCase() === governor.address.toLowerCase()
+      proposalCount: allProposals.filter((p) =>
+        addressesEqual(p.contractAddress, governor.address)
       ).length,
     };
   }

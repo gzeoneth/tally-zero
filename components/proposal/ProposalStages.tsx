@@ -4,10 +4,8 @@ import { TopDelegatesNotVoted } from "@/components/proposal/TopDelegatesNotVoted
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Progress } from "@/components/ui/Progress";
-import {
-  L1_SECONDS_PER_BLOCK,
-  TREASURY_GOVERNOR,
-} from "@/config/arbitrum-governance";
+import { L1_SECONDS_PER_BLOCK } from "@/config/arbitrum-governance";
+import { isTreasuryGovernor } from "@/config/governors";
 import {
   getAllStageTypes,
   useProposalStages,
@@ -990,8 +988,7 @@ export default function ProposalStages({
   const currentL1Block =
     currentL1BlockProp ?? currentL1BlockFromHook ?? undefined;
 
-  const isTreasuryProposal =
-    governorAddress.toLowerCase() === TREASURY_GOVERNOR.address.toLowerCase();
+  const isTreasuryProposal = isTreasuryGovernor(governorAddress);
   const governorType = isTreasuryProposal ? "treasury" : "core";
 
   const allStageTypes = getAllStageTypes(governorType);
