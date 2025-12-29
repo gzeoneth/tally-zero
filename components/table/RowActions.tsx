@@ -2,7 +2,7 @@
 
 import { DotsHorizontalIcon } from "@radix-ui/react-icons";
 import { Row } from "@tanstack/react-table";
-import { useCallback, useState } from "react";
+import { memo } from "react";
 
 import VoteModel from "@/components/container/VoteModel";
 import { Button } from "@components/ui/Button";
@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@components/ui/DropdownMenu";
 
-import { useDeepLink } from "@/context/DeepLinkContext";
+import { useProposalModal } from "@/hooks/use-proposal-modal";
 import { findStateByValue } from "@/lib/state-utils";
 import { proposalSchema } from "@config/schema";
 
@@ -25,26 +25,13 @@ interface DataTableRowActionsProps<TData> {
   row: Row<TData>;
 }
 
-export function DataTableRowActions<TData>({
+function DataTableRowActionsComponent<TData>({
   row,
 }: DataTableRowActionsProps<TData>) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
-  const { openProposal, clearDeepLink } = useDeepLink();
-  const [open, setOpen] = useState(false);
   const proposal = proposalSchema.parse(row.original);
   const stateValue = findStateByValue(row.getValue("state") as string);
-
-  const handleOpenChange = useCallback(
-    (newOpen: boolean) => {
-      setOpen(newOpen);
-      if (newOpen) {
-        openProposal(proposal.id);
-      } else {
-        clearDeepLink();
-      }
-    },
-    [proposal.id, openProposal, clearDeepLink]
-  );
+  const { open, handleOpenChange } = useProposalModal(proposal.id);
 
   if (!stateValue) {
     return null;
@@ -138,3 +125,7 @@ export function DataTableRowActions<TData>({
     </Drawer>
   );
 }
+
+export const DataTableRowActions = memo(
+  DataTableRowActionsComponent
+) as typeof DataTableRowActionsComponent;

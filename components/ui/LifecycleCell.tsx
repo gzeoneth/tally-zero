@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import { z } from "zod";
 
 import VoteModel from "@/components/container/VoteModel";
@@ -11,7 +10,7 @@ import {
 } from "@/components/ui/HoverCard";
 import { ResponsiveModal, useIsDesktop } from "@/components/ui/ResponsiveModal";
 import { proposalSchema } from "@/config/schema";
-import { useDeepLink } from "@/context/DeepLinkContext";
+import { useProposalModalHandler } from "@/hooks/use-proposal-modal";
 import { useProposalStages } from "@/hooks/use-proposal-stages";
 import {
   formatCurrentState,
@@ -33,7 +32,6 @@ interface LifecycleCellProps {
 
 export function LifecycleCell({ proposal }: LifecycleCellProps) {
   const isDesktop = useIsDesktop();
-  const { openProposal, clearDeepLink } = useDeepLink();
   const proposalStages = useProposalStages({
     proposalId: proposal.id,
     creationTxHash: proposal.creationTxHash || "",
@@ -57,17 +55,7 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
     proposalStages;
 
   const stateValue = findStateByValue(proposal.state);
-
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) {
-        openProposal(proposal.id, "stages");
-      } else {
-        clearDeepLink();
-      }
-    },
-    [proposal.id, openProposal, clearDeepLink]
-  );
+  const handleOpenChange = useProposalModalHandler(proposal.id, "stages");
 
   if (!proposal.creationTxHash || !stateValue) {
     return <span className="text-xs text-muted-foreground">-</span>;

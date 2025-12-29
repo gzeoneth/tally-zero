@@ -1,12 +1,12 @@
 "use client";
 
-import { memo, useCallback } from "react";
+import { memo } from "react";
 
 import VoteModel from "@/components/container/VoteModel";
 import { ResponsiveModal, useIsDesktop } from "@/components/ui/ResponsiveModal";
 
 import { proposalSchema } from "@/config/schema";
-import { useDeepLink } from "@/context/DeepLinkContext";
+import { useProposalModalHandler } from "@/hooks/use-proposal-modal";
 import { findStateByValue } from "@/lib/state-utils";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
 import { ParsedProposal } from "@/types/proposal";
@@ -29,20 +29,9 @@ export function ClickableDescriptionCell({
   defaultTab?: "description" | "payload" | "stages" | "vote";
 }) {
   const isDesktop = useIsDesktop();
-  const { openProposal, clearDeepLink } = useDeepLink();
   const parsedProposal = proposalSchema.parse(proposal);
   const stateValue = findStateByValue(proposal.state);
-
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) {
-        openProposal(proposal.id, defaultTab);
-      } else {
-        clearDeepLink();
-      }
-    },
-    [proposal.id, defaultTab, openProposal, clearDeepLink]
-  );
+  const handleOpenChange = useProposalModalHandler(proposal.id, defaultTab);
 
   if (!stateValue) {
     return <DescriptionCell mdxContent={proposal.description} />;

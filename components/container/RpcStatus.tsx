@@ -13,6 +13,42 @@ import {
 } from "@radix-ui/react-icons";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
+const STATUS_CONFIG = {
+  checking: {
+    icon: <ReloadIcon className="h-3 w-3 animate-spin" />,
+    color: "text-muted-foreground",
+    bgColor: "bg-white/20 dark:bg-white/10",
+  },
+  healthy: {
+    icon: <CheckCircledIcon className="h-3 w-3" />,
+    color: "text-green-700 dark:text-green-400",
+    bgColor: "bg-green-500/20 dark:bg-green-500/25",
+  },
+  degraded: {
+    icon: <CheckCircledIcon className="h-3 w-3" />,
+    color: "text-yellow-700 dark:text-yellow-400",
+    bgColor: "bg-yellow-500/20 dark:bg-yellow-500/25",
+  },
+  down: {
+    icon: <CrossCircledIcon className="h-3 w-3" />,
+    color: "text-red-700 dark:text-red-400",
+    bgColor: "bg-red-500/20 dark:bg-red-500/25",
+  },
+} as const;
+
+function getStatusLabel(result: RpcHealthResult): string {
+  switch (result.status) {
+    case "checking":
+      return "Checking...";
+    case "healthy":
+      return result.latencyMs ? `${result.latencyMs}ms` : "OK";
+    case "degraded":
+      return result.latencyMs ? `${result.latencyMs}ms (slow)` : "Slow";
+    case "down":
+      return "Down";
+  }
+}
+
 interface RpcStatusProps {
   customUrls?: {
     arb1?: string;
@@ -24,34 +60,8 @@ interface RpcStatusProps {
 }
 
 function StatusIndicator({ result }: { result: RpcHealthResult }) {
-  const statusConfig = {
-    checking: {
-      icon: <ReloadIcon className="h-3 w-3 animate-spin" />,
-      color: "text-muted-foreground",
-      bgColor: "bg-white/20 dark:bg-white/10",
-      label: "Checking...",
-    },
-    healthy: {
-      icon: <CheckCircledIcon className="h-3 w-3" />,
-      color: "text-green-700 dark:text-green-400",
-      bgColor: "bg-green-500/20 dark:bg-green-500/25",
-      label: result.latencyMs ? `${result.latencyMs}ms` : "OK",
-    },
-    degraded: {
-      icon: <CheckCircledIcon className="h-3 w-3" />,
-      color: "text-yellow-700 dark:text-yellow-400",
-      bgColor: "bg-yellow-500/20 dark:bg-yellow-500/25",
-      label: result.latencyMs ? `${result.latencyMs}ms (slow)` : "Slow",
-    },
-    down: {
-      icon: <CrossCircledIcon className="h-3 w-3" />,
-      color: "text-red-700 dark:text-red-400",
-      bgColor: "bg-red-500/20 dark:bg-red-500/25",
-      label: "Down",
-    },
-  };
-
-  const config = statusConfig[result.status];
+  const config = STATUS_CONFIG[result.status];
+  const label = getStatusLabel(result);
 
   return (
     <div
@@ -65,7 +75,7 @@ function StatusIndicator({ result }: { result: RpcHealthResult }) {
     >
       {config.icon}
       <span className="font-medium">{result.name}</span>
-      <span className="opacity-80">{config.label}</span>
+      <span className="opacity-80">{label}</span>
     </div>
   );
 }

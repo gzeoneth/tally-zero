@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useState } from "react";
+import { memo } from "react";
 
 import VoteModel from "@/components/container/VoteModel";
 import { VoteDistributionBarCompact } from "@/components/proposal/stages/VoteDistributionBarCompact";
@@ -8,7 +8,7 @@ import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
 import { GovernorBadge } from "@/components/ui/GovernorBadge";
 import { StatusBadgeGlass } from "@/components/ui/StatusBadgeGlass";
 import { proposalSchema } from "@/config/schema";
-import { useDeepLink } from "@/context/DeepLinkContext";
+import { useProposalModal } from "@/hooks/use-proposal-modal";
 import { findStateByValue } from "@/lib/state-utils";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
@@ -22,25 +22,12 @@ interface MobileProposalCardProps {
 export const MobileProposalCard = memo(function MobileProposalCard({
   proposal,
 }: MobileProposalCardProps) {
-  const { openProposal, clearDeepLink } = useDeepLink();
-  const [open, setOpen] = useState(false);
   const parsedProposal = proposalSchema.parse(proposal);
   const stateValue = findStateByValue(proposal.state);
+  const { open, handleOpenChange } = useProposalModal(proposal.id);
   const plainText = truncateText(
     stripMarkdownAndHtml(proposal.description),
     80
-  );
-
-  const handleOpenChange = useCallback(
-    (newOpen: boolean) => {
-      setOpen(newOpen);
-      if (newOpen) {
-        openProposal(proposal.id);
-      } else {
-        clearDeepLink();
-      }
-    },
-    [proposal.id, openProposal, clearDeepLink]
   );
 
   if (!stateValue) {
