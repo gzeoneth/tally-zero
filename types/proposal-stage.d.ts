@@ -47,6 +47,8 @@ export interface StageTransaction {
   blockNumber: number;
   timestamp?: number;
   chain: ChainType;
+  /** Target L2 chain for retryable tickets (Arb1 or Nova) */
+  targetChain?: "Arb1" | "Nova";
 }
 
 /**

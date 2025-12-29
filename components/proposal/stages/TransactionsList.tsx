@@ -12,6 +12,7 @@ export interface TransactionsListProps {
     hash: string;
     chain: "L1" | "L2";
     timestamp?: number;
+    targetChain?: "Arb1" | "Nova";
   }>;
 }
 
@@ -26,7 +27,7 @@ export const TransactionsList = memo(function TransactionsList({
           className="flex items-center gap-2 text-xs"
         >
           <a
-            href={getStageTxExplorerUrl(tx.hash, tx.chain)}
+            href={getStageTxExplorerUrl(tx.hash, tx.chain, tx.targetChain)}
             target="_blank"
             rel="noopener noreferrer"
             className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"

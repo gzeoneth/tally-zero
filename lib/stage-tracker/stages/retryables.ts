@@ -107,6 +107,7 @@ export async function trackRetryables(
             blockNumber: creationReceipt.blockNumber,
             timestamp: l2Block.timestamp,
             chain: "L2",
+            targetChain: chain.name as "Arb1" | "Nova",
           });
           creationDetails.push({
             index: globalIndex,
@@ -148,6 +149,7 @@ export async function trackRetryables(
               blockNumber: txReceipt.blockNumber,
               timestamp: l2Block.timestamp,
               chain: "L2",
+              targetChain: chain.name as "Arb1" | "Nova",
             });
             redemptionDetails.push({
               index: globalIndex,
