@@ -18,6 +18,7 @@ import {
 
 import { ActionView } from "../payload/ActionView";
 import { LoadingSkeleton, StageItem } from "../proposal/stages";
+import { ExecuteTimelockButton } from "../proposal/stages/ExecuteTimelockButton";
 
 interface TimelockOperationContentProps {
   /** Transaction hash to track */
@@ -560,23 +561,38 @@ function StagesList({
         const isTrackingThis = isLoading && idx === currentStageIndex + 1;
         const estimatedCompletion = estimatedTimes.get(meta.type);
 
+        // Check if this stage is ready for execution
+        const isReadyForExecution =
+          meta.type === "L2_TIMELOCK_EXECUTED" &&
+          stage?.status === "PENDING" &&
+          stage?.data?.message === "Operation ready for execution";
+
         return (
-          <StageItem
-            key={meta.type}
-            stage={stage}
-            stageType={meta.type}
-            stageIndex={idx}
-            isLast={idx === relevantStages.length - 1}
-            isTracking={isTrackingThis}
-            isLoading={isLoading}
-            isRefreshing={false}
-            onRefresh={handleRefreshFromStage}
-            estimatedCompletion={estimatedCompletion}
-            votingTimeRange={null}
-            governorType="core"
-            proposalId={operation.operationId}
-            governorAddress={operation.timelockAddress}
-          />
+          <div key={meta.type}>
+            <StageItem
+              stage={stage}
+              stageType={meta.type}
+              stageIndex={idx}
+              isLast={idx === relevantStages.length - 1}
+              isTracking={isTrackingThis}
+              isLoading={isLoading}
+              isRefreshing={false}
+              onRefresh={handleRefreshFromStage}
+              estimatedCompletion={estimatedCompletion}
+              votingTimeRange={null}
+              governorType="core"
+              proposalId={operation.operationId}
+              governorAddress={operation.timelockAddress}
+            />
+            {isReadyForExecution && (
+              <div className="ml-12 mb-4 -mt-2">
+                <ExecuteTimelockButton
+                  operation={operation}
+                  onSuccess={onRefresh}
+                />
+              </div>
+            )}
+          </div>
         );
       })}
     </div>
