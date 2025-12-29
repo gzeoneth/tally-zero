@@ -1,6 +1,15 @@
 import { queryWithRetry } from "@/lib/rpc-utils";
 import { ethers } from "ethers";
 
+/**
+ * Arbitrum transaction receipt with l1BlockNumber field
+ * (added by ArbitrumProvider from @arbitrum/sdk)
+ */
+export interface ArbitrumTransactionReceipt
+  extends ethers.providers.TransactionReceipt {
+  l1BlockNumber?: number | string | ethers.BigNumber;
+}
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -55,14 +64,14 @@ export async function searchLogsInChunks(
 
 /**
  * Extract L1 block number from an Arbitrum transaction receipt
- * @param receipt - The transaction receipt
+ * @param receipt - The transaction receipt (must be from ArbitrumProvider)
  * @returns The L1 block number
- * @throws If the receipt doesn't contain l1BlockNumber (must use ArbitrumProvider)
+ * @throws If the receipt doesn't contain l1BlockNumber
  */
 export function getL1BlockNumberFromReceipt(
-  receipt: ethers.providers.TransactionReceipt
+  receipt: ArbitrumTransactionReceipt
 ): number {
-  const l1BlockNumber = (receipt as { l1BlockNumber?: unknown }).l1BlockNumber;
+  const { l1BlockNumber } = receipt;
 
   if (typeof l1BlockNumber === "number") {
     return l1BlockNumber;
@@ -70,11 +79,8 @@ export function getL1BlockNumberFromReceipt(
   if (typeof l1BlockNumber === "string") {
     return parseInt(l1BlockNumber, l1BlockNumber.startsWith("0x") ? 16 : 10);
   }
-  if (
-    l1BlockNumber &&
-    typeof (l1BlockNumber as ethers.BigNumber).toNumber === "function"
-  ) {
-    return (l1BlockNumber as ethers.BigNumber).toNumber();
+  if (l1BlockNumber && typeof l1BlockNumber.toNumber === "function") {
+    return l1BlockNumber.toNumber();
   }
 
   throw new Error("Receipt missing l1BlockNumber - must use ArbitrumProvider");
