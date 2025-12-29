@@ -15,8 +15,11 @@ export function useLocalStorage<T>(
       if (item !== null) {
         setStoredValue(JSON.parse(item) as T);
       }
-    } catch {
-      // Ignore parse errors, keep initial value
+    } catch (error) {
+      console.debug(
+        `[useLocalStorage] Failed to parse stored value for "${key}":`,
+        error
+      );
     }
     setIsHydrated(true);
   }, [key]);
@@ -27,8 +30,8 @@ export function useLocalStorage<T>(
         const valueToStore = value instanceof Function ? value(prev) : value;
         try {
           window.localStorage.setItem(key, JSON.stringify(valueToStore));
-        } catch {
-          // Storage full or unavailable
+        } catch (error) {
+          console.warn(`[useLocalStorage] Failed to save "${key}":`, error);
         }
         return valueToStore;
       });
@@ -42,8 +45,11 @@ export function useLocalStorage<T>(
       if (e.key === key && e.newValue !== null) {
         try {
           setStoredValue(JSON.parse(e.newValue) as T);
-        } catch {
-          // Ignore parse errors
+        } catch (error) {
+          console.debug(
+            `[useLocalStorage] Failed to parse storage event for "${key}":`,
+            error
+          );
         }
       }
     };

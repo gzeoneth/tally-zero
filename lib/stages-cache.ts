@@ -180,7 +180,11 @@ export function loadCachedStages(
       isExpired,
       isComplete,
     };
-  } catch {
+  } catch (error) {
+    console.debug(
+      `[stages-cache] Failed to load cached stages for ${proposalId}:`,
+      error
+    );
     return { result: null, isExpired: false, isComplete: false };
   }
 }
@@ -203,8 +207,11 @@ export function saveCachedStages(
       result,
     };
     localStorage.setItem(key, JSON.stringify(cached));
-  } catch {
-    // Storage full or unavailable
+  } catch (error) {
+    console.warn(
+      `[stages-cache] Failed to save stages for ${proposalId}:`,
+      error
+    );
   }
 }
 
@@ -220,8 +227,11 @@ export function clearCachedStages(
   try {
     const key = getCacheKey(proposalId, governorAddress);
     localStorage.removeItem(key);
-  } catch {
-    // Ignore errors
+  } catch (error) {
+    console.debug(
+      `[stages-cache] Failed to clear stages for ${proposalId}:`,
+      error
+    );
   }
 }
 
@@ -275,7 +285,11 @@ export function seedStagesFromProposal(proposal: {
 
     localStorage.setItem(key, JSON.stringify(cachedResult));
     return true;
-  } catch {
+  } catch (error) {
+    console.debug(
+      `[stages-cache] Failed to seed stages for ${proposal.id}:`,
+      error
+    );
     return false;
   }
 }
@@ -300,7 +314,11 @@ export function hasPreloadedStages(
       parsed.result.stages &&
       parsed.result.stages.length > 0
     );
-  } catch {
+  } catch (error) {
+    console.debug(
+      `[stages-cache] Failed to check preloaded stages for ${proposalId}:`,
+      error
+    );
     return false;
   }
 }
@@ -323,7 +341,11 @@ export function getPreloadedStages(
     if (parsed.version !== CACHE_VERSION) return null;
 
     return parsed.result;
-  } catch {
+  } catch (error) {
+    console.debug(
+      `[stages-cache] Failed to get preloaded stages for ${proposalId}:`,
+      error
+    );
     return null;
   }
 }
