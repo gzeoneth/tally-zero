@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { DeepLinkHandler } from "@/components/container/DeepLinkHandler";
 import RpcStatus from "@/components/container/RpcStatus";
 import { columns } from "@/components/table/ColumnsProposals";
 import { DataTable } from "@/components/table/DataTable";
@@ -203,6 +204,7 @@ export default function Search() {
                   : `${cacheInfo.freshCount} proposals fetched from RPC`}
               </p>
             )}
+            <DeepLinkHandler proposals={proposals} />
           </>
         )}
       </section>

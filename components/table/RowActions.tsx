@@ -2,6 +2,7 @@
 
 import { DotsHorizontalIcon } from "@radix-ui/react-icons";
 import { Row } from "@tanstack/react-table";
+import { useCallback, useState } from "react";
 
 import VoteModel from "@/components/container/VoteModel";
 import { Button } from "@components/ui/Button";
@@ -14,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@components/ui/DropdownMenu";
 
+import { useDeepLink } from "@/context/DeepLinkContext";
 import { findStateByValue } from "@/lib/state-utils";
 import { proposalSchema } from "@config/schema";
 
@@ -27,8 +29,22 @@ export function DataTableRowActions<TData>({
   row,
 }: DataTableRowActionsProps<TData>) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const { openProposal, clearDeepLink } = useDeepLink();
+  const [open, setOpen] = useState(false);
   const proposal = proposalSchema.parse(row.original);
   const stateValue = findStateByValue(row.getValue("state") as string);
+
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      setOpen(newOpen);
+      if (newOpen) {
+        openProposal(proposal.id);
+      } else {
+        clearDeepLink();
+      }
+    },
+    [proposal.id, openProposal, clearDeepLink]
+  );
 
   if (!stateValue) {
     return null;
@@ -36,7 +52,7 @@ export function DataTableRowActions<TData>({
 
   if (isDesktop) {
     return (
-      <Dialog>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -80,7 +96,7 @@ export function DataTableRowActions<TData>({
   }
 
   return (
-    <Drawer>
+    <Drawer open={open} onOpenChange={handleOpenChange}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button

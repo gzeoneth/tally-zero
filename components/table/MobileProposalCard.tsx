@@ -1,11 +1,14 @@
 "use client";
 
+import { useCallback, useState } from "react";
+
 import VoteModel from "@/components/container/VoteModel";
 import { VoteDistributionBarCompact } from "@/components/proposal/stages/VoteDistributionBarCompact";
 import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
 import { GovernorBadge } from "@/components/ui/GovernorBadge";
 import { StatusBadgeGlass } from "@/components/ui/StatusBadgeGlass";
 import { proposalSchema } from "@/config/schema";
+import { useDeepLink } from "@/context/DeepLinkContext";
 import { findStateByValue } from "@/lib/state-utils";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
@@ -17,6 +20,8 @@ interface MobileProposalCardProps {
 }
 
 export function MobileProposalCard({ proposal }: MobileProposalCardProps) {
+  const { openProposal, clearDeepLink } = useDeepLink();
+  const [open, setOpen] = useState(false);
   const parsedProposal = proposalSchema.parse(proposal);
   const stateValue = findStateByValue(proposal.state);
   const plainText = truncateText(
@@ -24,12 +29,24 @@ export function MobileProposalCard({ proposal }: MobileProposalCardProps) {
     80
   );
 
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      setOpen(newOpen);
+      if (newOpen) {
+        openProposal(proposal.id);
+      } else {
+        clearDeepLink();
+      }
+    },
+    [proposal.id, openProposal, clearDeepLink]
+  );
+
   if (!stateValue) {
     return null;
   }
 
   return (
-    <Drawer>
+    <Drawer open={open} onOpenChange={handleOpenChange}>
       <DrawerTrigger asChild>
         <button
           className={cn(
