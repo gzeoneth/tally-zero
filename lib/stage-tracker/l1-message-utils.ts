@@ -5,6 +5,7 @@
  * corresponding L1 execution transactions using message position matching.
  */
 
+import { addressesEqual } from "@/lib/address-utils";
 import type { ChunkingConfig } from "@/types/proposal-stage";
 import { getArbitrumNetwork } from "@arbitrum/sdk";
 import { BigNumber, ethers } from "ethers";
@@ -37,7 +38,7 @@ export function getMessagePositionFromReceipt(
 
   for (const log of receipt.logs) {
     if (
-      log.address.toLowerCase() === ARB_SYS_ADDRESS.toLowerCase() &&
+      addressesEqual(log.address, ARB_SYS_ADDRESS) &&
       log.topics[0] === l2ToL1TxTopic
     ) {
       try {

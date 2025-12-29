@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { isValidAddress } from "@/lib/address-utils";
+import { addressesEqual, isValidAddress } from "@/lib/address-utils";
 import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
 import { getErrorMessage } from "@/lib/error-utils";
 
@@ -90,8 +90,8 @@ export function useDelegateLookup({
       try {
         const cache = await loadDelegateCache();
         if (cache) {
-          const index = cache.delegates.findIndex(
-            (d) => d.address.toLowerCase() === address.toLowerCase()
+          const index = cache.delegates.findIndex((d) =>
+            addressesEqual(d.address, address)
           );
           if (index !== -1) {
             cacheRank = index + 1;
@@ -102,14 +102,11 @@ export function useDelegateLookup({
         console.warn("Failed to check delegate cache:", cacheErr);
       }
 
-      const normalizedAddress = address.toLowerCase();
-      const normalizedDelegate = delegatedTo.toLowerCase();
-
       setResult({
         address: ethers.utils.getAddress(address),
         votingPower: votingPower.toString(),
         delegatedTo: ethers.utils.getAddress(delegatedTo),
-        isSelfDelegated: normalizedAddress === normalizedDelegate,
+        isSelfDelegated: addressesEqual(address, delegatedTo),
         label,
         cacheRank,
         cacheVotingPower,

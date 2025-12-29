@@ -12,6 +12,7 @@
 
 import { OLD_CHALLENGE_PERIOD_L1_BLOCKS } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
+import { addressesEqual } from "@/lib/address-utils";
 import type { ChunkingConfig, ProposalStage } from "@/types/proposal-stage";
 import { ChildTransactionReceipt } from "@arbitrum/sdk";
 import { ethers } from "ethers";
@@ -158,7 +159,7 @@ export async function trackL1TimelockStages(
   const scheduledTopic = timelockInterface.getEventTopic("CallScheduled");
   const scheduledLogs = txReceipt.logs.filter(
     (log) =>
-      log.address.toLowerCase() === l1TimelockAddress.toLowerCase() &&
+      addressesEqual(log.address, l1TimelockAddress) &&
       log.topics[0] === scheduledTopic
   );
 

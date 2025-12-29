@@ -13,6 +13,7 @@ import {
   L2_CORE_TIMELOCK,
 } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
+import { addressesEqual } from "@/lib/address-utils";
 import { queryWithRetry } from "@/lib/rpc-utils";
 import type { ChunkingConfig, ProposalStage } from "@/types/proposal-stage";
 import {
@@ -81,8 +82,10 @@ export async function parseTimelockTransaction(
 
   for (const log of receipt.logs) {
     // Check if this is a CallScheduled event from a known timelock
-    const isKnownTimelock =
-      log.address.toLowerCase() === L2_CORE_TIMELOCK.address.toLowerCase();
+    const isKnownTimelock = addressesEqual(
+      log.address,
+      L2_CORE_TIMELOCK.address
+    );
 
     if (!isKnownTimelock || log.topics[0] !== scheduledTopic) {
       continue;
