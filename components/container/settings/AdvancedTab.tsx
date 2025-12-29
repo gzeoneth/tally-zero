@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Trash2 } from "lucide-react";
 
+import { TimelockOperationTracker } from "@/components/container/TimelockOperationTracker";
 import { Button } from "@/components/ui/Button";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Input } from "@/components/ui/Input";
@@ -207,6 +208,20 @@ export function AdvancedTab({
           </div>
         </CollapsibleSection>
       </div>
+
+      {/* Timelock Operation Tracker (Nerd Mode Only) */}
+      {nerdMode && (
+        <div className="glass-subtle rounded-lg p-4 space-y-3 transition-all duration-200 hover:shadow-md">
+          <Label className="text-sm font-medium">
+            Timelock Operation Tracker
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Track arbitrary timelock operations (e.g., Security Council actions)
+            by providing a transaction hash containing a CallScheduled event.
+          </p>
+          <TimelockOperationTracker />
+        </div>
+      )}
 
       {/* Debug Info (Nerd Mode Only) */}
       {nerdMode && <DebugInfoSection storedSettings={storedSettings} />}
