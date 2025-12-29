@@ -20,6 +20,7 @@ import {
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
 import { getTxExplorerUrl, type ChainId } from "@/lib/explorer-utils";
+import { formatCompactNumber } from "@/lib/format-utils";
 import { getStageMetadata } from "@/lib/incremental-stage-tracker";
 import { cn } from "@/lib/utils";
 import type {
@@ -53,18 +54,6 @@ function getStageTxExplorerUrl(
   const chainId: ChainId =
     chain === "L1" ? "ethereum" : targetChain === "Nova" ? "nova" : "arb1";
   return getTxExplorerUrl(hash, chainId);
-}
-
-function formatVoteAmount(amount: string | number): string {
-  const num = parseFloat(String(amount));
-  if (isNaN(num)) return "0";
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(2).replace(/\.?0+$/, "") + "M";
-  }
-  if (num >= 1_000) {
-    return (num / 1_000).toFixed(2).replace(/\.?0+$/, "") + "K";
-  }
-  return num.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 function QuorumProgressBar({
@@ -104,8 +93,8 @@ function QuorumProgressBar({
         )}
       />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{formatVoteAmount(current)}</span>
-        <span>{formatVoteAmount(required)}</span>
+        <span>{formatCompactNumber(current)}</span>
+        <span>{formatCompactNumber(required)}</span>
       </div>
     </div>
   );
