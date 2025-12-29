@@ -3,7 +3,9 @@
 import { CheckIcon } from "@radix-ui/react-icons";
 import { memo } from "react";
 
+import { QUORUM_COLORS } from "@/lib/badge-colors";
 import { cn } from "@/lib/utils";
+import { calculateQuorumProgress } from "@/lib/vote-utils";
 
 export interface QuorumIndicatorProps {
   current: string;
@@ -16,13 +18,12 @@ export const QuorumIndicator = memo(function QuorumIndicator({
   required,
   reached,
 }: QuorumIndicatorProps) {
-  const currentNum = parseFloat(current);
-  const requiredNum = parseFloat(required);
-  const percentage =
-    requiredNum > 0 ? Math.min(100, (currentNum / requiredNum) * 100) : 0;
-
-  // Calculate reached from percentage if not provided
-  const isReached = reached ?? percentage >= 100;
+  const { percentage, isReached } = calculateQuorumProgress(
+    current,
+    required,
+    reached
+  );
+  const colors = isReached ? QUORUM_COLORS.reached : QUORUM_COLORS.pending;
 
   return (
     <div
@@ -32,10 +33,10 @@ export const QuorumIndicator = memo(function QuorumIndicator({
       {/* Quorum label badge */}
       <div
         className={cn(
-          "flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-bold transition-all duration-300",
-          isReached
-            ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30"
-            : "bg-violet-500/20 text-violet-600 dark:text-violet-400 ring-1 ring-violet-500/30"
+          "flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-bold transition-all duration-300 ring-1",
+          colors.bg,
+          colors.text,
+          colors.ring
         )}
       >
         {isReached ? <CheckIcon className="h-3 w-3" /> : "Q"}
@@ -54,9 +55,7 @@ export const QuorumIndicator = memo(function QuorumIndicator({
           <div
             className={cn(
               "h-full rounded-full transition-all duration-500 ease-out",
-              isReached
-                ? "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                : "bg-gradient-to-r from-violet-500 to-violet-400"
+              colors.gradient
             )}
             style={{ width: `${percentage}%` }}
           />
@@ -66,9 +65,7 @@ export const QuorumIndicator = memo(function QuorumIndicator({
         <div
           className={cn(
             "text-[10px] font-semibold text-center transition-colors duration-300",
-            isReached
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-violet-600 dark:text-violet-400"
+            colors.text
           )}
         >
           {percentage.toFixed(0)}%

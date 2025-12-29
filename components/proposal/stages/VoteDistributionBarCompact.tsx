@@ -2,7 +2,9 @@
 
 import { memo } from "react";
 
+import { VOTE_COLORS } from "@/lib/badge-colors";
 import { cn } from "@/lib/utils";
+import { calculateVoteDistribution } from "@/lib/vote-utils";
 import type { ProposalVotes } from "@/types/proposal";
 
 export interface VoteDistributionBarCompactProps {
@@ -19,20 +21,18 @@ export const VoteDistributionBarCompact = memo(
       );
     }
 
-    const forNum = parseFloat(votes.forVotes) || 0;
-    const againstNum = parseFloat(votes.againstVotes) || 0;
-    const abstainNum = parseFloat(votes.abstainVotes) || 0;
-    const total = forNum + againstNum + abstainNum;
+    const { forPct, againstPct, abstainPct, hasVotes } =
+      calculateVoteDistribution(
+        votes.forVotes,
+        votes.againstVotes,
+        votes.abstainVotes
+      );
 
-    if (total === 0) {
+    if (!hasVotes) {
       return (
         <span className="text-muted-foreground text-xs font-medium">-</span>
       );
     }
-
-    const forPct = (forNum / total) * 100;
-    const againstPct = (againstNum / total) * 100;
-    const abstainPct = (abstainNum / total) * 100;
 
     // Only show percentages for segments that have votes
     const segments = [
@@ -55,31 +55,19 @@ export const VoteDistributionBarCompact = memo(
         <div className="flex h-1.5 rounded-full overflow-hidden bg-white/10 backdrop-blur-sm">
           {forPct > 0 && (
             <div
-              className={cn(
-                "bg-gradient-to-r from-emerald-500 to-emerald-400",
-                "dark:from-emerald-400 dark:to-emerald-300",
-                "transition-all"
-              )}
+              className={cn(VOTE_COLORS.for.gradient, "transition-all")}
               style={{ width: `${forPct}%` }}
             />
           )}
           {againstPct > 0 && (
             <div
-              className={cn(
-                "bg-gradient-to-r from-rose-500 to-rose-400",
-                "dark:from-rose-400 dark:to-rose-300",
-                "transition-all"
-              )}
+              className={cn(VOTE_COLORS.against.gradient, "transition-all")}
               style={{ width: `${againstPct}%` }}
             />
           )}
           {abstainPct > 0 && (
             <div
-              className={cn(
-                "bg-gradient-to-r from-gray-400 to-gray-300",
-                "dark:from-gray-500 dark:to-gray-400",
-                "transition-all"
-              )}
+              className={cn(VOTE_COLORS.abstain.gradient, "transition-all")}
               style={{ width: `${abstainPct}%` }}
             />
           )}
@@ -88,16 +76,7 @@ export const VoteDistributionBarCompact = memo(
         {/* Compact percentage labels */}
         <div className="flex justify-between text-[10px] text-muted-foreground">
           {segments.map((segment) => (
-            <span
-              key={segment.type}
-              className={cn(
-                segment.type === "for" &&
-                  "text-emerald-600 dark:text-emerald-400",
-                segment.type === "against" &&
-                  "text-rose-600 dark:text-rose-400",
-                segment.type === "abstain" && "text-muted-foreground"
-              )}
-            >
+            <span key={segment.type} className={VOTE_COLORS[segment.type].text}>
               {segment.label}
             </span>
           ))}

@@ -4,6 +4,7 @@ import { memo } from "react";
 
 import { VOTE_COLORS } from "@/lib/badge-colors";
 import { cn } from "@/lib/utils";
+import { calculateVoteDistribution } from "@/lib/vote-utils";
 
 export interface VoteDistributionBarProps {
   forVotes: string;
@@ -16,16 +17,10 @@ export const VoteDistributionBar = memo(function VoteDistributionBar({
   againstVotes,
   abstainVotes,
 }: VoteDistributionBarProps) {
-  const forNum = parseFloat(forVotes) || 0;
-  const againstNum = parseFloat(againstVotes) || 0;
-  const abstainNum = parseFloat(abstainVotes) || 0;
-  const total = forNum + againstNum + abstainNum;
+  const { forPct, againstPct, abstainPct, hasVotes } =
+    calculateVoteDistribution(forVotes, againstVotes, abstainVotes);
 
-  if (total === 0) return null;
-
-  const forPct = (forNum / total) * 100;
-  const againstPct = (againstNum / total) * 100;
-  const abstainPct = (abstainNum / total) * 100;
+  if (!hasVotes) return null;
 
   return (
     <div className="space-y-1.5">
