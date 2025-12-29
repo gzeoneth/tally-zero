@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 import { VOTE_COLORS } from "@/lib/badge-colors";
 import { formatVotingPower } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
@@ -8,7 +10,10 @@ interface VoteDisplayProps {
   className?: string;
 }
 
-export function VoteDisplay({ votes, className }: VoteDisplayProps) {
+export const VoteDisplay = memo(function VoteDisplay({
+  votes,
+  className,
+}: VoteDisplayProps) {
   if (!votes || !votes.forVotes || !votes.againstVotes || !votes.abstainVotes) {
     return (
       <div
@@ -64,4 +69,4 @@ export function VoteDisplay({ votes, className }: VoteDisplayProps) {
       </div>
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { memo, useCallback } from "react";
 
 import VoteModel from "@/components/container/VoteModel";
 import { ResponsiveModal, useIsDesktop } from "@/components/ui/ResponsiveModal";
@@ -11,11 +11,15 @@ import { findStateByValue } from "@/lib/state-utils";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
 import { ParsedProposal } from "@/types/proposal";
 
-export function DescriptionCell({ mdxContent }: { mdxContent: string }) {
+export const DescriptionCell = memo(function DescriptionCell({
+  mdxContent,
+}: {
+  mdxContent: string;
+}) {
   const plainText = truncateText(stripMarkdownAndHtml(mdxContent));
 
   return <span className="block truncate font-medium">{plainText}</span>;
-}
+});
 
 export function ClickableDescriptionCell({
   proposal,
