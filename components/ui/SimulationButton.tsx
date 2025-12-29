@@ -1,5 +1,6 @@
 "use client";
 
+import { getErrorMessage } from "@/lib/error-utils";
 import { Button } from "@components/ui/Button";
 import { TenderlySetupDialog } from "@components/ui/TenderlySetupDialog";
 import { isTenderlyConfigured } from "@lib/tenderly";
@@ -84,7 +85,7 @@ export function SimulationButton({
       const result = await onSimulate();
       setSimulationResult(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Simulation failed");
+      setError(getErrorMessage(err, "run simulation"));
     } finally {
       setIsSimulating(false);
     }

@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/lib/error-utils";
 import { decodeCalldata, type DecodedCalldata } from "@lib/calldata-decoder";
 import { useCallback, useEffect, useState } from "react";
 
@@ -37,7 +38,7 @@ export function useDecodedCalldata({
       const result = await decodeCalldata(calldata, targetAddress);
       setDecoded(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Decoding failed");
+      setError(getErrorMessage(err, "decode calldata"));
       setDecoded(null);
     } finally {
       setIsDecoding(false);

@@ -7,6 +7,7 @@ import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
+import { getErrorMessage } from "@/lib/error-utils";
 
 // Minimal ABI for ERC20Votes with OpenZeppelin standard methods
 const ERC20_VOTES_ABI = [
@@ -115,9 +116,7 @@ export function useDelegateLookup({
       });
     } catch (err) {
       console.error("[useDelegateLookup] Error:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch delegate info"
-      );
+      setError(getErrorMessage(err, "fetch delegate info"));
       setResult(null);
     } finally {
       setIsLoading(false);

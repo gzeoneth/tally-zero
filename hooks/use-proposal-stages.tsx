@@ -7,6 +7,7 @@ import {
   L1_BLOCK_REFRESH_INTERVAL_MS,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
+import { getErrorMessage } from "@/lib/error-utils";
 import {
   emitVoteUpdate,
   trackerManager,
@@ -208,7 +209,7 @@ export function useProposalStages({
         trackerManager.trackingFinished(proposalId, governorAddress);
 
         trackerManager.updateSession(proposalId, governorAddress, {
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err, "track proposal stages"),
           status: "error",
           refreshingFromIndex: null,
           abortController: null,

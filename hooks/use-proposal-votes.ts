@@ -7,6 +7,7 @@ import { CORE_GOVERNOR, TREASURY_GOVERNOR } from "@/config/arbitrum-governance";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { delay } from "@/lib/delay-utils";
 import { getDelegateLabel } from "@/lib/delegate-cache";
+import { getErrorMessage } from "@/lib/error-utils";
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 // Governance start block on Arbitrum One
@@ -229,9 +230,7 @@ export function useProposalVotes({
       setResult(null);
     } catch (err) {
       console.error("[useProposalVotes] Error:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch proposal votes"
-      );
+      setError(getErrorMessage(err, "fetch proposal votes"));
       setResult(null);
     } finally {
       setIsLoading(false);

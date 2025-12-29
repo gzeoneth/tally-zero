@@ -6,6 +6,7 @@ import {
   DEFAULT_CACHE_TTL_MS,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
+import { getErrorMessage } from "@/lib/error-utils";
 import {
   createTimelockOperationTracker,
   parseTimelockTransaction,
@@ -169,7 +170,7 @@ export function useTimelockOperation({
       setIsParsing(false);
     } catch (err) {
       if (!isMounted.current) return;
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getErrorMessage(err, "parse transaction"));
       setIsParsing(false);
     }
   }, [txHash, enabled, rpcHydrated, effectiveL2RpcUrl]);
@@ -258,7 +259,7 @@ export function useTimelockOperation({
         if (signal.aborted) return;
         if (!isMounted.current) return;
 
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getErrorMessage(err, "track operation"));
         setIsLoading(false);
         setIsTracking(false);
       }
