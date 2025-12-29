@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Table } from "@tanstack/react-table";
 
@@ -21,15 +21,18 @@ export function DataTableToolbar<TData>({
   const isFiltered = table.getState().columnFilters.length > 0;
   const [searchValue, setSearchValue] = useState("");
 
-  const handleSearchChange = (value: string) => {
-    setSearchValue(value);
-    table.getColumn("description")?.setFilterValue(value);
-  };
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchValue(value);
+      table.getColumn("description")?.setFilterValue(value);
+    },
+    [table]
+  );
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setSearchValue("");
     table.resetColumnFilters();
-  };
+  }, [table]);
 
   return (
     <div className="flex items-center justify-between gap-2">

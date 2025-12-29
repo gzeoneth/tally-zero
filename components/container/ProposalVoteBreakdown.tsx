@@ -26,7 +26,7 @@ import {
   ReloadIcon,
 } from "@radix-ui/react-icons";
 import { Users } from "lucide-react";
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 
 export function ProposalVoteBreakdown() {
   const [proposalIdInput, setProposalIdInput] = useState("");
@@ -127,25 +127,29 @@ export function VoteBreakdownContent({
   isLoading,
   onRefresh,
 }: VoteBreakdownContentProps) {
-  const total =
-    BigInt(result.forVotes) +
-    BigInt(result.againstVotes) +
-    BigInt(result.abstainVotes);
-  const zero = BigInt(0);
-  const multiplier = BigInt(1000);
+  const { forPct, againstPct, abstainPct } = useMemo(() => {
+    const total =
+      BigInt(result.forVotes) +
+      BigInt(result.againstVotes) +
+      BigInt(result.abstainVotes);
+    const zero = BigInt(0);
+    const multiplier = BigInt(1000);
 
-  const forPct =
-    total > zero
-      ? Number((BigInt(result.forVotes) * multiplier) / total) / 10
-      : 0;
-  const againstPct =
-    total > zero
-      ? Number((BigInt(result.againstVotes) * multiplier) / total) / 10
-      : 0;
-  const abstainPct =
-    total > zero
-      ? Number((BigInt(result.abstainVotes) * multiplier) / total) / 10
-      : 0;
+    return {
+      forPct:
+        total > zero
+          ? Number((BigInt(result.forVotes) * multiplier) / total) / 10
+          : 0,
+      againstPct:
+        total > zero
+          ? Number((BigInt(result.againstVotes) * multiplier) / total) / 10
+          : 0,
+      abstainPct:
+        total > zero
+          ? Number((BigInt(result.abstainVotes) * multiplier) / total) / 10
+          : 0,
+    };
+  }, [result.forVotes, result.againstVotes, result.abstainVotes]);
 
   return (
     <div className="space-y-4 overflow-hidden flex flex-col">
@@ -257,7 +261,7 @@ export function VoteBreakdownContent({
   );
 }
 
-function VoteRow({ vote }: { vote: ProposalVote }) {
+const VoteRow = memo(function VoteRow({ vote }: { vote: ProposalVote }) {
   const txUrl = `https://arbiscan.io/tx/${vote.txHash}`;
   const voterUrl = `https://arbiscan.io/address/${vote.voter}`;
 
@@ -314,9 +318,13 @@ function VoteRow({ vote }: { vote: ProposalVote }) {
       </a>
     </div>
   );
-}
+});
 
-function VoteBadge({ support }: { support: VoteSupport }) {
+const VoteBadge = memo(function VoteBadge({
+  support,
+}: {
+  support: VoteSupport;
+}) {
   switch (support) {
     case "for":
       return (
@@ -337,4 +345,4 @@ function VoteBadge({ support }: { support: VoteSupport }) {
         </div>
       );
   }
-}
+});

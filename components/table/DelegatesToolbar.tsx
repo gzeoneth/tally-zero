@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Table } from "@tanstack/react-table";
 
@@ -23,23 +23,29 @@ export function DelegatesToolbar<TData>({
   const [searchValue, setSearchValue] = useState("");
   const [minPowerValue, setMinPowerValue] = useState("");
 
-  const handleSearchChange = (value: string) => {
-    setSearchValue(value);
-    table.getColumn("address")?.setFilterValue(value);
-  };
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchValue(value);
+      table.getColumn("address")?.setFilterValue(value);
+    },
+    [table]
+  );
 
-  const handleMinPowerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setMinPowerValue(value);
-    onMinPowerChange?.(value);
-  };
+  const handleMinPowerChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setMinPowerValue(value);
+      onMinPowerChange?.(value);
+    },
+    [onMinPowerChange]
+  );
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setSearchValue("");
     setMinPowerValue("");
     table.resetColumnFilters();
     onMinPowerChange?.("");
-  };
+  }, [table, onMinPowerChange]);
 
   return (
     <div className="flex items-center justify-between gap-2">

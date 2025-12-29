@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useRpcHealth } from "@/hooks/use-rpc-health";
@@ -59,7 +59,11 @@ interface RpcStatusProps {
   autoCheck?: boolean;
 }
 
-function StatusIndicator({ result }: { result: RpcHealthResult }) {
+const StatusIndicator = memo(function StatusIndicator({
+  result,
+}: {
+  result: RpcHealthResult;
+}) {
   const config = STATUS_CONFIG[result.status];
   const label = getStatusLabel(result);
 
@@ -78,7 +82,7 @@ function StatusIndicator({ result }: { result: RpcHealthResult }) {
       <span className="opacity-80">{label}</span>
     </div>
   );
-}
+});
 
 export default function RpcStatus({
   customUrls,
