@@ -10,9 +10,6 @@ export interface QuorumProgressBarProps {
   reached: boolean;
 }
 
-/**
- * Progress bar showing quorum progress for a proposal vote
- */
 export function QuorumProgressBar({
   current,
   required,

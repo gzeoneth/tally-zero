@@ -11,9 +11,6 @@ export interface StageDataDisplayProps {
   data: Record<string, unknown>;
 }
 
-/**
- * Displays stage-specific data like ETA, notes, and retryable ticket details
- */
 export function StageDataDisplay({ data }: StageDataDisplayProps) {
   return (
     <div className="mt-2 text-xs">

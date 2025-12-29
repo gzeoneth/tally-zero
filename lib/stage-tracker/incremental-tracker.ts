@@ -24,9 +24,6 @@ import {
 } from "./stages";
 import type { StageProgressCallback, TrackingContext } from "./types";
 
-/**
- * Tracks the lifecycle stages of a governance proposal incrementally
- */
 export class IncrementalStageTracker {
   private readonly governorInterface: ethers.utils.Interface;
   private readonly timelockInterface: ethers.utils.Interface;
@@ -70,7 +67,6 @@ export class IncrementalStageTracker {
       creationTxHash,
     };
 
-    // Helper to add stage and notify
     const addStage = (stage: ProposalStage, isLast: boolean = false) => {
       stages.push(stage);
       if (onProgress) {
@@ -78,7 +74,6 @@ export class IncrementalStageTracker {
       }
     };
 
-    // Restore context from existing stages if resuming
     if (existingStages && startIndex > 0) {
       for (let i = 0; i < startIndex && i < existingStages.length; i++) {
         const existing = existingStages[i];
@@ -87,7 +82,6 @@ export class IncrementalStageTracker {
       }
     }
 
-    // Get creation receipt (always needed)
     ctx.creationReceipt = await queryWithRetry(() =>
       this.l2Provider.getTransactionReceipt(creationTxHash)
     );
@@ -98,7 +92,6 @@ export class IncrementalStageTracker {
       ctx.creationReceipt
     );
 
-    // Get current state
     const governor = new ethers.Contract(
       this.governorAddress,
       GovernorABI,
@@ -116,13 +109,11 @@ export class IncrementalStageTracker {
       );
     }
 
-    // Stage 1: Proposal Created (index 0)
     if (startIndex <= 0) {
       const createdStage = await trackProposalCreated(ctx);
       addStage(createdStage);
     }
 
-    // Stage 2: Voting (index 1)
     let votingStage: ProposalStage;
     if (startIndex <= 1) {
       votingStage = await trackVotingStage(ctx);
@@ -151,7 +142,6 @@ export class IncrementalStageTracker {
       };
     }
 
-    // Stage 3: Proposal Queued (index 2)
     let queuedStage: ProposalStage;
     if (startIndex <= 2) {
       queuedStage = await trackProposalQueued(ctx);
@@ -170,12 +160,10 @@ export class IncrementalStageTracker {
       };
     }
 
-    // Get proposal data for operation ID (needed for later stages)
     if (!ctx.proposalData) {
       ctx.proposalData = await getProposalData(ctx);
     }
 
-    // Stage 4: L2 Timelock Executed (index 3)
     let l2TimelockStage: ProposalStage;
     if (startIndex <= 3) {
       l2TimelockStage = await trackL2TimelockExecution(
@@ -200,7 +188,6 @@ export class IncrementalStageTracker {
 
     ctx.l2TimelockTxHash = l2TimelockStage.transactions[0]?.hash;
 
-    // Stages 5-6: L2 to L1 Message (indices 4-5)
     let l2ToL1ConfirmedStage: ProposalStage | undefined;
     if (startIndex <= 5) {
       const l2ToL1Result = await trackL2ToL1Message(ctx);
@@ -228,7 +215,6 @@ export class IncrementalStageTracker {
       };
     }
 
-    // Stages 7-8: L1 Timelock (indices 6-7)
     let l1ExecutedStage: ProposalStage | undefined;
     if (startIndex <= 7) {
       const l1TimelockStages = await trackL1Timelock(ctx);
@@ -256,7 +242,6 @@ export class IncrementalStageTracker {
 
     ctx.l1ExecutionTxHash = l1ExecutedStage.transactions[0]?.hash;
 
-    // Stages 9-10: Retryables (indices 8-9)
     const retryableStages = await trackRetryables(ctx);
     for (let i = 0; i < retryableStages.length; i++) {
       addStage(retryableStages[i], i === retryableStages.length - 1);

@@ -1,8 +1,5 @@
 "use client";
 
-/**
- * Loading skeleton for proposal stages
- */
 export function LoadingSkeleton() {
   return (
     <div className="space-y-4 p-4">

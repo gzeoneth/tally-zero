@@ -12,9 +12,6 @@ export interface StatusIconProps {
   status: StageStatus;
 }
 
-/**
- * Icon representing the status of a proposal stage
- */
 export function StatusIcon({ status }: StatusIconProps) {
   switch (status) {
     case "COMPLETED":

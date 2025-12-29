@@ -30,15 +30,6 @@ export interface VotingStageContentProps {
   governorAddress: string;
 }
 
-/**
- * Displays voting-specific stage content including:
- * - Voting period dates
- * - Quorum and extension badges
- * - Top delegates who haven't voted
- * - Quorum progress bar
- * - Vote distribution bar
- * - Estimated completion
- */
 export function VotingStageContent({
   stage,
   votingTimeRange,

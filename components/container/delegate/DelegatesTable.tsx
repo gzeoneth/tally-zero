@@ -38,9 +38,6 @@ export interface DelegatesTableProps {
   onVisibleRowsChange: (addresses: string[]) => void;
 }
 
-/**
- * Delegates table with toolbar, pagination, and loading/error states
- */
 export function DelegatesTable({
   delegates,
   totalVotingPower,
@@ -50,7 +47,6 @@ export function DelegatesTable({
   onMinPowerChange,
   onVisibleRowsChange,
 }: DelegatesTableProps) {
-  // Table state
   const [rowSelection, setRowSelection] = useState({});
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -82,7 +78,6 @@ export function DelegatesTable({
     },
   });
 
-  // Notify parent of visible rows for refresh
   const visibleRows = table.getRowModel().rows;
 
   useEffect(() => {

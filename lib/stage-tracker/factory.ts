@@ -13,9 +13,6 @@ import { ArbitrumProvider } from "@arbitrum/sdk";
 import { ethers } from "ethers";
 import { IncrementalStageTracker } from "./incremental-tracker";
 
-/**
- * Create a stage tracker for the Core Governor
- */
 export function createCoreGovernorTracker(
   l2RpcUrl: string = ARBITRUM_RPC_URL,
   l1RpcUrl: string = ETHEREUM_RPC_URL,
@@ -36,9 +33,6 @@ export function createCoreGovernorTracker(
   );
 }
 
-/**
- * Create a stage tracker for the Treasury Governor
- */
 export function createTreasuryGovernorTracker(
   l2RpcUrl: string = ARBITRUM_RPC_URL,
   l1RpcUrl: string = ETHEREUM_RPC_URL,

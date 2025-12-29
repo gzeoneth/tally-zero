@@ -12,9 +12,6 @@ export interface RetryableCreationDetailsProps {
   }>;
 }
 
-/**
- * Displays retryable ticket creation details
- */
 export function RetryableCreationDetails({
   details,
 }: RetryableCreationDetailsProps) {
@@ -64,9 +61,6 @@ export interface RetryableRedemptionDetailsProps {
   }>;
 }
 
-/**
- * Displays retryable ticket redemption details
- */
 export function RetryableRedemptionDetails({
   details,
 }: RetryableRedemptionDetailsProps) {

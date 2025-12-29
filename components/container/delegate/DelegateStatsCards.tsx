@@ -15,9 +15,6 @@ export interface DelegateStatsCardsProps {
   delegatedPercentage: string;
 }
 
-/**
- * Displays summary statistics cards for delegates
- */
 export function DelegateStatsCards({
   delegateCount,
   totalVotingPower,

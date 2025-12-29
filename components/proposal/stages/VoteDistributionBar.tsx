@@ -6,9 +6,6 @@ export interface VoteDistributionBarProps {
   abstainVotes: string;
 }
 
-/**
- * Horizontal bar showing vote distribution (for/against/abstain)
- */
 export function VoteDistributionBar({
   forVotes,
   againstVotes,

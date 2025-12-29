@@ -13,9 +13,6 @@ export interface TransactionsListProps {
   }>;
 }
 
-/**
- * Displays a list of transaction links with timestamps
- */
 export function TransactionsList({ transactions }: TransactionsListProps) {
   return (
     <div className="mt-2 space-y-1">

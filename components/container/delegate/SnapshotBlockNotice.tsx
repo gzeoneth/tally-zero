@@ -5,9 +5,6 @@ export interface SnapshotBlockNoticeProps {
   cacheAge?: string;
 }
 
-/**
- * Displays information about the delegate list snapshot block
- */
 export function SnapshotBlockNotice({
   snapshotBlock,
   cacheAge,

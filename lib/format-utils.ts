@@ -14,45 +14,30 @@ import { BigNumber } from "ethers";
  * formatVotingPower(1000000000000000000000n) // "1K"
  */
 export function formatVotingPower(weiValue: string | bigint): string {
-  try {
-    // Handle empty or invalid input
-    if (!weiValue || weiValue === "0" || weiValue === BigInt(0)) {
-      return "0";
-    }
+  if (!weiValue || weiValue === "0" || weiValue === BigInt(0)) {
+    return "0";
+  }
 
-    // Convert bigint to string for BigNumber
+  try {
     const valueStr =
       typeof weiValue === "bigint" ? weiValue.toString() : weiValue;
-
-    // Parse wei value to BigNumber
     const bn = BigNumber.from(valueStr);
+    const value = parseFloat(bn.toString()) / 1e18;
 
-    // Convert from wei to token units (18 decimals)
-    const value = parseFloat(bn.toString()) / Math.pow(10, 18);
-
-    // Format with appropriate suffix
     const billion = 1_000_000_000;
     const million = 1_000_000;
     const thousand = 1_000;
 
     if (value >= billion) {
-      const formatted = (value / billion).toFixed(2);
-      // Remove unnecessary trailing zeros
-      return `${parseFloat(formatted)}B`;
+      return `${parseFloat((value / billion).toFixed(2))}B`;
     } else if (value >= million) {
-      const formatted = (value / million).toFixed(2);
-      return `${parseFloat(formatted)}M`;
+      return `${parseFloat((value / million).toFixed(2))}M`;
     } else if (value >= thousand) {
-      const formatted = (value / thousand).toFixed(2);
-      return `${parseFloat(formatted)}K`;
+      return `${parseFloat((value / thousand).toFixed(2))}K`;
     } else {
-      // For values less than 1000, show up to 2 decimal places
-      const formatted = value.toFixed(2);
-      return parseFloat(formatted).toString();
+      return parseFloat(value.toFixed(2)).toString();
     }
-  } catch (error) {
-    // If parsing fails, return "0" as fallback
-    console.error("Error formatting voting power:", error);
+  } catch {
     return "0";
   }
 }
@@ -69,24 +54,15 @@ export function formatVotingPower(weiValue: string | bigint): string {
  * shortenAddress("0x1234567890abcdef1234567890abcdef12345678", 6) // "0x123456...345678"
  */
 export function shortenAddress(address: string, chars: number = 4): string {
-  try {
-    // Validate address format
-    if (!address || !address.startsWith("0x") || address.length !== 42) {
-      return address; // Return as-is if invalid
-    }
-
-    // Ensure chars is positive and not too large
-    const safeChars = Math.max(1, Math.min(chars, 20));
-
-    // Extract prefix (0x + chars) and suffix (chars)
-    const prefix = address.slice(0, 2 + safeChars);
-    const suffix = address.slice(-safeChars);
-
-    return `${prefix}...${suffix}`;
-  } catch (error) {
-    console.error("Error shortening address:", error);
+  if (!address || !address.startsWith("0x") || address.length !== 42) {
     return address;
   }
+
+  const safeChars = Math.max(1, Math.min(chars, 20));
+  const prefix = address.slice(0, 2 + safeChars);
+  const suffix = address.slice(-safeChars);
+
+  return `${prefix}...${suffix}`;
 }
 
 /**
@@ -128,11 +104,9 @@ export function formatCompactNumber(
   } else if (Math.abs(num) >= thousand) {
     result = (num / thousand).toFixed(decimals) + "K";
   } else {
-    result = num.toLocaleString(undefined, { maximumFractionDigits: decimals });
-    return result; // Don't trim for small numbers
+    return num.toLocaleString(undefined, { maximumFractionDigits: decimals });
   }
 
-  // Trim trailing zeros if requested (e.g., "1.50M" -> "1.5M")
   if (trimTrailingZeros) {
     result = result.replace(/\.?0+([KMB])$/, "$1");
   }

@@ -31,9 +31,6 @@ export interface StageItemProps {
   governorAddress: string;
 }
 
-/**
- * Single stage item in the proposal lifecycle timeline
- */
 export function StageItem({
   stage,
   stageType,
