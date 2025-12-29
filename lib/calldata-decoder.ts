@@ -3,6 +3,7 @@ import knownAddresses from "@data/known-addresses.json";
 import { ethers } from "ethers";
 import { getAddressExplorerUrl, type ChainId } from "./explorer-utils";
 import { getStoredValue, setStoredValue } from "./storage-utils";
+import { truncateMiddle } from "./text-utils";
 
 const FOURBYTE_API = "https://www.4byte.directory/api/v1/signatures/";
 const CACHE_KEY_PREFIX = "tally-zero-4byte-";
@@ -289,14 +290,9 @@ export function formatDecodedValue(value: unknown, type: string): string {
     return `[${formatted.join(", ")}]`;
   }
 
-  // Handle bytes and hex strings
+  // Handle bytes and hex strings - truncate long values in the middle
   if (type === "bytes" || type.startsWith("bytes")) {
-    const str = String(value);
-    // Truncate long bytes for display
-    if (str.length > 66) {
-      return str.slice(0, 34) + "..." + str.slice(-32);
-    }
-    return str;
+    return truncateMiddle(String(value), 34, 32);
   }
 
   return String(value);

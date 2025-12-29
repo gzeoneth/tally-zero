@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { stripMarkdownAndHtml, truncateText } from "./text-utils";
+import {
+  stripMarkdownAndHtml,
+  truncateMiddle,
+  truncateText,
+} from "./text-utils";
 
 describe("text-utils", () => {
   describe("stripMarkdownAndHtml", () => {
@@ -97,6 +101,51 @@ describe("text-utils", () => {
 
     it("handles maxLength of 1", () => {
       expect(truncateText("Hello", 1)).toBe("H...");
+    });
+  });
+
+  describe("truncateMiddle", () => {
+    it("truncates long strings in the middle", () => {
+      const text = "0x1234567890abcdef1234567890abcdef12345678";
+      expect(truncateMiddle(text, 10, 8)).toBe("0x12345678...12345678");
+    });
+
+    it("keeps short strings unchanged", () => {
+      expect(truncateMiddle("short")).toBe("short");
+      expect(truncateMiddle("0x1234567890")).toBe("0x1234567890");
+    });
+
+    it("uses default values (10 start, 8 end)", () => {
+      const text = "0x1234567890abcdef1234567890abcdef12345678";
+      expect(truncateMiddle(text)).toBe("0x12345678...12345678");
+    });
+
+    it("handles edge case where text equals minimum length", () => {
+      // minLength = 10 + 8 + 3 = 21
+      const text = "123456789012345678901"; // 21 chars
+      expect(truncateMiddle(text)).toBe(text);
+    });
+
+    it("truncates text just above minimum length", () => {
+      // minLength = 10 + 8 + 3 = 21
+      const text = "12345678901234567890ab"; // 22 chars
+      expect(truncateMiddle(text)).toBe("1234567890...567890ab");
+    });
+
+    it("handles custom start and end chars", () => {
+      const text = "0x1234567890abcdef1234567890abcdef12345678";
+      expect(truncateMiddle(text, 6, 4)).toBe("0x1234...5678");
+      expect(truncateMiddle(text, 34, 32)).toBe(text); // under minLength
+    });
+
+    it("handles empty string", () => {
+      expect(truncateMiddle("")).toBe("");
+    });
+
+    it("handles hash truncation like tx hashes", () => {
+      const txHash =
+        "0xdfebb93861904590d6d538d48071a96137f66b7a947431a7d74d62a59ce182ec";
+      expect(truncateMiddle(txHash, 10, 8)).toBe("0xdfebb938...9ce182ec");
     });
   });
 });

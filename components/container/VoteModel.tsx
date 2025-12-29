@@ -38,6 +38,7 @@ import {
   TREASURY_GOVERNOR,
 } from "@config/arbitrum-governance";
 import { proposalSchema } from "@config/schema";
+import { truncateMiddle } from "@lib/text-utils";
 import { cn } from "@lib/utils";
 import { formatEther } from "viem";
 
@@ -136,9 +137,10 @@ function isArbitrumGovernor(contractAddress: string): boolean {
   );
 }
 
+// Wrapper to maintain backwards compatibility with existing calls
 function truncateValue(value: string, maxLength = 50): string {
   if (value.length <= maxLength) return value;
-  return value.slice(0, 24) + "..." + value.slice(-20);
+  return truncateMiddle(value, 24, 20);
 }
 
 // Chain ID mapping for timelock simulations
