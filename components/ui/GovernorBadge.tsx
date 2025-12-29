@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { getGovernorTypeFromName } from "@/config/governors";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +16,7 @@ interface GovernorBadgeProps {
  * Displays a styled badge indicating whether a proposal is from Core or Treasury governor
  * Uses glassmorphism design with governor-specific accent colors
  */
-export function GovernorBadge({
+export const GovernorBadge = memo(function GovernorBadge({
   governorName,
   size = "default",
   className,
@@ -60,4 +62,4 @@ export function GovernorBadge({
       {isCore ? "Core" : "Treasury"}
     </span>
   );
-}
+});

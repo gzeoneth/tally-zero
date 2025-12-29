@@ -1,4 +1,4 @@
-import * as React from "react";
+import { memo } from "react";
 
 import { cn } from "@/lib/utils";
 import type { ProposalStateName } from "@/types/proposal";
@@ -80,7 +80,7 @@ const DEFAULT_STYLES = {
   dot: "bg-gray-400",
 };
 
-function StatusBadgeGlass({
+const StatusBadgeGlass = memo(function StatusBadgeGlass({
   state,
   className,
   ...props
@@ -122,6 +122,6 @@ function StatusBadgeGlass({
       {normalizedState}
     </div>
   );
-}
+});
 
 export { STATE_GLASS_STYLES, StatusBadgeGlass };
