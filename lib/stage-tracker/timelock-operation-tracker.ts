@@ -6,6 +6,7 @@
  */
 
 import {
+  CHALLENGE_PERIOD_L1_BLOCKS,
   DEFAULT_CHUNKING_CONFIG,
   L1_TIMELOCK,
   L2_CORE_TIMELOCK,
@@ -18,6 +19,7 @@ import {
   ChildTransactionReceipt,
 } from "@arbitrum/sdk";
 import { ethers } from "ethers";
+import { findL1ExecutionTransaction } from "./l1-message-utils";
 import { getL1BlockNumberFromReceipt, searchLogsInChunks } from "./log-search";
 import type { StageProgressCallback } from "./types";
 
@@ -413,6 +415,12 @@ export class TimelockOperationTracker {
     return stages;
   }
 
+  /**
+   * Track L1 timelock stages using message position to find the correct transaction.
+   *
+   * Uses the shared findL1ExecutionTransaction utility to ensure we track
+   * the correct L1 transaction even when multiple proposals are in flight.
+   */
   private async trackL1Timelock(
     ctx: TimelockTrackingContext
   ): Promise<ProposalStage[]> {
@@ -451,22 +459,34 @@ export class TimelockOperationTracker {
       return [];
     }
 
-    const currentBlock = await ctx.l1Provider.getBlockNumber();
-    const l1BlockAtL2Tx = getL1BlockNumberFromReceipt(receipt);
-    const fromBlock = l1BlockAtL2Tx + 46080; // Challenge period
+    // Get the first executable block for calculating search range
+    const executableBlock = await messages[0].getFirstExecutableBlock(
+      ctx.baseL2Provider
+    );
+    let fromBlock: number;
+    if (executableBlock) {
+      fromBlock = executableBlock.toNumber();
+    } else {
+      const l1BlockAtL2Tx = getL1BlockNumberFromReceipt(receipt);
+      fromBlock = l1BlockAtL2Tx + CHALLENGE_PERIOD_L1_BLOCKS;
+    }
 
-    const scheduledTopic = ctx.timelockInterface.getEventTopic("CallScheduled");
-    const scheduledLogs = await searchLogsInChunks(
-      ctx.l1Provider,
-      { address: L1_TIMELOCK.address, topics: [scheduledTopic] },
+    const currentBlock = await ctx.l1Provider.getBlockNumber();
+
+    // Use the shared utility to find the exact L1 execution transaction
+    const l1ExecutionTx = await findL1ExecutionTransaction(
+      {
+        l2Provider: ctx.l2Provider,
+        l1Provider: ctx.l1Provider,
+        l1TimelockAddress: L1_TIMELOCK.address,
+        chunkingConfig: ctx.chunkingConfig,
+      },
+      receipt,
       fromBlock,
-      currentBlock,
-      ctx.chunkingConfig.l1ChunkSize,
-      ctx.chunkingConfig.delayBetweenChunks,
-      (chunkLogs) => (chunkLogs.length > 0 ? chunkLogs[0] : null)
+      currentBlock
     );
 
-    if (scheduledLogs.length === 0) {
+    if (!l1ExecutionTx) {
       return [
         {
           type: "L1_TIMELOCK_QUEUED",
@@ -477,18 +497,52 @@ export class TimelockOperationTracker {
       ];
     }
 
+    // Get the transaction receipt to find CallScheduled events
+    const txReceipt = await ctx.l1Provider.getTransactionReceipt(
+      l1ExecutionTx.hash
+    );
+    if (!txReceipt) {
+      return [
+        {
+          type: "L1_TIMELOCK_QUEUED",
+          status: "FAILED",
+          transactions: [],
+          data: { error: "Could not fetch L1 execution receipt" },
+        },
+      ];
+    }
+
+    // Find CallScheduled events in this specific transaction
+    const scheduledTopic = ctx.timelockInterface.getEventTopic("CallScheduled");
+    const scheduledLogs = txReceipt.logs.filter(
+      (log) =>
+        log.address.toLowerCase() === L1_TIMELOCK.address.toLowerCase() &&
+        log.topics[0] === scheduledTopic
+    );
+
+    if (scheduledLogs.length === 0) {
+      return [
+        {
+          type: "L1_TIMELOCK_QUEUED",
+          status: "FAILED",
+          transactions: [],
+          data: { error: "No CallScheduled events in L1 execution tx" },
+        },
+      ];
+    }
+
     const log = scheduledLogs[scheduledLogs.length - 1];
     const parsed = ctx.timelockInterface.parseLog(log);
     const l1OperationId = parsed.args.id;
 
-    const block = await ctx.l1Provider.getBlock(log.blockNumber);
+    const block = await ctx.l1Provider.getBlock(l1ExecutionTx.blockNumber);
     stages.push({
       type: "L1_TIMELOCK_QUEUED",
       status: "COMPLETED",
       transactions: [
         {
-          hash: log.transactionHash,
-          blockNumber: log.blockNumber,
+          hash: l1ExecutionTx.hash,
+          blockNumber: l1ExecutionTx.blockNumber,
           timestamp: block.timestamp,
           chain: "L1",
         },
@@ -501,7 +555,7 @@ export class TimelockOperationTracker {
     const executedLogs = await searchLogsInChunks(
       ctx.l1Provider,
       { address: L1_TIMELOCK.address, topics: [executedTopic, l1OperationId] },
-      log.blockNumber,
+      l1ExecutionTx.blockNumber,
       currentBlock,
       ctx.chunkingConfig.l1ChunkSize,
       ctx.chunkingConfig.delayBetweenChunks,

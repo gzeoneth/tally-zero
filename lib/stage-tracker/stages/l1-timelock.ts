@@ -1,23 +1,11 @@
 import { CHALLENGE_PERIOD_L1_BLOCKS } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import type { ProposalStage } from "@/types/proposal-stage";
-import { ChildTransactionReceipt, getArbitrumNetwork } from "@arbitrum/sdk";
-import { BigNumber, ethers } from "ethers";
+import { ChildTransactionReceipt } from "@arbitrum/sdk";
+import { ethers } from "ethers";
+import { findL1ExecutionTransaction } from "../l1-message-utils";
 import { getL1BlockNumberFromReceipt, searchLogsInChunks } from "../log-search";
 import type { TrackingContext } from "../types";
-
-// ArbSys address on Arbitrum (same on all Arbitrum chains)
-const ARB_SYS_ADDRESS = "0x0000000000000000000000000000000000000064";
-
-// ArbSys L2ToL1Tx event ABI (Nitro version)
-const ARB_SYS_ABI = [
-  "event L2ToL1Tx(address indexed caller, address indexed destination, uint256 indexed hash, uint256 position, uint256 arbBlockNum, uint256 ethBlockNum, uint256 timestamp, uint256 callvalue, bytes data)",
-];
-
-// Outbox ABI - just the event we need
-const OUTBOX_ABI = [
-  "event OutBoxTransactionExecuted(address indexed to, address indexed l2Sender, uint256 indexed zero, uint256 transactionIndex)",
-];
 
 /**
  * Track L1 timelock stages (queued and executed)
@@ -77,7 +65,12 @@ export async function trackL1Timelock(
   // Use the message position to find the exact L1 execution transaction
   // by searching for OutBoxTransactionExecuted events on the Outbox contract
   const l1ExecutionTx = await findL1ExecutionTransaction(
-    ctx,
+    {
+      l2Provider: ctx.l2Provider,
+      l1Provider: ctx.l1Provider,
+      l1TimelockAddress: ctx.l1TimelockAddress,
+      chunkingConfig: ctx.chunkingConfig,
+    },
     receipt,
     fromBlock,
     currentBlock
@@ -158,95 +151,6 @@ export async function trackL1Timelock(
   stages.push(executedStage);
 
   return stages;
-}
-
-/**
- * Get the message position from L2ToL1Tx event in the L2 receipt.
- *
- * The position uniquely identifies the L2→L1 message across all Arbitrum chains.
- */
-function getMessagePositionFromReceipt(
-  receipt: ethers.providers.TransactionReceipt
-): BigNumber | null {
-  const arbSysInterface = new ethers.utils.Interface(ARB_SYS_ABI);
-  const l2ToL1TxTopic = arbSysInterface.getEventTopic("L2ToL1Tx");
-
-  for (const log of receipt.logs) {
-    if (
-      log.address.toLowerCase() === ARB_SYS_ADDRESS.toLowerCase() &&
-      log.topics[0] === l2ToL1TxTopic
-    ) {
-      try {
-        const parsed = arbSysInterface.parseLog(log);
-        return parsed.args.position;
-      } catch {
-        // Continue to next log if parsing fails
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Find the L1 transaction where the L2→L1 message was executed.
- *
- * This uses the message position to search for OutBoxTransactionExecuted events
- * on the Outbox contract, ensuring we find the exact transaction for our message.
- */
-async function findL1ExecutionTransaction(
-  ctx: TrackingContext,
-  receipt: ethers.providers.TransactionReceipt,
-  fromBlock: number,
-  toBlock: number
-): Promise<{ hash: string; blockNumber: number } | null> {
-  // Get the message position from the L2ToL1Tx event in the receipt
-  const messagePosition = getMessagePositionFromReceipt(receipt);
-  if (!messagePosition) {
-    console.debug("[findL1ExecutionTransaction] No L2ToL1Tx event found");
-    return null;
-  }
-
-  // Get the Arbitrum network info to find the Outbox address
-  const network = await getArbitrumNetwork(ctx.l2Provider);
-  const outboxAddress = network.ethBridge.outbox;
-  const outboxInterface = new ethers.utils.Interface(OUTBOX_ABI);
-
-  // Search for OutBoxTransactionExecuted events where 'to' is the L1 Timelock
-  // The 'to' field is indexed, so we can filter by it
-  const executedTopic = outboxInterface.getEventTopic(
-    "OutBoxTransactionExecuted"
-  );
-  const toTopic = ethers.utils.hexZeroPad(ctx.l1TimelockAddress, 32);
-
-  const logs = await searchLogsInChunks(
-    ctx.l1Provider,
-    {
-      address: outboxAddress,
-      topics: [executedTopic, toTopic],
-    },
-    fromBlock,
-    toBlock,
-    ctx.chunkingConfig.l1ChunkSize,
-    ctx.chunkingConfig.delayBetweenChunks,
-    // Don't early exit - we need to check transactionIndex for each log
-    undefined
-  );
-
-  // Filter logs by transactionIndex matching our message position
-  for (const log of logs) {
-    const parsed = outboxInterface.parseLog(log);
-    const transactionIndex = parsed.args.transactionIndex;
-
-    if (transactionIndex.eq(messagePosition)) {
-      return {
-        hash: log.transactionHash,
-        blockNumber: log.blockNumber,
-      };
-    }
-  }
-
-  return null;
 }
 
 /**
