@@ -1,0 +1,87 @@
+"use client";
+
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Separator } from "@/components/ui/Separator";
+import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
+
+interface GeneralTabProps {
+  theme: string | undefined;
+  setTheme: (theme: string) => void;
+  daysInput: string;
+  setDaysInput: (value: string) => void;
+  nerdMode: boolean;
+  toggleNerdMode: () => void;
+}
+
+/**
+ * General settings tab with theme, days to search, and nerd mode
+ */
+export function GeneralTab({
+  theme,
+  setTheme,
+  daysInput,
+  setDaysInput,
+  nerdMode,
+  toggleNerdMode,
+}: GeneralTabProps) {
+  return (
+    <div className="mt-0 space-y-6">
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Theme</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {(["light", "dark", "system"] as const).map((t) => (
+            <Button
+              key={t}
+              type="button"
+              variant={theme === t ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTheme(t)}
+              className="capitalize"
+            >
+              {t}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <Label htmlFor="days-search">Days to Search</Label>
+        <Input
+          id="days-search"
+          type="number"
+          value={daysInput}
+          onChange={(e) => setDaysInput(e.target.value)}
+          placeholder={String(DEFAULT_FORM_VALUES.daysToSearch)}
+          min={1}
+          max={365}
+        />
+        <p className="text-xs text-muted-foreground">
+          How many days back to search for proposals (1-365)
+        </p>
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label>Nerd Mode</Label>
+          <p className="text-xs text-muted-foreground">
+            Show technical details and debug info
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant={nerdMode ? "default" : "outline"}
+          size="sm"
+          onClick={toggleNerdMode}
+        >
+          {nerdMode ? "On" : "Off"}
+        </Button>
+      </div>
+    </div>
+  );
+}

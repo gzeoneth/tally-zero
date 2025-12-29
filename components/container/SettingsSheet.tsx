@@ -1,21 +1,10 @@
 "use client";
 
-import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Download,
-  Settings,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { Settings } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
-import { Separator } from "@/components/ui/Separator";
 import {
   Sheet,
   SheetContent,
@@ -26,13 +15,8 @@ import {
 } from "@/components/ui/Sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 
+import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 import {
-  ARBITRUM_RPC_URL,
-  DEFAULT_FORM_VALUES,
-  ETHEREUM_RPC_URL,
-} from "@/config/arbitrum-governance";
-import {
-  CACHE_TTL_OPTIONS,
   DEFAULT_CACHE_TTL_MS,
   DEFAULT_TENDERLY_ORG,
   DEFAULT_TENDERLY_PROJECT,
@@ -42,17 +26,23 @@ import { useNerdMode } from "@/context/NerdModeContext";
 import { useSettingsSheet } from "@/context/SettingsSheetContext";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
-// Get all TallyZero storage keys
-const ALL_STORAGE_KEYS = Object.values(STORAGE_KEYS).filter(
-  (key) => !key.endsWith("-") // Exclude prefixes
-);
+import {
+  AdvancedTab,
+  GeneralTab,
+  RpcTab,
+  clearAllSettings,
+  clearCache,
+  exportSettings,
+  getCacheStats,
+  getDefaultFormState,
+  getTotalStorageUsage,
+  importSettings,
+} from "./settings";
 
 export function SettingsSheet() {
   const { theme, setTheme } = useTheme();
   const { isOpen, activeTab, openSettings, closeSettings, setActiveTab } =
     useSettingsSheet();
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showDangerZone, setShowDangerZone] = useState(false);
 
   // LocalStorage settings
   const [storedL2Rpc, setStoredL2Rpc] = useLocalStorage(
@@ -78,7 +68,7 @@ export function SettingsSheet() {
   );
   const [cacheTtl, setCacheTtl] = useLocalStorage<number>(
     STORAGE_KEYS.CACHE_TTL,
-    DEFAULT_CACHE_TTL_MS / 1000 // Convert ms to seconds
+    DEFAULT_CACHE_TTL_MS / 1000
   );
   const [skipPreloadCache, setSkipPreloadCache] = useLocalStorage<boolean>(
     STORAGE_KEYS.SKIP_PRELOAD_CACHE,
@@ -161,7 +151,6 @@ export function SettingsSheet() {
     setTenderlyProject(tenderlyProjectInput || DEFAULT_TENDERLY_PROJECT);
     setTenderlyAccessToken(tenderlyAccessTokenInput);
     closeSettings();
-    // Reload to apply changes
     window.location.reload();
   }, [
     l2RpcInput,
@@ -185,20 +174,12 @@ export function SettingsSheet() {
     closeSettings,
   ]);
 
-  // Clear all cache
+  // Action handlers
   const handleClearCache = useCallback(() => {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(STORAGE_KEYS.STAGES_CACHE_PREFIX)) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
-    alert(`Cleared ${keysToRemove.length} cached items`);
+    const count = clearCache();
+    alert(`Cleared ${count} cached items`);
   }, []);
 
-  // Clear all settings (factory reset)
   const handleClearAllSettings = useCallback(() => {
     if (
       !confirm(
@@ -207,48 +188,27 @@ export function SettingsSheet() {
     ) {
       return;
     }
-    // Clear all TallyZero keys
-    ALL_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
-    // Clear cache entries
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(STORAGE_KEYS.STAGES_CACHE_PREFIX)) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
+    clearAllSettings();
     alert("All settings have been reset. The page will reload.");
     window.location.reload();
   }, []);
 
-  // Reset to defaults (form inputs only)
   const handleResetDefaults = useCallback(() => {
-    setL2RpcInput("");
-    setL1RpcInput("");
-    setBlockRangeInput(String(DEFAULT_FORM_VALUES.blockRange));
-    setL1BlockRangeInput(String(DEFAULT_FORM_VALUES.l1BlockRange));
-    setDaysInput(String(DEFAULT_FORM_VALUES.daysToSearch));
-    setTtlInput(3600); // 1 hour default in seconds
-    setTtlCustomInput("3600");
-    setTenderlyOrgInput(DEFAULT_TENDERLY_ORG);
-    setTenderlyProjectInput(DEFAULT_TENDERLY_PROJECT);
-    setTenderlyAccessTokenInput("");
+    const defaults = getDefaultFormState();
+    setL2RpcInput(defaults.l2RpcInput);
+    setL1RpcInput(defaults.l1RpcInput);
+    setBlockRangeInput(defaults.blockRangeInput);
+    setL1BlockRangeInput(defaults.l1BlockRangeInput);
+    setDaysInput(defaults.daysInput);
+    setTtlInput(defaults.ttlInput);
+    setTtlCustomInput(defaults.ttlCustomInput);
+    setTenderlyOrgInput(defaults.tenderlyOrgInput);
+    setTenderlyProjectInput(defaults.tenderlyProjectInput);
+    setTenderlyAccessTokenInput(defaults.tenderlyAccessTokenInput);
   }, []);
 
-  // Export settings
   const handleExportSettings = useCallback(() => {
-    const settings: Record<string, unknown> = {};
-    ALL_STORAGE_KEYS.forEach((key) => {
-      const value = localStorage.getItem(key);
-      if (value !== null) {
-        try {
-          settings[key] = JSON.parse(value);
-        } catch {
-          settings[key] = value;
-        }
-      }
-    });
+    const settings = exportSettings();
     const blob = new Blob([JSON.stringify(settings, null, 2)], {
       type: "application/json",
     });
@@ -260,7 +220,6 @@ export function SettingsSheet() {
     URL.revokeObjectURL(url);
   }, []);
 
-  // Import settings
   const handleImportSettings = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
@@ -272,15 +231,7 @@ export function SettingsSheet() {
       reader.onload = (event) => {
         try {
           const settings = JSON.parse(event.target?.result as string);
-          Object.entries(settings).forEach(([key, value]) => {
-            if (
-              ALL_STORAGE_KEYS.includes(
-                key as (typeof ALL_STORAGE_KEYS)[number]
-              )
-            ) {
-              localStorage.setItem(key, JSON.stringify(value));
-            }
-          });
+          importSettings(settings);
           alert("Settings imported successfully. The page will reload.");
           window.location.reload();
         } catch {
@@ -290,34 +241,6 @@ export function SettingsSheet() {
       reader.readAsText(file);
     };
     input.click();
-  }, []);
-
-  // Calculate cache stats
-  const getCacheStats = useCallback(() => {
-    let count = 0;
-    let size = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(STORAGE_KEYS.STAGES_CACHE_PREFIX)) {
-        count++;
-        const value = localStorage.getItem(key);
-        if (value) size += value.length;
-      }
-    }
-    return { count, size: (size / 1024).toFixed(2) };
-  }, []);
-
-  // Calculate total storage usage
-  const getTotalStorageUsage = useCallback(() => {
-    let total = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("tally-zero")) {
-        const value = localStorage.getItem(key);
-        if (value) total += key.length + value.length;
-      }
-    }
-    return (total / 1024).toFixed(2);
   }, []);
 
   const cacheStats = getCacheStats();
@@ -366,457 +289,65 @@ export function SettingsSheet() {
           </TabsList>
 
           <div className="flex-1 overflow-y-auto mt-4 pr-1">
-            <TabsContent value="general" className="mt-0 space-y-6">
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Theme</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["light", "dark", "system"] as const).map((t) => (
-                    <Button
-                      key={t}
-                      type="button"
-                      variant={theme === t ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTheme(t)}
-                      className="capitalize"
-                    >
-                      {t}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label htmlFor="days-search">Days to Search</Label>
-                <Input
-                  id="days-search"
-                  type="number"
-                  value={daysInput}
-                  onChange={(e) => setDaysInput(e.target.value)}
-                  placeholder={String(DEFAULT_FORM_VALUES.daysToSearch)}
-                  min={1}
-                  max={365}
-                />
-                <p className="text-xs text-muted-foreground">
-                  How many days back to search for proposals (1-365)
-                </p>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Nerd Mode</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Show technical details and debug info
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant={nerdMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={toggleNerdMode}
-                >
-                  {nerdMode ? "On" : "Off"}
-                </Button>
-              </div>
+            <TabsContent value="general">
+              <GeneralTab
+                theme={theme}
+                setTheme={setTheme}
+                daysInput={daysInput}
+                setDaysInput={setDaysInput}
+                nerdMode={nerdMode}
+                toggleNerdMode={toggleNerdMode}
+              />
             </TabsContent>
 
-            <TabsContent value="rpc" className="mt-0 space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="l2-rpc">Arbitrum RPC URL</Label>
-                <Input
-                  id="l2-rpc"
-                  type="url"
-                  value={l2RpcInput}
-                  onChange={(e) => setL2RpcInput(e.target.value)}
-                  placeholder={ARBITRUM_RPC_URL}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Custom Arbitrum One RPC endpoint (optional)
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="l1-rpc">Ethereum L1 RPC URL</Label>
-                <Input
-                  id="l1-rpc"
-                  type="url"
-                  value={l1RpcInput}
-                  onChange={(e) => setL1RpcInput(e.target.value)}
-                  placeholder={ETHEREUM_RPC_URL}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Custom Ethereum mainnet RPC endpoint (optional)
-                </p>
-              </div>
-
-              <Separator />
-
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
-              >
-                {showAdvanced ? (
-                  <ChevronUp className="w-4 h-4 mr-2" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 mr-2" />
-                )}
-                Block Range Settings
-              </button>
-
-              {showAdvanced && (
-                <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="space-y-2">
-                    <Label htmlFor="block-range">Arbitrum Block Range</Label>
-                    <Input
-                      id="block-range"
-                      type="number"
-                      value={blockRangeInput}
-                      onChange={(e) => setBlockRangeInput(e.target.value)}
-                      placeholder={String(DEFAULT_FORM_VALUES.blockRange)}
-                      min={100}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Query chunk size for Arbitrum (default: 10,000,000)
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="l1-block-range">L1 Block Range</Label>
-                    <Input
-                      id="l1-block-range"
-                      type="number"
-                      value={l1BlockRangeInput}
-                      onChange={(e) => setL1BlockRangeInput(e.target.value)}
-                      placeholder={String(DEFAULT_FORM_VALUES.l1BlockRange)}
-                      min={100}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Query chunk size for Ethereum L1 (default: 1,000)
-                    </p>
-                  </div>
-                </div>
-              )}
+            <TabsContent value="rpc">
+              <RpcTab
+                l2RpcInput={l2RpcInput}
+                setL2RpcInput={setL2RpcInput}
+                l1RpcInput={l1RpcInput}
+                setL1RpcInput={setL1RpcInput}
+                blockRangeInput={blockRangeInput}
+                setBlockRangeInput={setBlockRangeInput}
+                l1BlockRangeInput={l1BlockRangeInput}
+                setL1BlockRangeInput={setL1BlockRangeInput}
+              />
             </TabsContent>
 
-            <TabsContent value="advanced" className="mt-0 space-y-6">
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Cache Duration</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {CACHE_TTL_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant={
-                        ttlInput === option.value ? "default" : "outline"
-                      }
-                      size="sm"
-                      onClick={() => {
-                        setTtlInput(option.value);
-                        setTtlCustomInput(String(option.value));
-                      }}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    value={ttlCustomInput}
-                    onChange={(e) => {
-                      setTtlCustomInput(e.target.value);
-                      const parsed = parseInt(e.target.value);
-                      if (!isNaN(parsed) && parsed > 0) {
-                        setTtlInput(parsed);
-                      }
-                    }}
-                    placeholder="3600"
-                    min={1}
-                    className="flex-1"
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    seconds
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  How long to cache proposal lifecycle data before auto-refresh
-                  (current:{" "}
-                  {ttlInput >= 3600
-                    ? `${Math.floor(ttlInput / 3600)}h ${Math.floor((ttlInput % 3600) / 60)}m`
-                    : ttlInput >= 60
-                      ? `${Math.floor(ttlInput / 60)}m ${ttlInput % 60}s`
-                      : `${ttlInput}s`}
-                  )
-                </p>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Skip Preload Cache</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Bypass bundled proposal cache and fetch fresh data
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant={skipPreloadCache ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSkipPreloadCache(!skipPreloadCache)}
-                >
-                  {skipPreloadCache ? "On" : "Off"}
-                </Button>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">
-                  Tenderly Simulation
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Configure Tenderly project for simulating retryable ticket
-                  executions
-                </p>
-                <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
-                  <div className="space-y-2">
-                    <Label htmlFor="tenderly-org" className="text-xs">
-                      Organization/User Name
-                    </Label>
-                    <Input
-                      id="tenderly-org"
-                      type="text"
-                      value={tenderlyOrgInput}
-                      onChange={(e) => setTenderlyOrgInput(e.target.value)}
-                      placeholder={DEFAULT_TENDERLY_ORG}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tenderly-project" className="text-xs">
-                      Project Slug
-                    </Label>
-                    <Input
-                      id="tenderly-project"
-                      type="text"
-                      value={tenderlyProjectInput}
-                      onChange={(e) => setTenderlyProjectInput(e.target.value)}
-                      placeholder={DEFAULT_TENDERLY_PROJECT}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tenderly-token" className="text-xs">
-                      Access Token
-                    </Label>
-                    <Input
-                      id="tenderly-token"
-                      type="password"
-                      value={tenderlyAccessTokenInput}
-                      onChange={(e) =>
-                        setTenderlyAccessTokenInput(e.target.value)
-                      }
-                      placeholder="Enter your Tenderly access token"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Required for simulation. Get from dashboard.tenderly.co
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Cache Management</Label>
-                <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Cached items:</span>
-                    <span className="font-mono">{cacheStats.count}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Cache size:</span>
-                    <span className="font-mono">{cacheStats.size} KB</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Total storage:
-                    </span>
-                    <span className="font-mono">{totalStorage} KB</span>
-                  </div>
-                  <Separator />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="w-full"
-                    onClick={handleClearCache}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Clear Cache
-                  </Button>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Backup & Restore</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportSettings}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleImportSettings}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Import
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Export settings to a file or import from a backup
-                </p>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setShowDangerZone(!showDangerZone)}
-                  className="flex items-center text-sm text-destructive hover:text-destructive/80 transition-colors w-full"
-                >
-                  {showDangerZone ? (
-                    <ChevronUp className="w-4 h-4 mr-2" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 mr-2" />
-                  )}
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Danger Zone
-                </button>
-
-                {showDangerZone && (
-                  <div className="space-y-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-destructive">
-                        Reset to Defaults
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Reset form inputs to default values (does not save)
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={handleResetDefaults}
-                      >
-                        Reset Form to Defaults
-                      </Button>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-destructive">
-                        Factory Reset
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Clear ALL settings and cache. This cannot be undone.
-                      </p>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="w-full"
-                        onClick={handleClearAllSettings}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Clear All Settings
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {nerdMode && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium">Debug Info</Label>
-                    <div className="p-4 bg-muted/50 rounded-lg space-y-2 font-mono text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">L2 RPC:</span>
-                        <span className="truncate max-w-[180px]">
-                          {storedL2Rpc || "(default)"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">L1 RPC:</span>
-                        <span className="truncate max-w-[180px]">
-                          {storedL1Rpc || "(default)"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Block Range:
-                        </span>
-                        <span>{blockRange.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          L1 Block Range:
-                        </span>
-                        <span>{l1BlockRange.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Days:</span>
-                        <span>{daysToSearch}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Cache TTL:
-                        </span>
-                        <span>
-                          {cacheTtl}s ({Math.floor(cacheTtl / 60)}m)
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Skip Preload:
-                        </span>
-                        <span>{skipPreloadCache ? "Yes" : "No"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Tenderly Org:
-                        </span>
-                        <span>{tenderlyOrg || DEFAULT_TENDERLY_ORG}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Tenderly Project:
-                        </span>
-                        <span>
-                          {tenderlyProject || DEFAULT_TENDERLY_PROJECT}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+            <TabsContent value="advanced">
+              <AdvancedTab
+                ttlInput={ttlInput}
+                setTtlInput={setTtlInput}
+                ttlCustomInput={ttlCustomInput}
+                setTtlCustomInput={setTtlCustomInput}
+                skipPreloadCache={skipPreloadCache}
+                setSkipPreloadCache={setSkipPreloadCache}
+                tenderlyOrgInput={tenderlyOrgInput}
+                setTenderlyOrgInput={setTenderlyOrgInput}
+                tenderlyProjectInput={tenderlyProjectInput}
+                setTenderlyProjectInput={setTenderlyProjectInput}
+                tenderlyAccessTokenInput={tenderlyAccessTokenInput}
+                setTenderlyAccessTokenInput={setTenderlyAccessTokenInput}
+                onClearCache={handleClearCache}
+                onExportSettings={handleExportSettings}
+                onImportSettings={handleImportSettings}
+                onResetDefaults={handleResetDefaults}
+                onClearAllSettings={handleClearAllSettings}
+                cacheStats={cacheStats}
+                totalStorage={totalStorage}
+                nerdMode={nerdMode}
+                storedSettings={{
+                  storedL2Rpc,
+                  storedL1Rpc,
+                  blockRange,
+                  l1BlockRange,
+                  daysToSearch,
+                  cacheTtl,
+                  skipPreloadCache,
+                  tenderlyOrg,
+                  tenderlyProject,
+                  tenderlyAccessToken,
+                }}
+              />
             </TabsContent>
           </div>
         </Tabs>
