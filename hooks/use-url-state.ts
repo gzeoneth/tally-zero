@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidTxHash } from "@/lib/address-utils";
 import { useCallback, useEffect, useState } from "react";
 
 /**
@@ -42,18 +43,13 @@ function parseUrlHash(hash: string): UrlState {
     return { type: "proposal", id, tab: thirdPart };
   }
 
-  if (type === "timelock" && id) {
-    // Validate transaction hash format
-    if (/^0x[a-fA-F0-9]{64}$/.test(id)) {
-      // Parse optional operation index (1-based)
-      const opIndex = thirdPart ? parseInt(thirdPart, 10) : undefined;
-      return {
-        type: "timelock",
-        id,
-        opIndex:
-          opIndex && !isNaN(opIndex) && opIndex > 0 ? opIndex : undefined,
-      };
-    }
+  if (type === "timelock" && id && isValidTxHash(id)) {
+    const opIndex = thirdPart ? parseInt(thirdPart, 10) : undefined;
+    return {
+      type: "timelock",
+      id,
+      opIndex: opIndex && !isNaN(opIndex) && opIndex > 0 ? opIndex : undefined,
+    };
   }
 
   return { type: null, id: null };

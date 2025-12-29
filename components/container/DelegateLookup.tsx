@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { useDelegateLookup } from "@/hooks/use-delegate-lookup";
+import { isValidAddress } from "@/lib/address-utils";
 import { formatVotingPower, shortenAddress } from "@/lib/format-utils";
 import {
   ExternalLinkIcon,
@@ -36,7 +37,7 @@ export function DelegateLookup({ defaultAddress = "" }: DelegateLookupProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (addressInput && /^0x[a-fA-F0-9]{40}$/.test(addressInput)) {
+    if (isValidAddress(addressInput)) {
       setActiveAddress(addressInput);
     }
   };

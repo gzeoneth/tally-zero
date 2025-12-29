@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { useDeepLink } from "@/context/DeepLinkContext";
+import { isValidTxHash } from "@/lib/address-utils";
 import { MagnifyingGlassIcon, ReloadIcon } from "@radix-ui/react-icons";
 import { useCallback, useState } from "react";
 
@@ -37,9 +38,8 @@ export function TimelockOperationTracker({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (txHashInput && /^0x[a-fA-F0-9]{64}$/.test(txHashInput)) {
+    if (isValidTxHash(txHashInput)) {
       setActiveTxHash(txHashInput);
-      // Update URL when tracking a new transaction
       openTimelock(txHashInput);
     }
   };

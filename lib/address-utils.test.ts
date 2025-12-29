@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { addressesEqual, addressInList, findByAddress } from "./address-utils";
+import {
+  addressesEqual,
+  addressInList,
+  ETH_ADDRESS_REGEX,
+  findByAddress,
+  isValidAddress,
+  isValidTxHash,
+  TX_HASH_REGEX,
+} from "./address-utils";
 
 describe("address-utils", () => {
   // Sample addresses in different case formats
@@ -150,6 +158,84 @@ describe("address-utils", () => {
 
     it("returns undefined for empty items array", () => {
       expect(findByAddress([], checksumAddress)).toBeUndefined();
+    });
+  });
+
+  describe("ETH_ADDRESS_REGEX", () => {
+    it("matches valid addresses", () => {
+      expect(
+        ETH_ADDRESS_REGEX.test("0x912CE59144191C1204E64559FE8253a0e49E6548")
+      ).toBe(true);
+      expect(
+        ETH_ADDRESS_REGEX.test("0x0000000000000000000000000000000000000000")
+      ).toBe(true);
+    });
+
+    it("rejects invalid addresses", () => {
+      expect(
+        ETH_ADDRESS_REGEX.test("912CE59144191C1204E64559FE8253a0e49E6548")
+      ).toBe(false);
+      expect(
+        ETH_ADDRESS_REGEX.test("0x912CE59144191C1204E64559FE8253a0e49E654")
+      ).toBe(false);
+      expect(
+        ETH_ADDRESS_REGEX.test("0x912CE59144191C1204E64559FE8253a0e49E65489")
+      ).toBe(false);
+      expect(ETH_ADDRESS_REGEX.test("")).toBe(false);
+    });
+  });
+
+  describe("TX_HASH_REGEX", () => {
+    const validHash = "0x" + "a".repeat(64);
+
+    it("matches valid tx hashes", () => {
+      expect(TX_HASH_REGEX.test(validHash)).toBe(true);
+      expect(TX_HASH_REGEX.test("0x" + "0".repeat(64))).toBe(true);
+    });
+
+    it("rejects invalid tx hashes", () => {
+      expect(TX_HASH_REGEX.test("a".repeat(64))).toBe(false);
+      expect(TX_HASH_REGEX.test("0x" + "a".repeat(63))).toBe(false);
+      expect(TX_HASH_REGEX.test("0x" + "a".repeat(65))).toBe(false);
+      expect(TX_HASH_REGEX.test("")).toBe(false);
+    });
+  });
+
+  describe("isValidAddress", () => {
+    it("returns true for valid addresses", () => {
+      expect(isValidAddress("0x912CE59144191C1204E64559FE8253a0e49E6548")).toBe(
+        true
+      );
+    });
+
+    it("returns false for invalid addresses", () => {
+      expect(isValidAddress("invalid")).toBe(false);
+      expect(isValidAddress("0x912CE59")).toBe(false);
+    });
+
+    it("returns false for null/undefined", () => {
+      expect(isValidAddress(null)).toBe(false);
+      expect(isValidAddress(undefined)).toBe(false);
+      expect(isValidAddress("")).toBe(false);
+    });
+  });
+
+  describe("isValidTxHash", () => {
+    const validHash = "0x" + "a".repeat(64);
+
+    it("returns true for valid tx hashes", () => {
+      expect(isValidTxHash(validHash)).toBe(true);
+    });
+
+    it("returns false for invalid tx hashes", () => {
+      expect(isValidTxHash("invalid")).toBe(false);
+      expect(isValidTxHash("0x" + "a".repeat(40))).toBe(false);
+    });
+
+    it("returns false for null/undefined", () => {
+      expect(isValidTxHash(null)).toBe(false);
+      expect(isValidTxHash(undefined)).toBe(false);
+      expect(isValidTxHash("")).toBe(false);
     });
   });
 });

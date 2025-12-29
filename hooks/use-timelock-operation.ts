@@ -2,6 +2,7 @@
 
 import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 import { CACHE_VERSION, STORAGE_KEYS } from "@/config/storage-keys";
+import { isValidTxHash } from "@/lib/address-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
   createTimelockOperationTracker,
@@ -127,8 +128,7 @@ export function useTimelockOperation({
   const parseTransaction = useCallback(async () => {
     if (!txHash || !enabled || !rpcHydrated) return;
 
-    // Validate tx hash format
-    if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+    if (!isValidTxHash(txHash)) {
       setError("Invalid transaction hash format");
       return;
     }
