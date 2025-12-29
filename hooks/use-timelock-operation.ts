@@ -211,7 +211,10 @@ export function useTimelockOperation({
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      abortControllerRef.current = new AbortController();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      // Capture the signal locally to avoid race condition when user switches operations
+      const signal = controller.signal;
 
       setIsTracking(true);
       setIsLoading(true);
@@ -227,7 +230,7 @@ export function useTimelockOperation({
         );
 
         const onProgress: StageProgressCallback = (stage, index) => {
-          if (abortControllerRef.current?.signal.aborted) return;
+          if (signal.aborted) return;
           if (!isMounted.current) return;
 
           setStages((prev) => {
@@ -242,7 +245,7 @@ export function useTimelockOperation({
           onProgress
         );
 
-        if (abortControllerRef.current?.signal.aborted) return;
+        if (signal.aborted) return;
         if (!isMounted.current) return;
 
         setResult(trackingResult);
@@ -257,7 +260,7 @@ export function useTimelockOperation({
           trackingResult
         );
       } catch (err) {
-        if (abortControllerRef.current?.signal.aborted) return;
+        if (signal.aborted) return;
         if (!isMounted.current) return;
 
         setError(err instanceof Error ? err.message : String(err));
