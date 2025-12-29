@@ -113,12 +113,10 @@ export async function findL1ExecutionTransaction(
       for (const log of chunkLogs) {
         try {
           const parsed = outboxInterface.parseLog(log);
-          console.log(parsed.args.transactionIndex, messagePosition);
           if (parsed.args.transactionIndex.eq(messagePosition)) {
             return log;
           }
         } catch {
-          console.log(log);
           // Continue if parsing fails
         }
       }
