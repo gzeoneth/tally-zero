@@ -23,7 +23,10 @@ import {
 import { ethers } from "ethers";
 import { trackL1TimelockStages } from "./l1-timelock-shared";
 import { searchLogsInChunks } from "./log-search";
-import { checkTimelockAndBuildStage } from "./timelock-utils";
+import {
+  checkTimelockOperationState,
+  createTimelockContract,
+} from "./timelock-utils";
 import type { StageProgressCallback } from "./types";
 
 export interface TimelockOperationInfo {
@@ -218,9 +221,42 @@ export class TimelockOperationTracker {
     };
   }
 
+  /**
+   * Track L2 timelock execution with optimization.
+   *
+   * First checks isOperationDone to determine if log search is needed:
+   * - If not done → skip expensive log search, return pending/ready state
+   * - If done → search logs to get transaction details
+   */
   private async trackL2Execution(
     ctx: TimelockTrackingContext
   ): Promise<ProposalStage> {
+    // Fast path: Check operation state first to avoid expensive log search
+    const timelockContract = createTimelockContract(
+      ctx.operationInfo.timelockAddress,
+      ctx.l2Provider
+    );
+    const state = await checkTimelockOperationState(
+      timelockContract,
+      ctx.operationInfo.operationId
+    );
+
+    // If operation is not done, skip log search and return current state
+    if (!state.isDone) {
+      return {
+        type: "L2_TIMELOCK_EXECUTED",
+        status: state.status,
+        transactions: [],
+        data: {
+          operationId: ctx.operationInfo.operationId,
+          ...(state.message && { message: state.message }),
+          ...(state.eta && { eta: state.eta }),
+          ...(state.isReady && { isReady: true }),
+        },
+      };
+    }
+
+    // Operation is done - search for the execution transaction to get details
     const currentBlock = await ctx.l2Provider.getBlockNumber();
     const executedTopic = ctx.timelockInterface.getEventTopic("CallExecuted");
 
@@ -255,14 +291,16 @@ export class TimelockOperationTracker {
       };
     }
 
-    // Check timelock state using shared utility
-    return await checkTimelockAndBuildStage(
-      ctx.operationInfo.timelockAddress,
-      ctx.l2Provider,
-      ctx.operationInfo.operationId,
-      "L2_TIMELOCK_EXECUTED",
-      "trackL2Execution"
-    );
+    // Fallback: operation done but couldn't find log (shouldn't happen)
+    return {
+      type: "L2_TIMELOCK_EXECUTED",
+      status: "COMPLETED",
+      transactions: [],
+      data: {
+        operationId: ctx.operationInfo.operationId,
+        note: "Execution confirmed but transaction not found",
+      },
+    };
   }
 
   private async trackL2ToL1Message(

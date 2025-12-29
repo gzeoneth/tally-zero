@@ -15,6 +15,7 @@ import { ethers } from "ethers";
 
 export interface TimelockStateResult {
   status: StageStatus;
+  isDone: boolean;
   isReady: boolean;
   isPending: boolean;
   eta?: string;
@@ -22,7 +23,12 @@ export interface TimelockStateResult {
 }
 
 /**
- * Check the state of a timelock operation
+ * Check the state of a timelock operation using contract state functions.
+ *
+ * This is a fast check that avoids expensive log searches:
+ * - isOperationDone: true if operation was executed (COMPLETED)
+ * - isOperationReady: true if operation is ready to execute (PENDING, ready)
+ * - isOperationPending: true if operation is waiting for timelock delay (PENDING)
  *
  * @returns Status information about the operation
  */
@@ -35,8 +41,21 @@ export async function checkTimelockOperationState(
   if (!isOperation) {
     return {
       status: "NOT_STARTED",
+      isDone: false,
       isReady: false,
       isPending: false,
+    };
+  }
+
+  // Check if operation is done (executed) - this is the key optimization
+  const isDone = await timelockContract.isOperationDone(operationId);
+  if (isDone) {
+    return {
+      status: "COMPLETED",
+      isDone: true,
+      isReady: false,
+      isPending: false,
+      message: "Operation executed",
     };
   }
 
@@ -45,6 +64,7 @@ export async function checkTimelockOperationState(
   if (isReady) {
     return {
       status: "PENDING",
+      isDone: false,
       isReady: true,
       isPending: false,
       message: "Operation ready for execution",
@@ -57,15 +77,17 @@ export async function checkTimelockOperationState(
     const timestamp = await timelockContract.getTimestamp(operationId);
     return {
       status: "PENDING",
+      isDone: false,
       isReady: false,
       isPending: true,
       eta: timestamp.toString(),
     };
   }
 
-  // Operation exists but in unknown state (possibly done or cancelled)
+  // Operation exists but in unknown state (cancelled?)
   return {
     status: "NOT_STARTED",
+    isDone: false,
     isReady: false,
     isPending: false,
   };
