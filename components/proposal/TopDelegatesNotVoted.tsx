@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 
 import { Badge } from "@/components/ui/Badge";
@@ -21,7 +23,11 @@ interface TopDelegatesNotVotedProps {
   governorAddress: string;
 }
 
-function DelegateBadge({ delegate }: { delegate: DelegateNotVoted }) {
+const DelegateBadge = memo(function DelegateBadge({
+  delegate,
+}: {
+  delegate: DelegateNotVoted;
+}) {
   const displayName = delegate.label || shortenAddress(delegate.address);
   const votingPower = formatVotingPower(delegate.votingPower);
   const arbiscanUrl = getAddressExplorerUrl(delegate.address);
@@ -68,7 +74,7 @@ function DelegateBadge({ delegate }: { delegate: DelegateNotVoted }) {
       </PopoverContent>
     </Popover>
   );
-}
+});
 
 export function TopDelegatesNotVoted({
   proposalId,

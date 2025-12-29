@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { z } from "zod";
 
 import VoteModel from "@/components/container/VoteModel";
@@ -104,7 +105,7 @@ interface LifecycleContentProps {
   isBackgroundRefreshing: boolean;
 }
 
-function LifecycleContent({
+const LifecycleContent = memo(function LifecycleContent({
   status,
   currentState,
   queuePosition,
@@ -225,7 +226,7 @@ function LifecycleContent({
   }
 
   return null;
-}
+});
 
 const iconMap = {
   check: CheckCircledIcon,

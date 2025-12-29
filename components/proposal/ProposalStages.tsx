@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { Button } from "@/components/ui/Button";
 import { isTreasuryGovernor } from "@/config/governors";
 import {
@@ -58,29 +60,35 @@ export default function ProposalStages({
   const governorType = isTreasuryProposal ? "treasury" : "core";
 
   const allStageTypes = getAllStageTypes(governorType);
-  const stageMap = new Map<StageType, ProposalStage>();
-  for (const stage of stages) {
-    stageMap.set(stage.type, stage);
-  }
+  const stageMap = useMemo(() => {
+    const map = new Map<StageType, ProposalStage>();
+    for (const stage of stages) {
+      map.set(stage.type, stage);
+    }
+    return map;
+  }, [stages]);
+
   const isDefeated = result?.currentState?.toLowerCase() === "defeated";
 
-  const relevantStageTypes = allStageTypes.filter((meta) => {
-    if (isDefeated) {
-      const votingIdx = allStageTypes.findIndex(
-        (s) => s.type === "VOTING_ACTIVE"
-      );
-      const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
-      return currentIdx <= votingIdx;
-    }
-    if (isTreasuryProposal) {
-      const l2ExecutedIdx = allStageTypes.findIndex(
-        (s) => s.type === "L2_TIMELOCK_EXECUTED"
-      );
-      const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
-      return currentIdx <= l2ExecutedIdx;
-    }
-    return true;
-  });
+  const relevantStageTypes = useMemo(() => {
+    return allStageTypes.filter((meta) => {
+      if (isDefeated) {
+        const votingIdx = allStageTypes.findIndex(
+          (s) => s.type === "VOTING_ACTIVE"
+        );
+        const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
+        return currentIdx <= votingIdx;
+      }
+      if (isTreasuryProposal) {
+        const l2ExecutedIdx = allStageTypes.findIndex(
+          (s) => s.type === "L2_TIMELOCK_EXECUTED"
+        );
+        const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
+        return currentIdx <= l2ExecutedIdx;
+      }
+      return true;
+    });
+  }, [allStageTypes, isDefeated, isTreasuryProposal]);
 
   const { estimatedTimes, votingTimeRange } = calculateEstimatedCompletionTimes(
     relevantStageTypes,
