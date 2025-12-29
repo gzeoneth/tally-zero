@@ -1,11 +1,9 @@
 "use client";
 
 import VoteModel from "@/components/container/VoteModel";
-import { Dialog, DialogTrigger } from "@/components/ui/Dialog";
-import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
+import { ResponsiveModal, useIsDesktop } from "@/components/ui/ResponsiveModal";
 
 import { proposalSchema } from "@/config/schema";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { findStateByValue } from "@/lib/state-utils";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
 import { ParsedProposal } from "@/types/proposal";
@@ -23,7 +21,7 @@ export function ClickableDescriptionCell({
 }: {
   proposal: ParsedProposal;
 }) {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isDesktop = useIsDesktop();
   const parsedProposal = proposalSchema.parse(proposal);
   const stateValue = findStateByValue(proposal.state);
 
@@ -33,43 +31,23 @@ export function ClickableDescriptionCell({
 
   const plainText = truncateText(stripMarkdownAndHtml(proposal.description));
 
-  if (isDesktop) {
-    return (
-      <Dialog>
-        <DialogTrigger asChild>
-          <button
-            className="max-w-[500px] truncate font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer"
-            title="Click to view full description"
-          >
-            {plainText}
-          </button>
-        </DialogTrigger>
-        <VoteModel
-          proposal={parsedProposal}
-          stateValue={stateValue}
-          isDesktop={isDesktop}
-          defaultTab="description"
-        />
-      </Dialog>
-    );
-  }
-
   return (
-    <Drawer>
-      <DrawerTrigger asChild>
+    <ResponsiveModal
+      trigger={
         <button
           className="max-w-[500px] truncate font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer"
           title="Click to view full description"
         >
           {plainText}
         </button>
-      </DrawerTrigger>
+      }
+    >
       <VoteModel
         proposal={parsedProposal}
         stateValue={stateValue}
         isDesktop={isDesktop}
         defaultTab="description"
       />
-    </Drawer>
+    </ResponsiveModal>
   );
 }

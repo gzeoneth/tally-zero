@@ -3,15 +3,13 @@
 import { z } from "zod";
 
 import VoteModel from "@/components/container/VoteModel";
-import { Dialog, DialogTrigger } from "@/components/ui/Dialog";
-import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/HoverCard";
+import { ResponsiveModal, useIsDesktop } from "@/components/ui/ResponsiveModal";
 import { proposalSchema } from "@/config/schema";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { useProposalStages } from "@/hooks/use-proposal-stages";
 import {
   formatCurrentState,
@@ -32,7 +30,7 @@ interface LifecycleCellProps {
 }
 
 export function LifecycleCell({ proposal }: LifecycleCellProps) {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isDesktop = useIsDesktop();
   const proposalStages = useProposalStages({
     proposalId: proposal.id,
     creationTxHash: proposal.creationTxHash || "",
@@ -76,38 +74,21 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
     return <span className="text-xs text-muted-foreground">-</span>;
   }
 
-  if (isDesktop) {
-    return (
-      <Dialog>
-        <DialogTrigger asChild>
-          <button className="text-left hover:opacity-80 transition-opacity">
-            {content}
-          </button>
-        </DialogTrigger>
-        <VoteModel
-          proposal={proposal}
-          stateValue={stateValue}
-          isDesktop={isDesktop}
-          defaultTab="stages"
-        />
-      </Dialog>
-    );
-  }
-
   return (
-    <Drawer>
-      <DrawerTrigger asChild>
+    <ResponsiveModal
+      trigger={
         <button className="text-left hover:opacity-80 transition-opacity">
           {content}
         </button>
-      </DrawerTrigger>
+      }
+    >
       <VoteModel
         proposal={proposal}
         stateValue={stateValue}
         isDesktop={isDesktop}
         defaultTab="stages"
       />
-    </Drawer>
+    </ResponsiveModal>
   );
 }
 
