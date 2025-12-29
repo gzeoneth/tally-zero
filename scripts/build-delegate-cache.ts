@@ -19,6 +19,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { addressesEqual } from "../lib/address-utils";
+import { batchQueryWithRateLimit } from "../lib/rpc-utils";
 import type { DelegateCache, DelegateInfo } from "../types/delegate";
 import type { Address } from "../types/search";
 
@@ -58,56 +59,6 @@ interface RawDelegateEvent {
   newBalance: string;
   blockNumber: number;
   txHash: string;
-}
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function queryWithRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3
-): Promise<T> {
-  let lastError: Error | undefined;
-  let delay = 1000;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.warn(
-        `  Retry ${attempt + 1}/${maxRetries + 1}: ${lastError.message}`
-      );
-      if (attempt < maxRetries) {
-        await sleep(delay);
-        delay = Math.min(delay * 2, 16000);
-      }
-    }
-  }
-  throw lastError;
-}
-
-async function batchQueryWithRateLimit<T>(
-  queries: (() => Promise<T>)[],
-  batchSize: number,
-  delayBetweenBatches: number
-): Promise<T[]> {
-  const results: T[] = [];
-
-  for (let i = 0; i < queries.length; i += batchSize) {
-    const batch = queries.slice(i, i + batchSize);
-    const batchResults = await Promise.all(
-      batch.map((query) => queryWithRetry(query))
-    );
-    results.push(...batchResults);
-
-    if (i + batchSize < queries.length) {
-      await sleep(delayBetweenBatches);
-    }
-  }
-
-  return results;
 }
 
 async function fetchDelegateEvents(

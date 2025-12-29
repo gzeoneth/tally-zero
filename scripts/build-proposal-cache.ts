@@ -22,6 +22,8 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { addressesEqual, findByAddress } from "../lib/address-utils";
+import { delay } from "../lib/delay-utils";
+import { batchQueryWithRateLimit } from "../lib/rpc-utils";
 import { trackProposalStages } from "../lib/stage-tracker-core";
 import {
   hasExceededTrackingAge,
@@ -112,56 +114,6 @@ interface ProposalCache {
       proposalCount: number;
     };
   };
-}
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function queryWithRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries = 3
-): Promise<T> {
-  let lastError: Error | undefined;
-  let delay = 1000;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.warn(
-        `  Retry ${attempt + 1}/${maxRetries + 1}: ${lastError.message}`
-      );
-      if (attempt < maxRetries) {
-        await sleep(delay);
-        delay = Math.min(delay * 2, 16000);
-      }
-    }
-  }
-  throw lastError;
-}
-
-async function batchQueryWithRateLimit<T>(
-  queries: (() => Promise<T>)[],
-  batchSize: number,
-  delayBetweenBatches: number
-): Promise<T[]> {
-  const results: T[] = [];
-
-  for (let i = 0; i < queries.length; i += batchSize) {
-    const batch = queries.slice(i, i + batchSize);
-    const batchResults = await Promise.all(
-      batch.map((query) => queryWithRetry(query))
-    );
-    results.push(...batchResults);
-
-    if (i + batchSize < queries.length) {
-      await sleep(delayBetweenBatches);
-    }
-  }
-
-  return results;
 }
 
 async function fetchProposalsFromGovernor(
@@ -313,7 +265,7 @@ async function parseProposals(
 
       // Small delay between individual proposal queries
       if (i < proposals.length - 1) {
-        await sleep(100);
+        await delay(100);
       }
     } catch (error) {
       console.warn(
@@ -471,7 +423,7 @@ async function trackStagesForProposals(
 
       // Delay between proposals to avoid rate limiting
       if (i < proposalsToTrack.length - 1) {
-        await sleep(500);
+        await delay(500);
       }
     } catch (error) {
       console.warn(
@@ -554,7 +506,7 @@ async function refreshProposalStates(
       }
 
       if (i < proposals.length - 1) {
-        await sleep(100);
+        await delay(100);
       }
     } catch {
       // Keep existing version if refresh fails
