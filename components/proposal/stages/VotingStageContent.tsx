@@ -42,7 +42,7 @@ export function VotingStageContent({
   return (
     <div className="mt-3 space-y-3">
       {votingTimeRange && (
-        <div className="space-y-1.5">
+        <div className="space-y-2 glass-subtle rounded-lg px-3 py-2">
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium text-muted-foreground">
               Voting Period
@@ -61,7 +61,7 @@ export function VotingStageContent({
             {Boolean(stage?.data?.quorumReached) && (
               <Badge
                 variant="secondary"
-                className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-xs py-0 px-1.5"
+                className="bg-green-500/20 dark:bg-green-500/25 text-green-700 dark:text-green-400 border border-green-500/30 text-xs py-0 px-2"
               >
                 Quorum Reached
               </Badge>
@@ -69,7 +69,7 @@ export function VotingStageContent({
             {Boolean(stage?.data?.wasExtended) && (
               <Badge
                 variant="secondary"
-                className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 text-xs py-0 px-1.5"
+                className="bg-blue-500/20 dark:bg-blue-500/25 text-blue-700 dark:text-blue-400 border border-blue-500/30 text-xs py-0 px-2"
               >
                 Extended
               </Badge>
@@ -78,7 +78,10 @@ export function VotingStageContent({
               stage?.data?.extensionPossible !== false &&
                 !stage?.data?.wasExtended
             ) && (
-              <Badge variant="outline" className="text-xs py-0 px-1.5">
+              <Badge
+                variant="outline"
+                className="text-xs py-0 px-2 glass-subtle"
+              >
                 +2d extension possible
               </Badge>
             )}
@@ -108,7 +111,7 @@ export function VotingStageContent({
       )}
 
       {estimatedCompletion && (
-        <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+        <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5 glass-subtle rounded-lg px-3 py-2">
           <span>
             Est. completion: {formatEstimatedCompletion(estimatedCompletion)}
           </span>
@@ -120,7 +123,7 @@ export function VotingStageContent({
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="inline-flex items-center p-1 rounded-full hover:bg-blue-500/10 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
             title="Add to Google Calendar"
           >
             <CalendarIcon className="h-3.5 w-3.5" />

@@ -17,7 +17,7 @@ export const StageDataDisplay = memo(function StageDataDisplay({
   data,
 }: StageDataDisplayProps) {
   return (
-    <div className="mt-2 text-xs">
+    <div className="mt-2 text-xs glass-subtle rounded-lg px-3 py-2 space-y-1">
       {"eta" in data && data.eta ? (
         <p className="text-muted-foreground">
           ETA: {formatEtaTimestamp(String(data.eta))}

@@ -1,4 +1,5 @@
 export { LoadingSkeleton } from "./LoadingSkeleton";
+export { QuorumIndicator, type QuorumIndicatorProps } from "./QuorumIndicator";
 export {
   QuorumProgressBar,
   type QuorumProgressBarProps,
