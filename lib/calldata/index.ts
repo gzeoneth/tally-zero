@@ -1,8 +1,4 @@
-export {
-  getAddressLabel,
-  getChainLabel,
-  getExplorerUrl,
-} from "./address-utils";
+export { getAddressLabel, getChainLabel } from "./address-utils";
 export { decodeCalldata } from "./decoder";
 export {
   decodeParameters,

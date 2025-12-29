@@ -12,7 +12,6 @@ export {
   formatDecodedValue,
   getAddressLabel,
   getChainLabel,
-  getExplorerUrl,
   isLikelyCalldata,
   isRetryableTicketMagic,
   lookup4byteDirectory,

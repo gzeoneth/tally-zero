@@ -5,35 +5,35 @@ import {
   formatDecodedValue,
   getAddressLabel,
   getChainLabel,
-  getExplorerUrl,
   isLikelyCalldata,
   isRetryableTicketMagic,
   lookupLocalSignature,
 } from "./calldata-decoder";
+import { getAddressExplorerUrl } from "./explorer-utils";
 
 const RETRYABLE_TICKET_MAGIC = "0xa723c008e76e379c55599d2e4d93879beafda79c";
 const ARB1_INBOX = "0x4dbd4fc535ac27206064b68ffcf827b0a60bab3f";
 const NOVA_INBOX = "0xc4448b71118c9071bcb9734a0eac55d18a153949";
 
 describe("calldata-decoder", () => {
-  describe("getExplorerUrl", () => {
+  describe("getAddressExplorerUrl", () => {
     it("returns arbiscan URL for arb1", () => {
       const address = "0x1234567890123456789012345678901234567890";
-      expect(getExplorerUrl(address, "arb1")).toBe(
+      expect(getAddressExplorerUrl(address, "arb1")).toBe(
         `https://arbiscan.io/address/${address}`
       );
     });
 
     it("returns nova arbiscan URL for nova", () => {
       const address = "0x1234567890123456789012345678901234567890";
-      expect(getExplorerUrl(address, "nova")).toBe(
+      expect(getAddressExplorerUrl(address, "nova")).toBe(
         `https://nova.arbiscan.io/address/${address}`
       );
     });
 
     it("returns etherscan URL for ethereum", () => {
       const address = "0x1234567890123456789012345678901234567890";
-      expect(getExplorerUrl(address, "ethereum")).toBe(
+      expect(getAddressExplorerUrl(address, "ethereum")).toBe(
         `https://etherscan.io/address/${address}`
       );
     });

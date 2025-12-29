@@ -1,12 +1,9 @@
 import { ethers } from "ethers";
 
+import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 import { truncateMiddle } from "@/lib/text-utils";
 
-import {
-  getAddressLabel,
-  getChainLabel,
-  getExplorerUrl,
-} from "./address-utils";
+import { getAddressLabel, getChainLabel } from "./address-utils";
 import type { ChainContext, DecodedParameterWithRaw } from "./types";
 
 /**
@@ -123,7 +120,7 @@ export function decodeParameters(
       let chainLabel: string | undefined;
       let addressLabel: string | undefined;
       if (type === "address") {
-        link = getExplorerUrl(String(value), chainContext);
+        link = getAddressExplorerUrl(String(value), chainContext);
         chainLabel = getChainLabel(chainContext);
         addressLabel = getAddressLabel(String(value), chainContext);
       }

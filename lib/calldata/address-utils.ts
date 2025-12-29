@@ -1,16 +1,6 @@
 import knownAddresses from "@data/known-addresses.json";
 
-import { getAddressExplorerUrl } from "@/lib/explorer-utils";
-
 import type { ChainContext } from "./types";
-
-/**
- * Get explorer URL for an address based on chain
- * @deprecated Use getAddressExplorerUrl from explorer-utils instead
- */
-export function getExplorerUrl(address: string, chain: ChainContext): string {
-  return getAddressExplorerUrl(address, chain);
-}
 
 /**
  * Get chain label for display

@@ -1,10 +1,8 @@
 import { ethers } from "ethers";
 
-import {
-  getAddressLabel,
-  getChainLabel,
-  getExplorerUrl,
-} from "./address-utils";
+import { getAddressExplorerUrl } from "@/lib/explorer-utils";
+
+import { getAddressLabel, getChainLabel } from "./address-utils";
 import {
   decodeParameters,
   formatDecodedValue,
@@ -109,7 +107,10 @@ async function processNestedParams(
                     type: "address",
                     value: retryable.targetInbox,
                     isNested: false,
-                    link: getExplorerUrl(retryable.targetInbox, "ethereum"),
+                    link: getAddressExplorerUrl(
+                      retryable.targetInbox,
+                      "ethereum"
+                    ),
                     chainLabel: "L1",
                     addressLabel: getAddressLabel(
                       retryable.targetInbox,
@@ -121,7 +122,7 @@ async function processNestedParams(
                     type: "address",
                     value: retryable.l2Target,
                     isNested: false,
-                    link: getExplorerUrl(retryable.l2Target, l2Chain),
+                    link: getAddressExplorerUrl(retryable.l2Target, l2Chain),
                     chainLabel: getChainLabel(l2Chain),
                     addressLabel: getAddressLabel(retryable.l2Target, l2Chain),
                   },
@@ -235,7 +236,7 @@ export async function decodeCalldata(
     // For sendTxToL1, fix the first parameter (address) to use ethereum context
     if (isSendTxToL1 && params && params[0]?.type === "address") {
       const addr = params[0].value;
-      params[0].link = getExplorerUrl(addr, "ethereum");
+      params[0].link = getAddressExplorerUrl(addr, "ethereum");
       params[0].chainLabel = getChainLabel("ethereum");
       params[0].addressLabel = getAddressLabel(addr, "ethereum");
     }
