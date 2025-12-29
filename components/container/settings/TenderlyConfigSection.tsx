@@ -28,12 +28,14 @@ export function TenderlyConfigSection({
   setTenderlyAccessTokenInput,
 }: TenderlyConfigSectionProps) {
   return (
-    <div className="space-y-3">
-      <Label className="text-sm font-medium">Tenderly Simulation</Label>
-      <p className="text-xs text-muted-foreground">
-        Configure Tenderly project for simulating retryable ticket executions
-      </p>
-      <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+    <div className="glass-subtle rounded-lg p-4 space-y-3 transition-all duration-200 hover:shadow-md">
+      <div>
+        <Label className="text-sm font-medium">Tenderly Simulation</Label>
+        <p className="text-xs text-muted-foreground mt-1">
+          Configure Tenderly project for simulating retryable ticket executions
+        </p>
+      </div>
+      <div className="space-y-3 pt-2 border-t border-[var(--glass-border)]">
         <FormInputField
           id="tenderly-org"
           label="Organization/User Name"

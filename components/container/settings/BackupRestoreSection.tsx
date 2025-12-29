@@ -18,7 +18,7 @@ export function BackupRestoreSection({
   onImportSettings,
 }: BackupRestoreSectionProps) {
   return (
-    <div className="space-y-3">
+    <div className="glass-subtle rounded-lg p-4 space-y-3 transition-all duration-200 hover:shadow-md">
       <Label className="text-sm font-medium">Backup & Restore</Label>
       <div className="grid grid-cols-2 gap-2">
         <Button
@@ -26,6 +26,7 @@ export function BackupRestoreSection({
           variant="outline"
           size="sm"
           onClick={onExportSettings}
+          className="transition-all duration-200"
         >
           <Download className="w-4 h-4 mr-2" />
           Export
@@ -35,6 +36,7 @@ export function BackupRestoreSection({
           variant="outline"
           size="sm"
           onClick={onImportSettings}
+          className="transition-all duration-200"
         >
           <Upload className="w-4 h-4 mr-2" />
           Import

@@ -4,7 +4,6 @@ import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Label";
-import { Separator } from "@/components/ui/Separator";
 
 interface CacheManagementSectionProps {
   cacheStats: { count: number; size: string };
@@ -21,9 +20,9 @@ export function CacheManagementSection({
   onClearCache,
 }: CacheManagementSectionProps) {
   return (
-    <div className="space-y-3">
+    <div className="glass-subtle rounded-lg p-4 space-y-3 transition-all duration-200 hover:shadow-md">
       <Label className="text-sm font-medium">Cache Management</Label>
-      <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+      <div className="pt-2 border-t border-[var(--glass-border)] space-y-2">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Cached items:</span>
           <span className="font-mono">{cacheStats.count}</span>
@@ -36,18 +35,17 @@ export function CacheManagementSection({
           <span className="text-muted-foreground">Total storage:</span>
           <span className="font-mono">{totalStorage} KB</span>
         </div>
-        <Separator />
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          className="w-full"
-          onClick={onClearCache}
-        >
-          <Trash2 className="w-4 h-4 mr-2" />
-          Clear Cache
-        </Button>
       </div>
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        className="w-full transition-all duration-200"
+        onClick={onClearCache}
+      >
+        <Trash2 className="w-4 h-4 mr-2" />
+        Clear Cache
+      </Button>
     </div>
   );
 }

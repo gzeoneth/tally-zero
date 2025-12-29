@@ -23,7 +23,7 @@ export function DelegateStatsCards({
 }: DelegateStatsCardsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
+      <Card variant="floating" className="glow-border">
         <CardHeader className="pb-2">
           <CardDescription>Total Delegates</CardDescription>
           <CardTitle className="text-3xl">
@@ -32,7 +32,7 @@ export function DelegateStatsCards({
         </CardHeader>
       </Card>
 
-      <Card>
+      <Card variant="floating" className="glow-border">
         <CardHeader className="pb-2">
           <CardDescription>Total Voting Power</CardDescription>
           <CardTitle className="text-3xl">
@@ -41,7 +41,7 @@ export function DelegateStatsCards({
         </CardHeader>
       </Card>
 
-      <Card>
+      <Card variant="floating" className="glow-border">
         <CardHeader className="pb-2">
           <CardDescription>ARB Total Supply</CardDescription>
           <CardTitle className="text-3xl">
@@ -50,7 +50,7 @@ export function DelegateStatsCards({
         </CardHeader>
       </Card>
 
-      <Card>
+      <Card variant="floating" className="glow-border">
         <CardHeader className="pb-2">
           <CardDescription>Delegated</CardDescription>
           <CardTitle className="text-3xl">{delegatedPercentage}%</CardTitle>

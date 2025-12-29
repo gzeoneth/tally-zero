@@ -1,5 +1,7 @@
 "use client";
 
+import { InfoIcon } from "lucide-react";
+
 export interface SnapshotBlockNoticeProps {
   snapshotBlock: number;
   cacheAge?: string;
@@ -12,11 +14,21 @@ export function SnapshotBlockNotice({
   if (snapshotBlock <= 0) return null;
 
   return (
-    <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
-      <p className="text-sm text-blue-800 dark:text-blue-200">
-        Delegate list indexed up to block {snapshotBlock.toLocaleString()}. New
-        delegates since then may not appear.
-        {cacheAge && ` Cache age: ${cacheAge}`}
+    <div className="glass-subtle rounded-xl p-4 flex items-start gap-3">
+      <InfoIcon className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+      <p className="text-sm text-muted-foreground">
+        Delegate list indexed up to block{" "}
+        <span className="font-medium text-foreground">
+          {snapshotBlock.toLocaleString()}
+        </span>
+        . New delegates since then may not appear.
+        {cacheAge && (
+          <>
+            {" "}
+            Cache age:{" "}
+            <span className="font-medium text-foreground">{cacheAge}</span>
+          </>
+        )}
       </p>
     </div>
   );

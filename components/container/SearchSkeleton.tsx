@@ -1,31 +1,25 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@components/ui/Card";
 import { Skeleton } from "@components/ui/Skeleton";
 
 export default function SearchSkeleton() {
   return (
-    <Card className="rounded-xl">
-      <CardHeader>
-        <CardTitle>
-          <Skeleton className="h-8 w-64" />
-        </CardTitle>
-        <CardDescription>
-          <Skeleton className="h-4 w-96 mt-2" />
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <Skeleton className="h-5 w-20" />
-          <div className="space-y-3">
-            <Skeleton className="h-10 w-full" />
+    <div className="flex flex-col items-center justify-center py-16">
+      <div className="glass rounded-2xl p-8 w-full max-w-lg space-y-6">
+        {/* Icon placeholder */}
+        <div className="flex items-center justify-center">
+          <div className="relative">
+            <Skeleton className="w-16 h-16 rounded-full" />
+            <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-purple-500/10 to-blue-500/10 blur-sm animate-pulse" />
           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Progress bar placeholder */}
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-full rounded-full" />
+          <div className="flex justify-center">
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
