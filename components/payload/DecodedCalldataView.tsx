@@ -116,20 +116,20 @@ export function ParameterView({
   };
 
   return (
-    <div className="text-xs space-y-1">
-      <div className="flex items-start gap-2">
-        <span className="text-muted-foreground font-mono shrink-0">
-          {param.name !== `arg${index}` ? param.name : `[${index}]`}{" "}
-          {param.type}:
+    <div className="text-xs space-y-1.5">
+      <div className="flex items-start gap-2 py-1">
+        <span className="text-muted-foreground font-mono shrink-0 bg-muted/30 dark:bg-muted/10 px-1.5 py-0.5 rounded text-[11px]">
+          {param.name !== `arg${index}` ? param.name : `[${index}]`}
+          <span className="text-muted-foreground/60 ml-1">{param.type}</span>
         </span>
         {renderValue()}
       </div>
 
       {/* Nested single bytes calldata */}
       {hasNestedSingle && (
-        <div className="ml-4 pl-2 border-l-2 border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20 rounded p-2 mt-1">
-          <span className="text-[10px] text-blue-600 dark:text-blue-400 block mb-1">
-            Nested call:
+        <div className="ml-4 pl-3 border-l-2 border-blue-500/40 glass-subtle rounded-lg p-3 mt-2 transition-all duration-200 hover:shadow-sm">
+          <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 block mb-2 uppercase tracking-wide">
+            Nested call
           </span>
           <DecodedCalldataView decoded={param.nested!} isDecoding={false} />
           {param.nested!.functionName?.match(/^schedule(Batch)?$/) &&
@@ -161,26 +161,26 @@ export function ParameterView({
 
       {/* Nested bytes[] array - each element is a decoded call */}
       {hasNestedArray && (
-        <div className="ml-4 space-y-2 mt-1">
+        <div className="ml-4 space-y-3 mt-2">
           {param.nestedArray!.map((nestedCall, nestedIdx) => (
             <div
               key={nestedIdx}
               className={cn(
-                "pl-2 border-l-2 rounded p-2",
+                "pl-3 border-l-2 glass-subtle rounded-lg p-3 transition-all duration-200 hover:shadow-sm",
                 nestedCall.functionName?.startsWith("Retryable Ticket")
-                  ? "border-orange-500/30 bg-orange-50/50 dark:bg-orange-950/20"
-                  : "border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/20"
+                  ? "border-l-amber-500/50"
+                  : "border-l-violet-500/50"
               )}
             >
               <span
                 className={cn(
-                  "text-[10px] block mb-1",
+                  "text-[10px] font-medium block mb-2 uppercase tracking-wide",
                   nestedCall.functionName?.startsWith("Retryable Ticket")
-                    ? "text-orange-600 dark:text-orange-400"
-                    : "text-purple-600 dark:text-purple-400"
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-violet-600 dark:text-violet-400"
                 )}
               >
-                Batch action [{nestedIdx}]:
+                Batch action [{nestedIdx}]
               </span>
               {nestedCall.functionName ? (
                 <>
@@ -290,8 +290,9 @@ export function DecodedCalldataView({
 }: DecodedCalldataViewProps) {
   if (isDecoding) {
     return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="animate-pulse">Decoding...</span>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 rounded-lg bg-muted/20">
+        <div className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+        <span>Decoding calldata...</span>
       </div>
     );
   }
@@ -301,20 +302,23 @@ export function DecodedCalldataView({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* Function signature badge */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant="secondary" className="font-mono text-xs">
+        <Badge
+          variant="secondary"
+          className="font-mono text-xs px-2.5 py-1 bg-primary/10 text-primary border-0"
+        >
           {decoded.functionName}()
         </Badge>
-        <span className="text-[10px] text-muted-foreground">
-          {decoded.decodingSource === "local" ? "(local)" : "(4byte)"}
+        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/50">
+          {decoded.decodingSource === "local" ? "local" : "4byte"}
         </span>
       </div>
 
       {/* Decoded parameters */}
       {decoded.parameters && decoded.parameters.length > 0 && (
-        <div className="space-y-1.5 pl-2 border-l-2 border-border">
+        <div className="space-y-2 pl-3 border-l-2 border-primary/20 ml-1">
           {decoded.parameters.map((param, idx) => (
             <ParameterView
               key={idx}

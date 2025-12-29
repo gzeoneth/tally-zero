@@ -31,9 +31,11 @@ export function PayloadView({
 }: PayloadViewProps) {
   if (targets.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No actions in this proposal.
-      </p>
+      <div className="glass-subtle rounded-xl p-4">
+        <p className="text-sm text-muted-foreground">
+          No actions in this proposal.
+        </p>
+      </div>
     );
   }
 
@@ -41,11 +43,18 @@ export function PayloadView({
     calldataOverrides && Object.keys(calldataOverrides).length > 0;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Override info banner */}
       {nerdMode && hasOverrides && (
-        <div className="bg-orange-100 dark:bg-orange-950/30 border border-orange-500 rounded-lg p-3 text-xs text-orange-700 dark:text-orange-300">
-          You have calldata overrides active.
+        <div className="glass-subtle rounded-xl p-4 border-l-4 border-l-amber-500 transition-all duration-200 hover:shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-600 dark:text-amber-400 font-medium text-sm">
+              Calldata Overrides Active
+            </span>
+          </div>
+          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+            You have modified calldata for one or more actions.
+          </p>
         </div>
       )}
 
