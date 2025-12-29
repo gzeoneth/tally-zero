@@ -120,6 +120,49 @@ export const PROPOSAL_STATE_NAMES = {
 } as const;
 
 /**
+ * Proposal state numeric values
+ * Matches OpenZeppelin Governor ProposalState enum
+ */
+export const ProposalState = {
+  PENDING: 0,
+  ACTIVE: 1,
+  CANCELED: 2,
+  DEFEATED: 3,
+  SUCCEEDED: 4,
+  QUEUED: 5,
+  EXPIRED: 6,
+  EXECUTED: 7,
+} as const;
+
+export type ProposalStateValue =
+  (typeof ProposalState)[keyof typeof ProposalState];
+
+/**
+ * Check if a proposal state indicates the proposal is still pending/voting
+ */
+export function isPendingOrActiveState(state: number): boolean {
+  return state === ProposalState.PENDING || state === ProposalState.ACTIVE;
+}
+
+/**
+ * Check if a proposal state indicates failure (canceled, defeated, or expired)
+ */
+export function isFailedState(state: number): boolean {
+  return (
+    state === ProposalState.CANCELED ||
+    state === ProposalState.DEFEATED ||
+    state === ProposalState.EXPIRED
+  );
+}
+
+/**
+ * Check if a proposal state indicates success (succeeded or beyond)
+ */
+export function isSuccessState(state: number): boolean {
+  return state >= ProposalState.SUCCEEDED && !isFailedState(state);
+}
+
+/**
  * Get configuration for a specific governor type
  */
 export function getGovernorConfig(type: "core" | "treasury") {
@@ -142,8 +185,10 @@ export function getGovernorConfig(type: "core" | "treasury") {
 
 /**
  * Challenge period in L1 blocks (~7 days at 12s/block)
+ * The older challenge period is shorter, we use that when looking up events.
  */
 export const CHALLENGE_PERIOD_L1_BLOCKS = 46080;
+export const OLD_CHALLENGE_PERIOD_L1_BLOCKS = 45818;
 
 export {
   BLOCKS_PER_DAY,

@@ -1,4 +1,8 @@
-import { PROPOSAL_STATE_NAMES } from "@/config/arbitrum-governance";
+import {
+  PROPOSAL_STATE_NAMES,
+  ProposalState,
+  isFailedState,
+} from "@/config/arbitrum-governance";
 import GovernorABI from "@/data/L2ArbitrumGovernor_ABI.json";
 import type { ProposalStage, StageStatus } from "@/types/proposal-stage";
 import { ethers } from "ethers";
@@ -24,9 +28,9 @@ export async function trackVotingStage(
     );
 
     let status: StageStatus;
-    if (state === 0) status = "NOT_STARTED";
-    else if (state === 1) status = "PENDING";
-    else if (state === 2 || state === 3 || state === 6) status = "FAILED";
+    if (state === ProposalState.PENDING) status = "NOT_STARTED";
+    else if (state === ProposalState.ACTIVE) status = "PENDING";
+    else if (isFailedState(state)) status = "FAILED";
     else status = "COMPLETED";
 
     let extensionPossible = true;

@@ -1,4 +1,9 @@
-import { PROPOSAL_STATE_NAMES } from "@/config/arbitrum-governance";
+import {
+  PROPOSAL_STATE_NAMES,
+  ProposalState,
+  isFailedState,
+  isPendingOrActiveState,
+} from "@/config/arbitrum-governance";
 import GovernorABI from "@/data/L2ArbitrumGovernor_ABI.json";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { ethers } from "ethers";
@@ -59,20 +64,20 @@ export async function trackProposalQueued(
   );
   try {
     const state = await governor.state(ctx.proposalId);
-    if (state === 4) {
+    if (state === ProposalState.SUCCEEDED) {
       return {
         type: "PROPOSAL_QUEUED",
         status: "PENDING",
         transactions: [],
         data: { message: "Proposal succeeded, waiting to be queued" },
       };
-    } else if (state === 0 || state === 1) {
+    } else if (isPendingOrActiveState(state)) {
       return {
         type: "PROPOSAL_QUEUED",
         status: "NOT_STARTED",
         transactions: [],
       };
-    } else if (state === 2 || state === 3 || state === 6) {
+    } else if (isFailedState(state)) {
       return {
         type: "PROPOSAL_QUEUED",
         status: "FAILED",
