@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 
 import VoteModel from "@/components/container/VoteModel";
 import { VoteDistributionBarCompact } from "@/components/proposal/stages/VoteDistributionBarCompact";
@@ -19,7 +19,9 @@ interface MobileProposalCardProps {
   proposal: ParsedProposal;
 }
 
-export function MobileProposalCard({ proposal }: MobileProposalCardProps) {
+export const MobileProposalCard = memo(function MobileProposalCard({
+  proposal,
+}: MobileProposalCardProps) {
   const { openProposal, clearDeepLink } = useDeepLink();
   const [open, setOpen] = useState(false);
   const parsedProposal = proposalSchema.parse(proposal);
@@ -90,13 +92,15 @@ export function MobileProposalCard({ proposal }: MobileProposalCardProps) {
       />
     </Drawer>
   );
-}
+});
 
 interface MobileProposalListProps {
   proposals: ParsedProposal[];
 }
 
-export function MobileProposalList({ proposals }: MobileProposalListProps) {
+export const MobileProposalList = memo(function MobileProposalList({
+  proposals,
+}: MobileProposalListProps) {
   if (proposals.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -112,4 +116,4 @@ export function MobileProposalList({ proposals }: MobileProposalListProps) {
       ))}
     </div>
   );
-}
+});

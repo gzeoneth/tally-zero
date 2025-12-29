@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { TopDelegatesNotVoted } from "@/components/proposal/TopDelegatesNotVoted";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -30,7 +32,7 @@ export interface VotingStageContentProps {
   governorAddress: string;
 }
 
-export function VotingStageContent({
+export const VotingStageContent = memo(function VotingStageContent({
   stage,
   votingTimeRange,
   estimatedCompletion,
@@ -132,4 +134,4 @@ export function VotingStageContent({
       )}
     </div>
   );
-}
+});

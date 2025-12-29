@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import {
   formatEstimatedCompletion,
   type EstimatedTimeRange,
@@ -31,7 +33,7 @@ export interface StageItemProps {
   governorAddress: string;
 }
 
-export function StageItem({
+export const StageItem = memo(function StageItem({
   stage,
   stageType,
   stageIndex,
@@ -136,7 +138,7 @@ export function StageItem({
       </div>
     </div>
   );
-}
+});
 
 interface StageHeaderProps {
   metadata?: {
@@ -153,7 +155,7 @@ interface StageHeaderProps {
   onRefresh: (index: number) => void;
 }
 
-function StageHeader({
+const StageHeader = memo(function StageHeader({
   metadata,
   stageType,
   status,
@@ -204,7 +206,7 @@ function StageHeader({
       )}
     </div>
   );
-}
+});
 
 interface EstimatedCompletionDisplayProps {
   metadata?: {
@@ -218,7 +220,7 @@ interface EstimatedCompletionDisplayProps {
   proposalId: string;
 }
 
-function EstimatedCompletionDisplay({
+const EstimatedCompletionDisplay = memo(function EstimatedCompletionDisplay({
   metadata,
   estimatedCompletion,
   stageType,
@@ -251,4 +253,4 @@ function EstimatedCompletionDisplay({
       )}
     </div>
   );
-}
+});
