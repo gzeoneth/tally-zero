@@ -55,6 +55,15 @@ describe("format-utils", () => {
     it("handles invalid input gracefully", () => {
       expect(formatVotingPower("not-a-number")).toBe("0");
     });
+
+    it("handles bigint input", () => {
+      // 5000 tokens as bigint
+      expect(formatVotingPower(BigInt("5000000000000000000000"))).toBe("5K");
+      // 1,000,000 tokens as bigint
+      expect(formatVotingPower(BigInt("1000000000000000000000000"))).toBe("1M");
+      // 0n
+      expect(formatVotingPower(BigInt(0))).toBe("0");
+    });
   });
 
   describe("shortenAddress", () => {

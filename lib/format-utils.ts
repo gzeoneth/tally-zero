@@ -3,7 +3,7 @@ import { BigNumber } from "ethers";
 /**
  * Format voting power from wei (18 decimals) to human-readable format with K/M/B suffixes
  *
- * @param weiValue - Voting power in wei as string
+ * @param weiValue - Voting power in wei as string or bigint
  * @returns Formatted string with appropriate suffix (K, M, B)
  *
  * @example
@@ -11,16 +11,21 @@ import { BigNumber } from "ethers";
  * formatVotingPower("5000000000000000000000") // "5K"
  * formatVotingPower("1500000000000000000000000000") // "1.5B"
  * formatVotingPower("0") // "0"
+ * formatVotingPower(1000000000000000000000n) // "1K"
  */
-export function formatVotingPower(weiValue: string): string {
+export function formatVotingPower(weiValue: string | bigint): string {
   try {
     // Handle empty or invalid input
-    if (!weiValue || weiValue === "0") {
+    if (!weiValue || weiValue === "0" || weiValue === BigInt(0)) {
       return "0";
     }
 
+    // Convert bigint to string for BigNumber
+    const valueStr =
+      typeof weiValue === "bigint" ? weiValue.toString() : weiValue;
+
     // Parse wei value to BigNumber
-    const bn = BigNumber.from(weiValue);
+    const bn = BigNumber.from(valueStr);
 
     // Convert from wei to token units (18 decimals)
     const value = parseFloat(bn.toString()) / Math.pow(10, 18);
