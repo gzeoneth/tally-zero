@@ -11,7 +11,6 @@ import {
   ETHEREUM_RPC_URL,
   L1_TIMELOCK,
   L2_CORE_TIMELOCK,
-  OLD_CHALLENGE_PERIOD_L1_BLOCKS,
 } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import { queryWithRetry } from "@/lib/rpc-utils";
@@ -22,8 +21,8 @@ import {
   ChildTransactionReceipt,
 } from "@arbitrum/sdk";
 import { ethers } from "ethers";
-import { findL1ExecutionTransaction } from "./l1-message-utils";
-import { getL1BlockNumberFromReceipt, searchLogsInChunks } from "./log-search";
+import { trackL1TimelockStages } from "./l1-timelock-shared";
+import { searchLogsInChunks } from "./log-search";
 import type { StageProgressCallback } from "./types";
 
 export interface TimelockOperationInfo {
@@ -419,16 +418,19 @@ export class TimelockOperationTracker {
   }
 
   /**
-   * Track L1 timelock stages using message position to find the correct transaction.
+   * Track L1 timelock stages using the shared utility.
    *
-   * Uses the shared findL1ExecutionTransaction utility to ensure we track
-   * the correct L1 transaction even when multiple proposals are in flight.
+   * Uses trackL1TimelockStages which:
+   * 1. Finds the OutBoxTransactionExecuted event to get the L1 transaction
+   * 2. Parses CallScheduled from that transaction to get the operation ID
+   * 3. Uses the operation ID to find the corresponding CallExecuted event
+   *
+   * This ensures we track the correct L1 transaction even when multiple
+   * proposals are being processed around the same time.
    */
   private async trackL1Timelock(
     ctx: TimelockTrackingContext
   ): Promise<ProposalStage[]> {
-    const stages: ProposalStage[] = [];
-
     if (!ctx.l2TimelockTxHash) {
       return [
         {
@@ -439,6 +441,7 @@ export class TimelockOperationTracker {
       ];
     }
 
+    // Check if there are L2→L1 messages first (treasury operations don't have them)
     const receipt = await ctx.l2Provider.getTransactionReceipt(
       ctx.l2TimelockTxHash
     );
@@ -459,177 +462,21 @@ export class TimelockOperationTracker {
     );
 
     if (messages.length === 0) {
+      // No L2→L1 messages means this operation doesn't cross to L1
       return [];
     }
 
-    // Get the first executable block for calculating search range
-    const executableBlock = await messages[0].getFirstExecutableBlock(
-      ctx.baseL2Provider
-    );
-    let fromBlock: number;
-    if (executableBlock) {
-      fromBlock = executableBlock.toNumber();
-    } else {
-      const l1BlockAtL2Tx = getL1BlockNumberFromReceipt(receipt);
-      fromBlock = l1BlockAtL2Tx + OLD_CHALLENGE_PERIOD_L1_BLOCKS;
-    }
-
-    const currentBlock = await ctx.l1Provider.getBlockNumber();
-
-    // Use the shared utility to find the exact L1 execution transaction
-    const l1ExecutionTx = await findL1ExecutionTransaction(
-      {
-        l2Provider: ctx.l2Provider,
-        l1Provider: ctx.l1Provider,
-        l1TimelockAddress: L1_TIMELOCK.address,
-        chunkingConfig: ctx.chunkingConfig,
-      },
-      receipt,
-      fromBlock,
-      currentBlock
-    );
-
-    if (!l1ExecutionTx) {
-      return [
-        {
-          type: "L1_TIMELOCK_QUEUED",
-          status: "NOT_STARTED",
-          transactions: [],
-          data: { message: "Waiting for L1 Timelock scheduling" },
-        },
-      ];
-    }
-
-    // Get the transaction receipt to find CallScheduled events
-    const txReceipt = await ctx.l1Provider.getTransactionReceipt(
-      l1ExecutionTx.hash
-    );
-    if (!txReceipt) {
-      return [
-        {
-          type: "L1_TIMELOCK_QUEUED",
-          status: "FAILED",
-          transactions: [],
-          data: { error: "Could not fetch L1 execution receipt" },
-        },
-      ];
-    }
-
-    // Find CallScheduled events in this specific transaction
-    const scheduledTopic = ctx.timelockInterface.getEventTopic("CallScheduled");
-    const scheduledLogs = txReceipt.logs.filter(
-      (log) =>
-        log.address.toLowerCase() === L1_TIMELOCK.address.toLowerCase() &&
-        log.topics[0] === scheduledTopic
-    );
-
-    if (scheduledLogs.length === 0) {
-      return [
-        {
-          type: "L1_TIMELOCK_QUEUED",
-          status: "FAILED",
-          transactions: [],
-          data: { error: "No CallScheduled events in L1 execution tx" },
-        },
-      ];
-    }
-
-    const log = scheduledLogs[scheduledLogs.length - 1];
-    const parsed = ctx.timelockInterface.parseLog(log);
-    const l1OperationId = parsed.args.id;
-
-    const block = await ctx.l1Provider.getBlock(l1ExecutionTx.blockNumber);
-    stages.push({
-      type: "L1_TIMELOCK_QUEUED",
-      status: "COMPLETED",
-      transactions: [
-        {
-          hash: l1ExecutionTx.hash,
-          blockNumber: l1ExecutionTx.blockNumber,
-          timestamp: block.timestamp,
-          chain: "L1",
-        },
-      ],
-      data: { operationId: l1OperationId },
+    // Use the shared utility for L1 timelock tracking
+    const result = await trackL1TimelockStages({
+      l2Provider: ctx.l2Provider,
+      l1Provider: ctx.l1Provider,
+      baseL2Provider: ctx.baseL2Provider,
+      l2TimelockTxHash: ctx.l2TimelockTxHash,
+      l1TimelockAddress: L1_TIMELOCK.address,
+      chunkingConfig: ctx.chunkingConfig,
     });
 
-    // Track L1 execution
-    const executedTopic = ctx.timelockInterface.getEventTopic("CallExecuted");
-    const executedLogs = await searchLogsInChunks(
-      ctx.l1Provider,
-      { address: L1_TIMELOCK.address, topics: [executedTopic, l1OperationId] },
-      l1ExecutionTx.blockNumber,
-      currentBlock,
-      ctx.chunkingConfig.l1ChunkSize,
-      ctx.chunkingConfig.delayBetweenChunks,
-      (chunkLogs) => (chunkLogs.length > 0 ? chunkLogs[0] : null)
-    );
-
-    if (executedLogs.length > 0) {
-      const execLog = executedLogs[0];
-      const execBlock = await ctx.l1Provider.getBlock(execLog.blockNumber);
-      stages.push({
-        type: "L1_TIMELOCK_EXECUTED",
-        status: "COMPLETED",
-        transactions: [
-          {
-            hash: execLog.transactionHash,
-            blockNumber: execLog.blockNumber,
-            timestamp: execBlock.timestamp,
-            chain: "L1",
-          },
-        ],
-        data: { operationId: l1OperationId },
-      });
-    } else {
-      // Check timelock state
-      const timelock = new ethers.Contract(
-        L1_TIMELOCK.address,
-        TimelockABI,
-        ctx.l1Provider
-      );
-      try {
-        const isReady = await timelock.isOperationReady(l1OperationId);
-        if (isReady) {
-          stages.push({
-            type: "L1_TIMELOCK_EXECUTED",
-            status: "PENDING",
-            transactions: [],
-            data: {
-              operationId: l1OperationId,
-              message: "Ready for execution",
-            },
-          });
-        } else {
-          const isPending = await timelock.isOperationPending(l1OperationId);
-          if (isPending) {
-            const timestamp = await timelock.getTimestamp(l1OperationId);
-            stages.push({
-              type: "L1_TIMELOCK_EXECUTED",
-              status: "PENDING",
-              transactions: [],
-              data: { operationId: l1OperationId, eta: timestamp.toString() },
-            });
-          } else {
-            stages.push({
-              type: "L1_TIMELOCK_EXECUTED",
-              status: "NOT_STARTED",
-              transactions: [],
-              data: { operationId: l1OperationId },
-            });
-          }
-        }
-      } catch (e) {
-        stages.push({
-          type: "L1_TIMELOCK_EXECUTED",
-          status: "NOT_STARTED",
-          transactions: [],
-          data: { operationId: l1OperationId },
-        });
-      }
-    }
-
-    return stages;
+    return result.stages;
   }
 
   private async trackRetryables(
