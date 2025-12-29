@@ -1,11 +1,7 @@
 "use client";
 
 import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
-import {
-  CACHE_VERSION,
-  DEFAULT_CACHE_TTL_MS,
-  STORAGE_KEYS,
-} from "@/config/storage-keys";
+import { CACHE_VERSION, STORAGE_KEYS } from "@/config/storage-keys";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
   createTimelockOperationTracker,
@@ -14,7 +10,7 @@ import {
   type TimelockTrackingResult,
 } from "@/lib/stage-tracker/timelock-operation-tracker";
 import type { StageProgressCallback } from "@/lib/stage-tracker/types";
-import { getStoredNumber } from "@/lib/storage-utils";
+import { getStoredCacheTtlMs, getStoredNumber } from "@/lib/storage-utils";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
@@ -32,7 +28,7 @@ function getTimelockCacheKey(txHash: string, operationId: string): string {
 function loadCachedTimelockResult(
   txHash: string,
   operationId: string,
-  ttlMs: number = DEFAULT_CACHE_TTL_MS
+  ttlMs: number
 ): { result: TimelockTrackingResult | null; isExpired: boolean } {
   if (typeof window === "undefined") {
     return { result: null, isExpired: false };
@@ -182,16 +178,10 @@ export function useTimelockOperation({
 
       // Check cache first (unless forcing refresh)
       if (!forceRefresh) {
-        const cacheTtlMs = getStoredNumber(
-          STORAGE_KEYS.CACHE_TTL,
-          DEFAULT_CACHE_TTL_MS / 1000
-        );
-        const ttlMs = cacheTtlMs > 0 ? cacheTtlMs * 1000 : DEFAULT_CACHE_TTL_MS;
-
         const { result: cachedResult, isExpired } = loadCachedTimelockResult(
           selectedOperation.txHash,
           selectedOperation.operationId,
-          ttlMs
+          getStoredCacheTtlMs()
         );
 
         if (cachedResult && !isExpired) {

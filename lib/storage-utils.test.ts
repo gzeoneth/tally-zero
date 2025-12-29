@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
+
 import {
+  getStoredCacheTtlMs,
   getStoredJsonString,
   getStoredNumber,
   getStoredString,
@@ -181,6 +184,31 @@ describe("storage-utils", () => {
 
     it("hasStoredValue returns false in SSR", () => {
       expect(hasStoredValue("key")).toBe(false);
+    });
+
+    it("getStoredCacheTtlMs returns default in SSR", () => {
+      expect(getStoredCacheTtlMs()).toBe(DEFAULT_CACHE_TTL_MS);
+    });
+  });
+
+  describe("getStoredCacheTtlMs", () => {
+    it("returns default when no value is stored", () => {
+      expect(getStoredCacheTtlMs()).toBe(DEFAULT_CACHE_TTL_MS);
+    });
+
+    it("converts seconds to milliseconds", () => {
+      mockStorage[STORAGE_KEYS.CACHE_TTL] = JSON.stringify(120);
+      expect(getStoredCacheTtlMs()).toBe(120000);
+    });
+
+    it("returns default for zero value", () => {
+      mockStorage[STORAGE_KEYS.CACHE_TTL] = JSON.stringify(0);
+      expect(getStoredCacheTtlMs()).toBe(DEFAULT_CACHE_TTL_MS);
+    });
+
+    it("returns default for negative value", () => {
+      mockStorage[STORAGE_KEYS.CACHE_TTL] = JSON.stringify(-100);
+      expect(getStoredCacheTtlMs()).toBe(DEFAULT_CACHE_TTL_MS);
     });
   });
 });

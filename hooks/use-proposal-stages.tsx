@@ -3,9 +3,7 @@
 import { getGovernorByAddress, isCoreGovernor } from "@/config/governors";
 import {
   CACHE_TTL_CHECK_INTERVAL_MS,
-  DEFAULT_CACHE_TTL_MS,
   L1_BLOCK_REFRESH_INTERVAL_MS,
-  STORAGE_KEYS,
 } from "@/config/storage-keys";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
@@ -24,7 +22,7 @@ import {
   loadCachedStages,
   saveCachedStages,
 } from "@/lib/stages-cache";
-import { getStoredNumber } from "@/lib/storage-utils";
+import { getStoredCacheTtlMs } from "@/lib/storage-utils";
 import type {
   ProposalStage,
   ProposalTrackingResult,
@@ -54,15 +52,6 @@ interface UseProposalStagesResult {
   refreshingFromIndex: number | null;
   currentL1Block: number | null;
   isBackgroundRefreshing: boolean;
-}
-
-function getStoredCacheTtlMs(): number {
-  // Stored value is in seconds, convert to ms
-  const seconds = getStoredNumber(
-    STORAGE_KEYS.CACHE_TTL,
-    DEFAULT_CACHE_TTL_MS / 1000
-  );
-  return seconds > 0 ? seconds * 1000 : DEFAULT_CACHE_TTL_MS;
 }
 
 export function useProposalStages({

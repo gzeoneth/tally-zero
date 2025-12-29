@@ -1,3 +1,5 @@
+import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
+
 export function getStoredValue<T>(
   key: string,
   defaultValue: T,
@@ -84,4 +86,16 @@ export function hasStoredValue(key: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Get cache TTL in milliseconds from localStorage.
+ * Stored value is in seconds, this converts to ms.
+ */
+export function getStoredCacheTtlMs(): number {
+  const seconds = getStoredNumber(
+    STORAGE_KEYS.CACHE_TTL,
+    DEFAULT_CACHE_TTL_MS / 1000
+  );
+  return seconds > 0 ? seconds * 1000 : DEFAULT_CACHE_TTL_MS;
 }
