@@ -4,7 +4,7 @@ import {
   formatEstimatedCompletion,
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
-import { getStageMetadata } from "@/lib/incremental-stage-tracker";
+import { getStageMetadata } from "@/lib/stage-tracker";
 import { cn } from "@/lib/utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import { CalendarIcon, ReloadIcon } from "@radix-ui/react-icons";

@@ -26,7 +26,7 @@ import { ethers } from "ethers";
 import {
   IncrementalStageTracker,
   type StageProgressCallback,
-} from "./incremental-stage-tracker";
+} from "./stage-tracker";
 
 // Re-export areStagesComplete from stages-cache for backward compatibility
 export { areStagesComplete } from "./stages-cache";

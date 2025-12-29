@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { useTimelockOperation } from "@/hooks/use-timelock-operation";
 import { type EstimatedTimeRange } from "@/lib/date-utils";
 import { shortenAddress } from "@/lib/format-utils";
-import { getAllStageMetadata } from "@/lib/incremental-stage-tracker";
+import { getAllStageMetadata } from "@/lib/stage-tracker";
 import type { TimelockOperationInfo } from "@/lib/stage-tracker/timelock-operation-tracker";
 import { formatAddress } from "@/lib/utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";

@@ -4,16 +4,16 @@ import { ETHEREUM_RPC_URL } from "@/config/arbitrum-governance";
 import { getGovernorByAddress, isCoreGovernor } from "@/config/governors";
 import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
 import {
-  createCoreGovernorTracker,
-  createTreasuryGovernorTracker,
-  getAllStageMetadata,
-  type StageProgressCallback,
-} from "@/lib/incremental-stage-tracker";
-import {
   emitVoteUpdate,
   trackerManager,
   type TrackingSession,
 } from "@/lib/proposal-tracker-manager";
+import {
+  createCoreGovernorTracker,
+  createTreasuryGovernorTracker,
+  getAllStageMetadata,
+  type StageProgressCallback,
+} from "@/lib/stage-tracker";
 import {
   clearCachedStages,
   loadCachedStages,
