@@ -17,7 +17,10 @@ import { ChildTransactionReceipt } from "@arbitrum/sdk";
 import { ethers } from "ethers";
 import { findL1ExecutionTransaction } from "./l1-message-utils";
 import { getL1BlockNumberFromReceipt, searchLogsInChunks } from "./log-search";
-import { checkTimelockAndBuildStage } from "./timelock-utils";
+import {
+  checkTimelockOperationState,
+  createTimelockContract,
+} from "./timelock-utils";
 
 export interface L1TimelockTrackingParams {
   l2Provider: ethers.providers.Provider;
@@ -217,8 +220,9 @@ export async function trackL1TimelockStages(
 /**
  * Track L1 timelock execution using the operation ID from CallScheduled.
  *
- * This ensures we find the correct CallExecuted event by filtering
- * on the operation ID in the event topics.
+ * Optimization: First checks isOperationDone to determine if log search is needed.
+ * - If not done → skip expensive log search, return pending/ready state
+ * - If done → search logs to get transaction details
  */
 async function trackL1TimelockExecution(
   l1Provider: ethers.providers.Provider,
@@ -228,6 +232,32 @@ async function trackL1TimelockExecution(
   currentBlock: number,
   chunkingConfig: ChunkingConfig
 ): Promise<ProposalStage> {
+  // Fast path: Check operation state first to avoid expensive log search
+  const timelockContract = createTimelockContract(
+    l1TimelockAddress,
+    l1Provider
+  );
+  const state = await checkTimelockOperationState(
+    timelockContract,
+    operationId
+  );
+
+  // If operation is not done, skip log search and return current state
+  if (!state.isDone) {
+    return {
+      type: "L1_TIMELOCK_EXECUTED",
+      status: state.status,
+      transactions: [],
+      data: {
+        operationId,
+        ...(state.message && { message: state.message }),
+        ...(state.eta && { eta: state.eta }),
+        ...(state.isReady && { isReady: true }),
+      },
+    };
+  }
+
+  // Operation is done - search for the execution transaction to get details
   const executedTopic = timelockInterface.getEventTopic("CallExecuted");
 
   // Search for CallExecuted events with the specific operation ID
@@ -260,12 +290,14 @@ async function trackL1TimelockExecution(
     };
   }
 
-  // Check timelock state using shared utility
-  return await checkTimelockAndBuildStage(
-    l1TimelockAddress,
-    l1Provider,
-    operationId,
-    "L1_TIMELOCK_EXECUTED",
-    "trackL1TimelockExecution"
-  );
+  // Fallback: operation done but couldn't find log (shouldn't happen)
+  return {
+    type: "L1_TIMELOCK_EXECUTED",
+    status: "COMPLETED",
+    transactions: [],
+    data: {
+      operationId,
+      note: "Execution confirmed but transaction not found",
+    },
+  };
 }
