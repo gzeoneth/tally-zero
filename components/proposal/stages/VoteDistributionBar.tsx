@@ -1,12 +1,14 @@
 "use client";
 
+import { memo } from "react";
+
 export interface VoteDistributionBarProps {
   forVotes: string;
   againstVotes: string;
   abstainVotes: string;
 }
 
-export function VoteDistributionBar({
+export const VoteDistributionBar = memo(function VoteDistributionBar({
   forVotes,
   againstVotes,
   abstainVotes,
@@ -67,4 +69,4 @@ export function VoteDistributionBar({
       </div>
     </div>
   );
-}
+});

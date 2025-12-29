@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { formatRelativeTimestamp } from "@/lib/date-utils";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 
@@ -13,7 +15,9 @@ export interface TransactionsListProps {
   }>;
 }
 
-export function TransactionsList({ transactions }: TransactionsListProps) {
+export const TransactionsList = memo(function TransactionsList({
+  transactions,
+}: TransactionsListProps) {
   return (
     <div className="mt-2 space-y-1">
       {transactions.map((tx, idx) => (
@@ -39,4 +43,4 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
       ))}
     </div>
   );
-}
+});

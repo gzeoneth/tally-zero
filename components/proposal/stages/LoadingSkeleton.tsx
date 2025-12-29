@@ -1,6 +1,8 @@
 "use client";
 
-export function LoadingSkeleton() {
+import { memo } from "react";
+
+export const LoadingSkeleton = memo(function LoadingSkeleton() {
   return (
     <div className="space-y-4 p-4">
       {[1, 2, 3, 4, 5].map((i) => (
@@ -14,4 +16,4 @@ export function LoadingSkeleton() {
       ))}
     </div>
   );
-}
+});

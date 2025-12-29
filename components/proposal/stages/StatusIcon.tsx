@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import type { StageStatus } from "@/types/proposal-stage";
 import {
   CheckCircledIcon,
@@ -12,7 +14,9 @@ export interface StatusIconProps {
   status: StageStatus;
 }
 
-export function StatusIcon({ status }: StatusIconProps) {
+export const StatusIcon = memo(function StatusIcon({
+  status,
+}: StatusIconProps) {
   switch (status) {
     case "COMPLETED":
       return <CheckCircledIcon className="h-5 w-5 text-green-500" />;
@@ -26,4 +30,4 @@ export function StatusIcon({ status }: StatusIconProps) {
     default:
       return <CircleIcon className="h-5 w-5 text-muted-foreground" />;
   }
-}
+});

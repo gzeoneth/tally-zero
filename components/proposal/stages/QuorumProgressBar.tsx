@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { Progress } from "@/components/ui/Progress";
 import { formatCompactNumber } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
@@ -10,7 +12,7 @@ export interface QuorumProgressBarProps {
   reached: boolean;
 }
 
-export function QuorumProgressBar({
+export const QuorumProgressBar = memo(function QuorumProgressBar({
   current,
   required,
   reached,
@@ -48,4 +50,4 @@ export function QuorumProgressBar({
       </div>
     </div>
   );
-}
+});
