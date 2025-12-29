@@ -76,10 +76,14 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <Web3ModalProvider>
             <NerdModeProvider>
               <SettingsSheetProvider>
-                <header className="container z-40 px-4 sm:px-6 lg:px-8">
-                  <div className="flex h-16 sm:h-20 items-center justify-between py-4 sm:py-6 gap-2">
-                    <MainNav items={marketingConfig.mainNav} />
-                    <ButtonNav />
+                <header className="sticky top-0 z-50 w-full">
+                  <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4">
+                    <div className="glass rounded-2xl px-4 sm:px-6">
+                      <div className="flex h-14 sm:h-16 items-center justify-between gap-2">
+                        <MainNav items={marketingConfig.mainNav} />
+                        <ButtonNav />
+                      </div>
+                    </div>
                   </div>
                 </header>
 
