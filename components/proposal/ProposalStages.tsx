@@ -12,6 +12,7 @@ import {
   getAllStageTypes,
   useProposalStages,
 } from "@/hooks/use-proposal-stages";
+import { getTxExplorerUrl, type ChainId } from "@/lib/explorer-utils";
 import { getStageMetadata } from "@/lib/incremental-stage-tracker";
 import { cn } from "@/lib/utils";
 import type {
@@ -37,14 +38,14 @@ interface ProposalStagesProps {
   currentL1Block?: number;
 }
 
-function getExplorerUrl(
+function getStageTxExplorerUrl(
   hash: string,
   chain: "L1" | "L2",
   targetChain?: "Arb1" | "Nova"
 ): string {
-  if (chain === "L1") return `https://etherscan.io/tx/${hash}`;
-  if (targetChain === "Nova") return `https://nova.arbiscan.io/tx/${hash}`;
-  return `https://arbiscan.io/tx/${hash}`;
+  const chainId: ChainId =
+    chain === "L1" ? "ethereum" : targetChain === "Nova" ? "nova" : "arb1";
+  return getTxExplorerUrl(hash, chainId);
 }
 
 function formatTimestamp(timestamp?: number): string {
@@ -793,7 +794,7 @@ function StageItem({
                 className="flex items-center gap-2 text-xs"
               >
                 <a
-                  href={getExplorerUrl(tx.hash, tx.chain)}
+                  href={getStageTxExplorerUrl(tx.hash, tx.chain)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
@@ -864,7 +865,7 @@ function StageItem({
                         {detail.targetChain}
                       </span>
                       <a
-                        href={getExplorerUrl(
+                        href={getStageTxExplorerUrl(
                           detail.l2TxHash!,
                           "L2",
                           detail.targetChain
@@ -913,7 +914,7 @@ function StageItem({
                     </span>
                     {detail.l2TxHash ? (
                       <a
-                        href={getExplorerUrl(
+                        href={getStageTxExplorerUrl(
                           detail.l2TxHash,
                           "L2",
                           detail.targetChain

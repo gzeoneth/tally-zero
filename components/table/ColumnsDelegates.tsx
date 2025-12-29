@@ -11,6 +11,7 @@ import {
 } from "@components/ui/HoverCard";
 
 import { getDelegateLabel } from "@/lib/delegate-cache";
+import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 import { formatVotingPower, shortenAddress } from "@/lib/format-utils";
 import { DelegateInfo } from "@/types/delegate";
 import { ExternalLinkIcon } from "lucide-react";
@@ -53,7 +54,7 @@ export const columns: ColumnDef<DelegateInfo>[] = [
               {label && <p className="text-sm font-semibold">{label}</p>}
               <p className="text-sm font-mono break-all">{address}</p>
               <a
-                href={`https://arbiscan.io/address/${address}`}
+                href={getAddressExplorerUrl(address)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"

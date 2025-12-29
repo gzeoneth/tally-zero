@@ -1,6 +1,7 @@
 import localSignatures from "@data/function-signatures.json";
 import knownAddresses from "@data/known-addresses.json";
 import { ethers } from "ethers";
+import { getAddressExplorerUrl, type ChainId } from "./explorer-utils";
 import { getStoredValue, setStoredValue } from "./storage-utils";
 
 const FOURBYTE_API = "https://www.4byte.directory/api/v1/signatures/";
@@ -13,13 +14,6 @@ const RETRYABLE_TICKET_MAGIC = "0xa723c008e76e379c55599d2e4d93879beafda79c";
 // Inbox addresses to identify chain
 const ARB1_INBOX = "0x4dbd4fc535ac27206064b68ffcf827b0a60bab3f";
 const NOVA_INBOX = "0xc4448b71118c9071bcb9734a0eac55d18a153949";
-
-// Block explorer URLs
-const EXPLORERS = {
-  ethereum: "https://etherscan.io",
-  arb1: "https://arbiscan.io",
-  nova: "https://nova.arbiscan.io",
-} as const;
 
 // In-memory cache for session
 const sessionCache = new Map<
@@ -36,7 +30,7 @@ export interface DecodedCalldata {
   decodingSource: "local" | "api" | "failed";
 }
 
-export type ChainContext = "arb1" | "nova" | "ethereum";
+export type ChainContext = ChainId;
 
 export interface DecodedParameter {
   name: string;
@@ -66,9 +60,10 @@ export interface RetryableTicketData {
 
 /**
  * Get explorer URL for an address based on chain
+ * @deprecated Use getAddressExplorerUrl from explorer-utils instead
  */
 export function getExplorerUrl(address: string, chain: ChainContext): string {
-  return `${EXPLORERS[chain]}/address/${address}`;
+  return getAddressExplorerUrl(address, chain);
 }
 
 /**

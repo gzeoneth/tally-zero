@@ -13,6 +13,7 @@ import {
   useTopDelegatesNotVoted,
   type DelegateNotVoted,
 } from "@/hooks/use-top-delegates-not-voted";
+import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 
 interface TopDelegatesNotVotedProps {
   proposalId: string;
@@ -39,7 +40,7 @@ function formatVotingPower(votingPowerWei: string): string {
 function DelegateBadge({ delegate }: { delegate: DelegateNotVoted }) {
   const displayName = delegate.label || shortenAddress(delegate.address);
   const votingPower = formatVotingPower(delegate.votingPower);
-  const arbiscanUrl = `https://arbiscan.io/address/${delegate.address}`;
+  const arbiscanUrl = getAddressExplorerUrl(delegate.address);
 
   return (
     <Popover>
