@@ -15,7 +15,7 @@ const ARB_SYS_ADDRESS = "0x0000000000000000000000000000000000000064";
 
 // ArbSys L2ToL1Tx event ABI (Nitro version)
 const ARB_SYS_ABI = [
-  "event L2ToL1Tx(address indexed caller, address indexed destination, uint256 indexed hash, uint256 position, uint256 arbBlockNum, uint256 ethBlockNum, uint256 timestamp, uint256 callvalue, bytes data)",
+  "event L2ToL1Tx(address caller, address indexed destination, uint256 indexed hash, uint256 indexed position, uint256 arbBlockNum, uint256 ethBlockNum, uint256 timestamp, uint256 callvalue, bytes data)",
 ];
 
 // Outbox ABI - just the event we need
@@ -113,10 +113,12 @@ export async function findL1ExecutionTransaction(
       for (const log of chunkLogs) {
         try {
           const parsed = outboxInterface.parseLog(log);
+          console.log(parsed.args.transactionIndex, messagePosition);
           if (parsed.args.transactionIndex.eq(messagePosition)) {
             return log;
           }
         } catch {
+          console.log(log);
           // Continue if parsing fails
         }
       }
