@@ -1,6 +1,5 @@
 "use client";
 
-import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -23,6 +22,7 @@ import {
   subscribeToVoteUpdates,
   type VoteUpdate,
 } from "@/lib/proposal-tracker-manager";
+import { createRpcProvider } from "@/lib/rpc-utils";
 import { ParsedProposal } from "@/types/proposal";
 import {
   ARBITRUM_GOVERNORS,
@@ -77,20 +77,12 @@ export function useMultiGovernorSearch({
     });
   }, [skipCache]);
 
-  // Initialize provider
+  // Initialize provider using cached factory
   useEffect(() => {
     setProviderReady(false);
-    const init = async () => {
-      try {
-        const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-        await provider.ready;
-        await provider.getBlockNumber();
-        setProviderReady(true);
-      } catch (err) {
-        setError(err as Error);
-      }
-    };
-    init();
+    createRpcProvider(rpcUrl)
+      .then(() => setProviderReady(true))
+      .catch((err) => setError(err as Error));
   }, [rpcUrl]);
 
   // Search for proposals
@@ -106,8 +98,7 @@ export function useMultiGovernorSearch({
       setProgress(0);
 
       try {
-        const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-        await provider.ready;
+        const provider = await createRpcProvider(rpcUrl);
         const currentBlock = await provider.getBlockNumber();
 
         // Calculate user's desired search range

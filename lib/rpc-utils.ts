@@ -1,4 +1,50 @@
+import { ethers } from "ethers";
+
 export const DEFAULT_MAX_BLOCK_RANGE = 10_000_000;
+
+/**
+ * Creates and initializes an RPC provider with ready state validation.
+ * Caches providers by URL to avoid creating multiple instances.
+ */
+const providerCache = new Map<string, ethers.providers.JsonRpcProvider>();
+
+export async function createRpcProvider(
+  rpcUrl: string
+): Promise<ethers.providers.JsonRpcProvider> {
+  // Return cached provider if available and still connected
+  const cached = providerCache.get(rpcUrl);
+  if (cached) {
+    try {
+      // Quick check that provider is still working
+      await cached.getNetwork();
+      return cached;
+    } catch {
+      // Provider disconnected, remove from cache
+      providerCache.delete(rpcUrl);
+    }
+  }
+
+  // Create new provider
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  await provider.ready;
+  await provider.getBlockNumber(); // Verify connection works
+
+  // Cache for reuse
+  providerCache.set(rpcUrl, provider);
+  return provider;
+}
+
+/**
+ * Clears a specific provider from the cache.
+ * Useful when switching RPCs or handling errors.
+ */
+export function clearProviderCache(rpcUrl?: string): void {
+  if (rpcUrl) {
+    providerCache.delete(rpcUrl);
+  } else {
+    providerCache.clear();
+  }
+}
 
 export interface RetryOptions {
   maxRetries?: number;
