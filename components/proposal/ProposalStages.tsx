@@ -10,6 +10,15 @@ import {
   getAllStageTypes,
   useProposalStages,
 } from "@/hooks/use-proposal-stages";
+import {
+  createGoogleCalendarUrl,
+  formatDateRange,
+  formatDateShort,
+  formatEstimatedCompletion,
+  formatEtaTimestamp,
+  formatRelativeTimestamp,
+  type EstimatedTimeRange,
+} from "@/lib/date-utils";
 import { getTxExplorerUrl, type ChainId } from "@/lib/explorer-utils";
 import { getStageMetadata } from "@/lib/incremental-stage-tracker";
 import { cn } from "@/lib/utils";
@@ -44,42 +53,6 @@ function getStageTxExplorerUrl(
   const chainId: ChainId =
     chain === "L1" ? "ethereum" : targetChain === "Nova" ? "nova" : "arb1";
   return getTxExplorerUrl(hash, chainId);
-}
-
-function formatTimestamp(timestamp?: number): string {
-  if (!timestamp) return "";
-  const date = new Date(timestamp * 1000);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    return "Today";
-  } else if (diffDays === 1) {
-    return "Yesterday";
-  } else if (diffDays < 7) {
-    return `${diffDays} days ago`;
-  } else {
-    return date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  }
-}
-
-function formatEta(eta?: string): string {
-  if (!eta) return "";
-  const timestamp = parseInt(eta, 10);
-  if (isNaN(timestamp)) return "";
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function formatVoteAmount(amount: string | number): string {
@@ -203,11 +176,6 @@ function VoteDistributionBar({
       </div>
     </div>
   );
-}
-
-interface EstimatedTimeRange {
-  minDate: Date;
-  maxDate: Date;
 }
 
 function parseEstimatedDurationRange(duration?: string): {
@@ -384,162 +352,20 @@ function calculateEstimatedCompletionTimes(
   return { estimatedTimes, votingTimeRange };
 }
 
-function formatDateShort(date: Date): string {
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-  // If in the past
-  if (diffDays < 0) {
-    return date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  // If today
-  if (diffDays === 0) {
-    return `Today at ${date.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
-  }
-
-  // If tomorrow
-  if (diffDays === 1) {
-    return `Tomorrow at ${date.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
-  }
-
-  // Within a week
-  if (diffDays < 7) {
-    return `${date.toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    })}`;
-  }
-
-  // Further out
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-  });
-}
-
-function formatDateRange(minDate: Date, maxDate: Date): string {
-  const minStr = formatDateShort(minDate);
-  const maxStr = formatDateShort(maxDate);
-
-  if (minDate.toDateString() === maxDate.toDateString()) {
-    return minStr;
-  }
-
-  // Simplify if same month
-  const sameMonth =
-    minDate.getMonth() === maxDate.getMonth() &&
-    minDate.getFullYear() === maxDate.getFullYear();
-
-  if (sameMonth) {
-    const month = minDate.toLocaleDateString(undefined, { month: "short" });
-    const minDay = minDate.getDate();
-    const maxDay = maxDate.getDate();
-    return `${month} ${minDay}-${maxDay}`;
-  }
-
-  return `${minStr} - ${maxStr}`;
-}
-
-function formatEstimatedCompletion(range: EstimatedTimeRange): string {
-  const now = new Date();
-  const minDiffMs = range.minDate.getTime() - now.getTime();
-  const maxDiffMs = range.maxDate.getTime() - now.getTime();
-  const minDiffDays = Math.ceil(minDiffMs / (1000 * 60 * 60 * 24));
-  const maxDiffDays = Math.ceil(maxDiffMs / (1000 * 60 * 60 * 24));
-
-  // If both dates are in the past
-  if (maxDiffDays <= 0) {
-    return "Expected soon";
-  }
-
-  // If dates are the same (no range needed)
-  const isSameDay =
-    range.minDate.toDateString() === range.maxDate.toDateString();
-
-  // For near-term dates, show relative days
-  if (maxDiffDays < 7) {
-    if (minDiffDays <= 0) {
-      return `Expected soon - ${maxDiffDays} days`;
-    }
-    if (isSameDay || minDiffDays === maxDiffDays) {
-      return `~${minDiffDays} days from now`;
-    }
-    return `~${minDiffDays}-${maxDiffDays} days from now`;
-  }
-
-  // For longer-term dates, show calendar dates
-  const formatDate = (date: Date) =>
-    date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year:
-        date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
-    });
-
-  if (isSameDay) {
-    return formatDate(range.minDate);
-  }
-
-  // Check if same month and year
-  const sameMonth =
-    range.minDate.getMonth() === range.maxDate.getMonth() &&
-    range.minDate.getFullYear() === range.maxDate.getFullYear();
-
-  if (sameMonth) {
-    // Show "Dec 16-18" format
-    const month = range.minDate.toLocaleDateString(undefined, {
-      month: "short",
-    });
-    const minDay = range.minDate.getDate();
-    const maxDay = range.maxDate.getDate();
-    const year =
-      range.minDate.getFullYear() !== new Date().getFullYear()
-        ? `, ${range.minDate.getFullYear()}`
-        : "";
-    return `${month} ${minDay}-${maxDay}${year}`;
-  }
-
-  // Different months - show full range
-  return `${formatDate(range.minDate)} - ${formatDate(range.maxDate)}`;
-}
-
-function formatDateForGoogleCalendar(date: Date): string {
-  // Google Calendar expects: YYYYMMDDTHHmmssZ format
-  return date
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d{3}/, "");
-}
-
-function createGoogleCalendarUrl(
+/**
+ * Helper to create Google Calendar URL for proposal stage
+ */
+function createStageCalendarUrl(
   stageTitle: string,
   estimatedTime: EstimatedTimeRange,
   proposalId: string
 ): string {
-  const startDate = estimatedTime.minDate;
-  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-  const title = encodeURIComponent(`Arbitrum DAO: ${stageTitle}`);
-  const details = encodeURIComponent(
-    `Estimated completion for proposal stage.\n\nProposal ID: ${proposalId}\nStage: ${stageTitle}\n\nView proposal at TallyZero`
+  const details = `Estimated completion for proposal stage.\n\nProposal ID: ${proposalId}\nStage: ${stageTitle}\n\nView proposal at TallyZero`;
+  return createGoogleCalendarUrl(
+    `Arbitrum DAO: ${stageTitle}`,
+    estimatedTime.minDate,
+    details
   );
-  const dates = `${formatDateForGoogleCalendar(startDate)}/${formatDateForGoogleCalendar(endDate)}`;
-
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
 }
 
 function StatusIcon({ status }: { status: StageStatus }) {
@@ -735,7 +561,7 @@ function StageItem({
                   {formatEstimatedCompletion(estimatedCompletion)}
                 </span>
                 <a
-                  href={createGoogleCalendarUrl(
+                  href={createStageCalendarUrl(
                     metadata?.title || stageType,
                     estimatedCompletion,
                     proposalId
@@ -766,7 +592,7 @@ function StageItem({
                     {formatEstimatedCompletion(estimatedCompletion)}
                   </span>
                   <a
-                    href={createGoogleCalendarUrl(
+                    href={createStageCalendarUrl(
                       metadata?.title || stageType,
                       estimatedCompletion,
                       proposalId
@@ -802,7 +628,7 @@ function StageItem({
                 </a>
                 {tx.timestamp && (
                   <span className="text-muted-foreground">
-                    {formatTimestamp(tx.timestamp)}
+                    {formatRelativeTimestamp(tx.timestamp)}
                   </span>
                 )}
               </div>
@@ -815,7 +641,7 @@ function StageItem({
           <div className="mt-2 text-xs">
             {"eta" in stage.data && stage.data.eta ? (
               <p className="text-muted-foreground">
-                ETA: {formatEta(String(stage.data.eta))}
+                ETA: {formatEtaTimestamp(String(stage.data.eta))}
               </p>
             ) : null}
             {"note" in stage.data && stage.data.note ? (
