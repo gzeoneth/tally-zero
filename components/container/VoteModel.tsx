@@ -8,6 +8,7 @@ import { proposalSanitizeSchema } from "@lib/sanitize-schema";
 import { useCallback, useState } from "react";
 import { z } from "zod";
 
+import { VoteBreakdownContent } from "@components/container/ProposalVoteBreakdown";
 import VoteForm from "@components/form/VoteForm";
 import { PayloadView, type CalldataOverrides } from "@components/payload";
 import ProposalStages from "@components/proposal/ProposalStages";
@@ -26,13 +27,17 @@ import {
   DrawerTitle,
 } from "@components/ui/Drawer";
 import { ErrorBoundary } from "@components/ui/ErrorBoundary";
+import { Skeleton } from "@components/ui/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 
 import { isArbitrumGovernor } from "@config/governors";
 import { proposalSchema } from "@config/schema";
-import { cn } from "@lib/utils";
-
 import { useNerdMode } from "@context/NerdModeContext";
+import {
+  useProposalVotes,
+  type ProposalVotesResult,
+} from "@hooks/use-proposal-votes";
+import { cn } from "@lib/utils";
 
 interface StateValue {
   value: string;
@@ -59,6 +64,11 @@ interface ProposalTabsContentProps {
     children: React.ReactNode;
     asChild?: boolean;
   }>;
+  // Voters tab data
+  votersResult: ProposalVotesResult | null;
+  votersIsLoading: boolean;
+  votersError: string | null;
+  votersRefetch: () => void;
 }
 
 function ProposalTabsContent({
@@ -70,6 +80,10 @@ function ProposalTabsContent({
   onCalldataOverrideChange,
   maxHeight,
   DescriptionWrapper,
+  votersResult,
+  votersIsLoading,
+  votersError,
+  votersRefetch,
 }: ProposalTabsContentProps) {
   return (
     <>
@@ -188,6 +202,48 @@ function ProposalTabsContent({
           <VoteForm proposal={proposal} />
         </div>
       </TabsContent>
+
+      <TabsContent
+        value="voters"
+        className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+      >
+        <div
+          className={cn(
+            "overflow-y-auto glass-subtle rounded-lg p-4",
+            maxHeight
+          )}
+        >
+          {votersIsLoading && !votersResult && (
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          )}
+
+          {votersError && (
+            <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              {votersError}
+            </div>
+          )}
+
+          {votersResult && (
+            <VoteBreakdownContent
+              result={votersResult}
+              isLoading={votersIsLoading}
+              onRefresh={votersRefetch}
+            />
+          )}
+
+          {!votersIsLoading && !votersError && !votersResult && (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Loading voter data...
+            </p>
+          )}
+        </div>
+      </TabsContent>
     </>
   );
 }
@@ -223,6 +279,7 @@ function TabsNavigation({ showStagesTab }: TabsNavigationProps) {
       <TabsTrigger value="description">Description</TabsTrigger>
       <TabsTrigger value="payload">Payload</TabsTrigger>
       {showStagesTab && <TabsTrigger value="stages">Lifecycle</TabsTrigger>}
+      <TabsTrigger value="voters">Voters</TabsTrigger>
       <TabsTrigger value="vote">Vote</TabsTrigger>
     </TabsList>
   );
@@ -237,13 +294,24 @@ export default function VoteModel({
   proposal: z.infer<typeof proposalSchema>;
   stateValue: StateValue;
   isDesktop: boolean;
-  defaultTab?: "description" | "payload" | "stages" | "vote";
+  defaultTab?: "description" | "payload" | "stages" | "voters" | "vote";
 }) {
   const showStagesTab = isArbitrumGovernor(proposal.contractAddress);
   const { nerdMode } = useNerdMode();
   const [calldataOverrides, setCalldataOverrides] = useState<CalldataOverrides>(
     {}
   );
+
+  // Fetch proposal votes for the Voters tab
+  const {
+    result: votersResult,
+    isLoading: votersIsLoading,
+    error: votersError,
+    refetch: votersRefetch,
+  } = useProposalVotes({
+    proposalId: proposal.id,
+    enabled: true,
+  });
 
   const handleCalldataOverrideChange = useCallback(
     (index: number, newCalldata: string | undefined) => {
@@ -268,6 +336,10 @@ export default function VoteModel({
     hasCalldataOverrides,
     calldataOverrides,
     onCalldataOverrideChange: handleCalldataOverrideChange,
+    votersResult,
+    votersIsLoading,
+    votersError,
+    votersRefetch,
   };
 
   if (isDesktop) {
