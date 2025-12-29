@@ -11,9 +11,7 @@ import { ParsedProposal } from "@/types/proposal";
 export function DescriptionCell({ mdxContent }: { mdxContent: string }) {
   const plainText = truncateText(stripMarkdownAndHtml(mdxContent));
 
-  return (
-    <span className="max-w-[500px] truncate font-medium">{plainText}</span>
-  );
+  return <span className="block truncate font-medium">{plainText}</span>;
 }
 
 export function ClickableDescriptionCell({
@@ -35,7 +33,7 @@ export function ClickableDescriptionCell({
     <ResponsiveModal
       trigger={
         <button
-          className="max-w-[500px] truncate font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer"
+          className="block w-full truncate font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer"
           title="Click to view full description"
         >
           {plainText}

@@ -113,14 +113,14 @@ function LifecycleContent({
     return (
       <HoverCard>
         <HoverCardTrigger asChild>
-          <div className="flex items-center gap-1.5 cursor-help">
-            <ClockIcon className="h-3.5 w-3.5 text-yellow-500" />
-            <span className="text-xs text-yellow-600 dark:text-yellow-400">
+          <div className="glass-subtle flex items-center gap-1.5 cursor-help px-2 py-1 rounded-md">
+            <ClockIcon className="h-3.5 w-3.5 text-yellow-500 drop-shadow-sm" />
+            <span className="text-xs font-medium text-yellow-600 dark:text-yellow-400">
               Queue #{queuePosition}
             </span>
           </div>
         </HoverCardTrigger>
-        <HoverCardContent className="w-auto">
+        <HoverCardContent className="glass w-auto">
           <p className="text-sm">Waiting in queue (position {queuePosition})</p>
           <p className="text-xs text-muted-foreground">
             Max 2 proposals tracked concurrently
@@ -138,22 +138,22 @@ function LifecycleContent({
     return (
       <HoverCard>
         <HoverCardTrigger asChild>
-          <div className="flex items-center gap-1.5 cursor-help">
-            <ReloadIcon className="h-3.5 w-3.5 text-blue-500 animate-spin" />
+          <div className="glass-subtle flex items-center gap-1.5 cursor-help px-2 py-1 rounded-md">
+            <ReloadIcon className="h-3.5 w-3.5 text-blue-500 animate-spin drop-shadow-sm" />
             <div className="flex flex-col gap-0.5">
-              <span className="text-xs text-blue-600 dark:text-blue-400">
+              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
                 Tracking
               </span>
-              <div className="w-12 h-1 bg-muted rounded-full overflow-hidden">
+              <div className="w-12 h-1 bg-white/30 dark:bg-white/10 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-500 transition-all duration-300"
+                  className="h-full bg-blue-500/80 backdrop-blur-sm transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
           </div>
         </HoverCardTrigger>
-        <HoverCardContent className="w-auto">
+        <HoverCardContent className="glass w-auto">
           <p className="text-sm">
             Tracking lifecycle ({stages.length}/10 stages)
           </p>
@@ -169,14 +169,14 @@ function LifecycleContent({
     return (
       <HoverCard>
         <HoverCardTrigger asChild>
-          <div className="flex items-center gap-1.5 cursor-help">
-            <CrossCircledIcon className="h-3.5 w-3.5 text-red-500" />
-            <span className="text-xs text-red-600 dark:text-red-400">
+          <div className="glass-subtle flex items-center gap-1.5 cursor-help px-2 py-1 rounded-md border-red-500/20">
+            <CrossCircledIcon className="h-3.5 w-3.5 text-red-500 drop-shadow-sm" />
+            <span className="text-xs font-medium text-red-600 dark:text-red-400">
               Error
             </span>
           </div>
         </HoverCardTrigger>
-        <HoverCardContent className="w-auto">
+        <HoverCardContent className="glass w-auto">
           <p className="text-sm">Failed to track lifecycle</p>
         </HoverCardContent>
       </HoverCard>
@@ -191,21 +191,23 @@ function LifecycleContent({
     return (
       <HoverCard>
         <HoverCardTrigger asChild>
-          <div className="flex items-center gap-1.5 cursor-help">
+          <div className="glass-subtle flex items-center gap-1.5 cursor-help px-2 py-1 rounded-md">
             {isBackgroundRefreshing ? (
               <div className="relative">
-                <StateIcon className={cn("h-3.5 w-3.5", color)} />
-                <ReloadIcon className="absolute -top-0.5 -right-0.5 h-2 w-2 text-blue-500 animate-spin" />
+                <StateIcon
+                  className={cn("h-3.5 w-3.5 drop-shadow-sm", color)}
+                />
+                <ReloadIcon className="absolute -top-0.5 -right-0.5 h-2 w-2 text-blue-500 animate-spin drop-shadow-sm" />
               </div>
             ) : (
-              <StateIcon className={cn("h-3.5 w-3.5", color)} />
+              <StateIcon className={cn("h-3.5 w-3.5 drop-shadow-sm", color)} />
             )}
             <span className={cn("text-xs font-medium", color)}>
               {stateDisplay}
             </span>
           </div>
         </HoverCardTrigger>
-        <HoverCardContent className="w-auto">
+        <HoverCardContent className="glass w-auto">
           <p className="text-sm">Lifecycle tracked: {stages.length} stages</p>
           {isBackgroundRefreshing ? (
             <p className="text-xs text-blue-500">Refreshing in background...</p>

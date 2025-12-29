@@ -17,6 +17,7 @@ interface CopyableTextProps {
   className?: string;
   mono?: boolean;
   tooltipText?: string;
+  showCopyButton?: boolean;
 }
 
 export function CopyableText({
@@ -26,6 +27,7 @@ export function CopyableText({
   className,
   mono = true,
   tooltipText,
+  showCopyButton = false,
 }: CopyableTextProps) {
   const [copied, setCopied] = useState(false);
 
@@ -61,17 +63,33 @@ export function CopyableText({
       type="button"
       onClick={handleCopy}
       className={cn(
-        "inline-flex items-center gap-1 group cursor-pointer hover:text-primary transition-colors text-left",
+        "inline-flex items-center gap-1.5 group cursor-pointer transition-all duration-200 text-left",
+        "hover:text-primary",
+        showCopyButton && "glass-subtle rounded-lg px-2.5 py-1.5",
         mono && "font-mono",
         className
       )}
       title={isTruncated ? undefined : "Click to copy"}
     >
       <span className="break-all">{truncatedText}</span>
-      {copied ? (
-        <CheckIcon className="w-3 h-3 text-green-500 shrink-0" />
+      {showCopyButton ? (
+        <span
+          className={cn(
+            "p-1 rounded transition-all duration-200",
+            "hover:bg-white/20 dark:hover:bg-white/10",
+            copied && "text-emerald-500"
+          )}
+        >
+          {copied ? (
+            <CheckIcon className="w-3.5 h-3.5 shrink-0" />
+          ) : (
+            <CopyIcon className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100" />
+          )}
+        </span>
+      ) : copied ? (
+        <CheckIcon className="w-3 h-3 text-emerald-500 shrink-0 transition-all duration-200" />
       ) : (
-        <CopyIcon className="w-3 h-3 opacity-0 group-hover:opacity-50 shrink-0 transition-opacity" />
+        <CopyIcon className="w-3 h-3 opacity-0 group-hover:opacity-50 shrink-0 transition-all duration-200" />
       )}
     </button>
   );
@@ -83,7 +101,7 @@ export function CopyableText({
           <TooltipTrigger asChild>{content}</TooltipTrigger>
           <TooltipContent
             side="top"
-            className="max-w-[400px] break-all font-mono text-xs"
+            className="glass rounded-lg max-w-[400px] break-all font-mono text-xs"
           >
             <p>{tooltipText ?? "Click to copy full value:"}</p>
             <p className="text-muted-foreground mt-1 max-h-[200px] overflow-y-auto">
