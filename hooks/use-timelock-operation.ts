@@ -30,6 +30,7 @@ interface UseTimelockOperationResult {
   error: string | null;
   result: TimelockTrackingResult | null;
   selectOperation: (operation: TimelockOperationInfo) => void;
+  deselectOperation: () => void;
   refetch: () => void;
 }
 
@@ -169,6 +170,17 @@ export function useTimelockOperation({
     setSelectedOperation(operation);
   }, []);
 
+  // Deselect the current operation to go back to the list
+  const deselectOperation = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setSelectedOperation(null);
+    setStages([]);
+    setResult(null);
+    setError(null);
+  }, []);
+
   // Refetch (re-parse and re-track)
   const refetch = useCallback(() => {
     parseTransaction();
@@ -207,6 +219,7 @@ export function useTimelockOperation({
     error,
     result,
     selectOperation,
+    deselectOperation,
     refetch,
   };
 }

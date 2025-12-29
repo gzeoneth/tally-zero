@@ -35,6 +35,7 @@ export function TimelockOperationContent({
     isParsing,
     error,
     selectOperation,
+    deselectOperation,
     refetch,
   } = useTimelockOperation({
     txHash,
@@ -141,12 +142,20 @@ export function TimelockOperationContent({
 
   // Show lifecycle stages
   if (selectedOperation) {
+    const showBackButton = operations.length > 1;
     return (
       <div className="flex-1 overflow-y-auto space-y-4">
         <OperationHeader
           operation={selectedOperation}
           isLoading={isLoading}
           onRefresh={refetch}
+          onBack={showBackButton ? deselectOperation : undefined}
+          operationIndex={
+            operations.findIndex(
+              (op) => op.operationId === selectedOperation.operationId
+            ) + 1
+          }
+          totalOperations={operations.length}
         />
 
         {/* Operation Payload with decoded calldata */}
@@ -215,19 +224,54 @@ interface OperationHeaderProps {
   operation: TimelockOperationInfo;
   isLoading: boolean;
   onRefresh: () => void;
+  onBack?: () => void;
+  operationIndex?: number;
+  totalOperations?: number;
 }
 
 function OperationHeader({
   operation,
   isLoading,
   onRefresh,
+  onBack,
+  operationIndex,
+  totalOperations,
 }: OperationHeaderProps) {
   const arbiscanUrl = `https://arbiscan.io/tx/${operation.txHash}`;
 
   return (
     <div className="glass-subtle rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">Operation Details</h4>
+        <div className="flex items-center gap-2">
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="h-7 px-2"
+            >
+              <svg
+                className="h-4 w-4 mr-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Back
+            </Button>
+          )}
+          <h4 className="text-sm font-semibold">
+            {operationIndex && totalOperations
+              ? `Operation ${operationIndex} of ${totalOperations}`
+              : "Operation Details"}
+          </h4>
+        </div>
         <div className="flex items-center gap-2">
           <a
             href={arbiscanUrl}
@@ -323,32 +367,11 @@ function StagesList({
     return map;
   }, [stages]);
 
-  // Determine which stages to show based on what has been tracked
-  const l2Executed = stageMap.get("L2_TIMELOCK_EXECUTED");
-  const l2ToL1Sent = stageMap.get("L2_TO_L1_MESSAGE_SENT");
-
   // Get stage metadata for calculating ETAs
   const allStageMetadata = useMemo(() => getAllStageMetadata("core"), []);
 
-  // Show all stages by default (like the regular lifecycle tracker)
-  // Only hide crosschain stages if L2 execution is complete AND confirmed no L2→L1 path
-  const relevantStageTypes = useMemo(() => {
-    return TIMELOCK_STAGE_TYPES.filter((type) => {
-      const idx = TIMELOCK_STAGE_TYPES.indexOf(type);
-
-      // Always show the first two stages (CallScheduled, L2 Timelock Executed)
-      if (idx <= 1) return true;
-
-      // If L2 execution is complete AND no L2→L1 message was sent, hide crosschain stages
-      // This means it was an L2-only operation
-      if (l2Executed?.status === "COMPLETED" && !l2ToL1Sent && idx > 1) {
-        return false;
-      }
-
-      // Show all crosschain stages otherwise (before L2 execution, or if there's an L2→L1 path)
-      return true;
-    });
-  }, [l2Executed, l2ToL1Sent]);
+  // Always show all stages - user wants full lifecycle visibility
+  const relevantStageTypes = TIMELOCK_STAGE_TYPES;
 
   // Build stage metadata with estimated durations
   const relevantStages = useMemo(() => {

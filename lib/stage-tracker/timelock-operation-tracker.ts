@@ -624,13 +624,21 @@ export function createTimelockOperationTracker(
     ARBITRUM_RPC_URL,
     ETHEREUM_RPC_URL,
   } = require("@/config/arbitrum-governance");
+  const { ArbitrumProvider } = require("@arbitrum/sdk");
 
-  const l2Provider = new ethers.providers.JsonRpcProvider(
+  const baseL2Provider = new ethers.providers.JsonRpcProvider(
     l2RpcUrl || ARBITRUM_RPC_URL
   );
+  // Wrap with ArbitrumProvider to get l1BlockNumber in receipts
+  const l2Provider = new ArbitrumProvider(baseL2Provider, 42161);
   const l1Provider = new ethers.providers.JsonRpcProvider(
     l1RpcUrl || ETHEREUM_RPC_URL
   );
 
-  return new TimelockOperationTracker(l2Provider, l1Provider);
+  return new TimelockOperationTracker(
+    l2Provider,
+    l1Provider,
+    DEFAULT_CHUNKING_CONFIG,
+    baseL2Provider
+  );
 }
