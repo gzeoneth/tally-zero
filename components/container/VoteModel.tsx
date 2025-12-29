@@ -32,11 +32,8 @@ import { Label } from "@components/ui/Label";
 import { SimulationButton } from "@components/ui/SimulationButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 
-import {
-  CORE_GOVERNOR,
-  L2_TREASURY_TIMELOCK,
-  TREASURY_GOVERNOR,
-} from "@config/arbitrum-governance";
+import { L2_TREASURY_TIMELOCK } from "@config/arbitrum-governance";
+import { isArbitrumGovernor, isTreasuryGovernor } from "@config/governors";
 import { proposalSchema } from "@config/schema";
 import { truncateMiddle } from "@lib/text-utils";
 import { cn } from "@lib/utils";
@@ -125,15 +122,6 @@ function RawCalldataDisplay({
         </div>
       )}
     </div>
-  );
-}
-
-// Check if this is an Arbitrum Governor (Core or Treasury)
-function isArbitrumGovernor(contractAddress: string): boolean {
-  const lowerAddress = contractAddress.toLowerCase();
-  return (
-    lowerAddress === CORE_GOVERNOR.address.toLowerCase() ||
-    lowerAddress === TREASURY_GOVERNOR.address.toLowerCase()
   );
 }
 
@@ -554,11 +542,9 @@ function ActionView({
                   target,
                   calldata: effectiveCalldata,
                   chain: "Arb1",
-                  from:
-                    governorAddress.toLowerCase() ===
-                    TREASURY_GOVERNOR.address.toLowerCase()
-                      ? L2_TREASURY_TIMELOCK.address
-                      : undefined,
+                  from: isTreasuryGovernor(governorAddress)
+                    ? L2_TREASURY_TIMELOCK.address
+                    : undefined,
                 })
               }
             />

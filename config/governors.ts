@@ -66,6 +66,10 @@ export function isTreasuryGovernor(address: string): boolean {
   return addressesEqual(address, TREASURY_GOVERNOR_CONFIG.address);
 }
 
+export function isArbitrumGovernor(address: string): boolean {
+  return isCoreGovernor(address) || isTreasuryGovernor(address);
+}
+
 export function getFinalStageForGovernor(
   governorAddress: string
 ): StageType | undefined {

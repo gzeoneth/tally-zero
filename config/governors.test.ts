@@ -7,6 +7,7 @@ import {
   getGovernorTypeFromName,
   GOVERNOR_LIST,
   GOVERNORS,
+  isArbitrumGovernor,
   isCoreGovernor,
   isTreasuryGovernor,
 } from "./governors";
@@ -111,6 +112,31 @@ describe("governors config", () => {
 
     it("handles case-insensitive matching", () => {
       expect(isTreasuryGovernor(GOVERNORS.treasury.address.toLowerCase())).toBe(
+        true
+      );
+    });
+  });
+
+  describe("isArbitrumGovernor", () => {
+    it("returns true for core governor address", () => {
+      expect(isArbitrumGovernor(GOVERNORS.core.address)).toBe(true);
+    });
+
+    it("returns true for treasury governor address", () => {
+      expect(isArbitrumGovernor(GOVERNORS.treasury.address)).toBe(true);
+    });
+
+    it("returns false for unknown address", () => {
+      expect(
+        isArbitrumGovernor("0x0000000000000000000000000000000000000001")
+      ).toBe(false);
+    });
+
+    it("handles case-insensitive matching", () => {
+      expect(isArbitrumGovernor(GOVERNORS.core.address.toLowerCase())).toBe(
+        true
+      );
+      expect(isArbitrumGovernor(GOVERNORS.treasury.address.toUpperCase())).toBe(
         true
       );
     });
