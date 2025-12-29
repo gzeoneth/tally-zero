@@ -3,12 +3,14 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
-import { getDelegateLabel } from "@/lib/delegate-cache";
 import {
   ARBITRUM_RPC_URL,
   CORE_GOVERNOR,
   TREASURY_GOVERNOR,
-} from "@config/arbitrum-governance";
+} from "@/config/arbitrum-governance";
+import { STORAGE_KEYS } from "@/config/storage-keys";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { getDelegateLabel } from "@/lib/delegate-cache";
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 // Governance start block on Arbitrum One
@@ -83,11 +85,16 @@ export function useProposalVotes({
   enabled = true,
   customRpcUrl,
 }: UseProposalVotesOptions): UseProposalVotesReturn {
+  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+
   const [result, setResult] = useState<ProposalVotesResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
+  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   const fetchProposalVotes = useCallback(async () => {
     if (!proposalId || !enabled) return;
@@ -242,13 +249,14 @@ export function useProposalVotes({
   }, [proposalId, enabled, rpcUrl]);
 
   useEffect(() => {
+    if (!l2RpcHydrated) return;
     if (proposalId && enabled) {
       fetchProposalVotes();
     } else {
       setResult(null);
       setError(null);
     }
-  }, [proposalId, enabled, fetchProposalVotes]);
+  }, [l2RpcHydrated, proposalId, enabled, fetchProposalVotes]);
 
   return {
     result,

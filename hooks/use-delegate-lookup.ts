@@ -3,8 +3,10 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
+import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
+import { STORAGE_KEYS } from "@/config/storage-keys";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
-import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@config/arbitrum-governance";
 
 // Minimal ABI for ERC20Votes with OpenZeppelin standard methods
 const ERC20_VOTES_ABI = [
@@ -40,11 +42,16 @@ export function useDelegateLookup({
   enabled = true,
   customRpcUrl,
 }: UseDelegateLookupOptions): UseDelegateLookupReturn {
+  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+
   const [result, setResult] = useState<DelegateLookupResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
+  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   const fetchDelegateInfo = useCallback(async () => {
     if (!address || !enabled) return;
@@ -118,13 +125,14 @@ export function useDelegateLookup({
   }, [address, enabled, rpcUrl]);
 
   useEffect(() => {
+    if (!l2RpcHydrated) return;
     if (address && enabled) {
       fetchDelegateInfo();
     } else {
       setResult(null);
       setError(null);
     }
-  }, [address, enabled, fetchDelegateInfo]);
+  }, [l2RpcHydrated, address, enabled, fetchDelegateInfo]);
 
   return {
     result,

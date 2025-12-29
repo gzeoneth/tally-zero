@@ -3,6 +3,9 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
+import { STORAGE_KEYS } from "@/config/storage-keys";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { addressesEqual } from "@/lib/address-utils";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
 import type {
@@ -10,7 +13,6 @@ import type {
   DelegateCacheStats,
   DelegateInfo,
 } from "@/types/delegate";
-import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@config/arbitrum-governance";
 import ERC20Votes_ABI from "@data/ERC20Votes_ABI.json";
 
 export interface UseDelegateSearchOptions {
@@ -62,6 +64,11 @@ export function useDelegateSearch({
   minVotingPower,
   addressFilter,
 }: UseDelegateSearchOptions): UseDelegateSearchResult {
+  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+
   const [delegates, setDelegates] = useState<DelegateInfo[]>([]);
   const [totalVotingPower, setTotalVotingPower] = useState<string>("0");
   const [totalSupply, setTotalSupply] = useState<string>("0");
@@ -74,7 +81,7 @@ export function useDelegateSearch({
 
   const refreshedAddresses = useRef<Set<string>>(new Set());
 
-  const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
+  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   // Load cache on mount - filters are applied in a separate effect
   useEffect(() => {
@@ -124,7 +131,7 @@ export function useDelegateSearch({
 
   const refreshVisibleDelegates = useCallback(
     async (addresses: string[]) => {
-      if (!enabled || addresses.length === 0) return;
+      if (!enabled || !l2RpcHydrated || addresses.length === 0) return;
 
       const toRefresh = addresses.filter(
         (addr) => !refreshedAddresses.current.has(addr.toLowerCase())
@@ -196,7 +203,7 @@ export function useDelegateSearch({
         setIsRefreshingVisible(false);
       }
     },
-    [enabled, rpcUrl, cache, minVotingPower, addressFilter]
+    [enabled, l2RpcHydrated, rpcUrl, cache, minVotingPower, addressFilter]
   );
 
   return {

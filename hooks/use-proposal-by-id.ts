@@ -3,16 +3,18 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  ARBITRUM_CHAIN_ID,
+  ARBITRUM_GOVERNORS,
+  ARBITRUM_RPC_URL,
+} from "@/config/arbitrum-governance";
+import { STORAGE_KEYS } from "@/config/storage-keys";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import type {
   ParsedProposal,
   ProposalStateName,
   ProposalVotes,
 } from "@/types/proposal";
-import {
-  ARBITRUM_CHAIN_ID,
-  ARBITRUM_GOVERNORS,
-  ARBITRUM_RPC_URL,
-} from "@config/arbitrum-governance";
 import { ProposalState } from "@config/initial-state";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
@@ -38,18 +40,24 @@ export function useProposalById({
   enabled = true,
   customRpcUrl,
 }: UseProposalByIdOptions): UseProposalByIdResult {
+  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+
   const [proposal, setProposal] = useState<ParsedProposal | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
-  const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
+  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   const refetch = useCallback(() => {
     setFetchTrigger((t) => t + 1);
   }, []);
 
   useEffect(() => {
+    if (!l2RpcHydrated) return;
     if (!enabled || !proposalId) {
       setProposal(null);
       setError(null);
@@ -210,7 +218,7 @@ export function useProposalById({
     return () => {
       cancelled = true;
     };
-  }, [proposalId, enabled, rpcUrl, fetchTrigger]);
+  }, [l2RpcHydrated, proposalId, enabled, rpcUrl, fetchTrigger]);
 
   return {
     proposal,

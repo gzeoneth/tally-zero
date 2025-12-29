@@ -3,13 +3,15 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ARBITRUM_RPC_URL } from "@/config/arbitrum-governance";
+import { STORAGE_KEYS } from "@/config/storage-keys";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import {
   getDelegateLabel,
   getTopDelegates,
   loadDelegateCache,
 } from "@/lib/delegate-cache";
 import type { DelegateInfo } from "@/types/delegate";
-import { ARBITRUM_RPC_URL } from "@config/arbitrum-governance";
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 export interface DelegateNotVoted {
@@ -26,11 +28,18 @@ export function useTopDelegatesNotVoted({
   proposalId,
   governorAddress,
   limit = DEFAULT_LIMIT,
+  customRpcUrl,
 }: {
   proposalId: string;
   governorAddress: string;
   limit?: number;
+  customRpcUrl?: string;
 }) {
+  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
+    STORAGE_KEYS.L2_RPC,
+    ""
+  );
+
   const [delegatesNotVoted, setDelegatesNotVoted] = useState<
     DelegateNotVoted[]
   >([]);
@@ -39,6 +48,7 @@ export function useTopDelegatesNotVoted({
   const [allTopDelegatesVoted, setAllTopDelegatesVoted] = useState(false);
 
   const fetchedRef = useRef(false);
+  const effectiveRpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   const fetchDelegatesNotVoted = useCallback(async () => {
     if (!proposalId || !governorAddress) {
@@ -65,7 +75,7 @@ export function useTopDelegatesNotVoted({
         return;
       }
 
-      const provider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC_URL);
+      const provider = new ethers.providers.JsonRpcProvider(effectiveRpcUrl);
       await provider.ready;
 
       const governor = new ethers.Contract(
@@ -108,14 +118,15 @@ export function useTopDelegatesNotVoted({
     } finally {
       setIsLoading(false);
     }
-  }, [proposalId, governorAddress, limit]);
+  }, [proposalId, governorAddress, limit, effectiveRpcUrl]);
 
   useEffect(() => {
+    if (!l2RpcHydrated) return;
     if (!fetchedRef.current) {
       fetchedRef.current = true;
       fetchDelegatesNotVoted();
     }
-  }, [fetchDelegatesNotVoted]);
+  }, [l2RpcHydrated, fetchDelegatesNotVoted]);
 
   return {
     delegatesNotVoted,
