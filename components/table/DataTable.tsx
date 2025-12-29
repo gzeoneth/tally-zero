@@ -105,14 +105,14 @@ export function DataTable<TData, TValue>({
     .rows.map((row) => row.original);
 
   return (
-    <div className="space-y-4 overflow-hidden">
+    <div className="space-y-4">
       <DataTableToolbar table={table} />
 
       {isMobileView ? (
         <MobileProposalList proposals={filteredData as ParsedProposal[]} />
       ) : (
-        <div className="relative">
-          <div className="glass rounded-2xl overflow-hidden">
+        <div className="relative overflow-x-auto">
+          <div className="glass rounded-2xl overflow-clip">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
