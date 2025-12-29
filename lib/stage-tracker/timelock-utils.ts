@@ -6,11 +6,7 @@
  */
 
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
-import type {
-  ProposalStage,
-  StageStatus,
-  StageType,
-} from "@/types/proposal-stage";
+import type { StageStatus } from "@/types/proposal-stage";
 import { ethers } from "ethers";
 
 export interface TimelockStateResult {
@@ -101,57 +97,4 @@ export function createTimelockContract(
   provider: ethers.providers.Provider
 ): ethers.Contract {
   return new ethers.Contract(timelockAddress, TimelockABI, provider);
-}
-
-/**
- * Build a ProposalStage from timelock state check result
- */
-export function buildTimelockStageFromState(
-  stageType: StageType,
-  operationId: string,
-  state: TimelockStateResult
-): ProposalStage {
-  const data: Record<string, unknown> = { operationId };
-
-  if (state.message) {
-    data.message = state.message;
-  }
-  if (state.eta) {
-    data.eta = state.eta;
-  }
-
-  return {
-    type: stageType,
-    status: state.status,
-    transactions: [],
-    data,
-  };
-}
-
-/**
- * Check timelock state and return a ProposalStage
- *
- * Convenience function that combines checkTimelockOperationState and buildTimelockStageFromState
- */
-export async function checkTimelockAndBuildStage(
-  timelockAddress: string,
-  provider: ethers.providers.Provider,
-  operationId: string,
-  stageType: StageType,
-  debugLabel: string = "checkTimelockState"
-): Promise<ProposalStage> {
-  const timelock = createTimelockContract(timelockAddress, provider);
-
-  try {
-    const state = await checkTimelockOperationState(timelock, operationId);
-    return buildTimelockStageFromState(stageType, operationId, state);
-  } catch (e) {
-    console.debug(`[${debugLabel}] Failed to check timelock state:`, e);
-    return {
-      type: stageType,
-      status: "NOT_STARTED",
-      transactions: [],
-      data: { operationId },
-    };
-  }
 }
