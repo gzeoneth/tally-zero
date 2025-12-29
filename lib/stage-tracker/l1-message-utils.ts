@@ -108,21 +108,28 @@ export async function findL1ExecutionTransaction(
     toBlock,
     ctx.chunkingConfig.l1ChunkSize,
     ctx.chunkingConfig.delayBetweenChunks,
-    // Don't early exit - we need to check transactionIndex for each log
-    undefined
+    // Early exit when we find a matching transactionIndex (it's unique)
+    (chunkLogs) => {
+      for (const log of chunkLogs) {
+        try {
+          const parsed = outboxInterface.parseLog(log);
+          if (parsed.args.transactionIndex.eq(messagePosition)) {
+            return log;
+          }
+        } catch {
+          // Continue if parsing fails
+        }
+      }
+      return null;
+    }
   );
 
-  // Filter logs by transactionIndex matching our message position
-  for (const log of logs) {
-    const parsed = outboxInterface.parseLog(log);
-    const transactionIndex = parsed.args.transactionIndex;
-
-    if (transactionIndex.eq(messagePosition)) {
-      return {
-        hash: log.transactionHash,
-        blockNumber: log.blockNumber,
-      };
-    }
+  // Early exit callback returns the matching log directly
+  if (logs.length > 0) {
+    return {
+      hash: logs[0].transactionHash,
+      blockNumber: logs[0].blockNumber,
+    };
   }
 
   return null;
