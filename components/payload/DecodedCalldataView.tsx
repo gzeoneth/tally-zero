@@ -117,17 +117,17 @@ export function ParameterView({
 
   return (
     <div className="text-xs space-y-1.5">
-      <div className="flex items-start gap-2 py-1">
-        <span className="text-muted-foreground font-mono shrink-0 bg-muted/30 dark:bg-muted/10 px-1.5 py-0.5 rounded text-[11px]">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2 py-1">
+        <span className="text-muted-foreground font-mono shrink-0 bg-muted/30 dark:bg-muted/10 px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] w-fit">
           {param.name !== `arg${index}` ? param.name : `[${index}]`}
           <span className="text-muted-foreground/60 ml-1">{param.type}</span>
         </span>
-        {renderValue()}
+        <div className="overflow-x-auto">{renderValue()}</div>
       </div>
 
       {/* Nested single bytes calldata */}
       {hasNestedSingle && (
-        <div className="ml-4 pl-3 border-l-2 border-blue-500/40 glass-subtle rounded-lg p-3 mt-2 transition-all duration-200 hover:shadow-sm">
+        <div className="ml-2 sm:ml-4 pl-2 sm:pl-3 border-l-2 border-blue-500/40 glass-subtle rounded-lg p-2 sm:p-3 mt-2 transition-all duration-200 hover:shadow-sm">
           <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 block mb-2 uppercase tracking-wide">
             Nested call
           </span>
@@ -161,12 +161,12 @@ export function ParameterView({
 
       {/* Nested bytes[] array - each element is a decoded call */}
       {hasNestedArray && (
-        <div className="ml-4 space-y-3 mt-2">
+        <div className="ml-2 sm:ml-4 space-y-2 sm:space-y-3 mt-2">
           {param.nestedArray!.map((nestedCall, nestedIdx) => (
             <div
               key={nestedIdx}
               className={cn(
-                "pl-3 border-l-2 glass-subtle rounded-lg p-3 transition-all duration-200 hover:shadow-sm",
+                "pl-2 sm:pl-3 border-l-2 glass-subtle rounded-lg p-2 sm:p-3 transition-all duration-200 hover:shadow-sm",
                 nestedCall.functionName?.startsWith("Retryable Ticket")
                   ? "border-l-amber-500/50"
                   : "border-l-violet-500/50"

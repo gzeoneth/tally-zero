@@ -84,7 +84,7 @@ export function ActionView({
   return (
     <div
       className={cn(
-        "glass-subtle rounded-xl p-4 space-y-3 text-sm transition-all duration-200 hover:shadow-md",
+        "glass-subtle rounded-xl p-3 sm:p-4 space-y-2 sm:space-y-3 text-sm transition-all duration-200 hover:shadow-md",
         isOverridden && "border-l-4 border-l-amber-500"
       )}
     >

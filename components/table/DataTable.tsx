@@ -68,7 +68,7 @@ export function DataTable<TData, TValue>({
         votes: isLargeScreen,
         governorName: isMediumScreen,
         id: isSmallScreen,
-        state: isSmallScreen,
+        state: false, // Hidden - lifecycle/status column shows similar info
         lifecycle: isSmallScreen,
       }));
     };

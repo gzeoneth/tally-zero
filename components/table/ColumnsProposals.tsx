@@ -24,23 +24,23 @@ export const columns: ColumnDef<ParsedProposal>[] = [
   {
     accessorKey: "id",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Proposal ID" />
+      <DataTableColumnHeader column={column} title="ID" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
       const id = row.getValue("id") as string;
 
       return id.length < 6 ? (
-        <span>{id}</span>
+        <span className="text-xs">{id}</span>
       ) : (
         <HoverCard>
-          <HoverCardTrigger className="underline hover:font-semibold hover:cursor-pointer transition-transform duration-200 ease-in-out transform hover:scale-105">
+          <HoverCardTrigger className="underline hover:font-semibold hover:cursor-pointer transition-transform duration-200 ease-in-out transform hover:scale-105 text-xs">
             {`${id.substring(0, 5)}...${id.substring(id.length - 2)}`}
           </HoverCardTrigger>
           <HoverCardContent className="w-full">{id}</HoverCardContent>
         </HoverCard>
       );
     },
-    size: 100,
+    size: 70,
     enableHiding: false,
   },
   {
@@ -62,11 +62,12 @@ export const columns: ColumnDef<ParsedProposal>[] = [
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
       return (
-        <div className="max-w-[180px] lg:max-w-[250px] xl:max-w-[350px]">
+        <div className="min-w-[300px] lg:min-w-[400px] xl:min-w-[500px]">
           <ClickableDescriptionCell proposal={row.original} />
         </div>
       );
     },
+    size: 500,
   },
   {
     accessorKey: "governorName",
@@ -78,7 +79,7 @@ export const columns: ColumnDef<ParsedProposal>[] = [
       if (!governorName) return null;
       return <GovernorBadge governorName={governorName} />;
     },
-    size: 100,
+    size: 90,
   },
   {
     accessorKey: "state",
@@ -100,7 +101,7 @@ export const columns: ColumnDef<ParsedProposal>[] = [
   {
     accessorKey: "lifecycle",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Lifecycle" />
+      <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
       return <LifecycleCell proposal={row.original} />;

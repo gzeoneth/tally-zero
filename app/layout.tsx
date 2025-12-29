@@ -13,7 +13,6 @@ import { MainNav } from "@components/navigation/MainNav";
 import { SiteFooter } from "@components/navigation/SiteFooter";
 
 import { Analytics } from "@components/Analytics";
-import { TailwindIndicator } from "@components/TailwindIndicator";
 import { ThemeProvider } from "@components/ThemeProvider";
 import { NerdModeProvider } from "@context/NerdModeContext";
 import { SettingsSheetProvider } from "@context/SettingsSheetContext";
@@ -92,7 +91,6 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
                 <Toaster />
                 <Analytics />
-                <TailwindIndicator />
               </SettingsSheetProvider>
             </NerdModeProvider>
           </Web3ModalProvider>
