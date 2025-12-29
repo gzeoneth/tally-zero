@@ -6,7 +6,7 @@ import { createContext, useContext, useMemo } from "react";
 interface DeepLinkContextValue {
   urlState: UrlState;
   openProposal: (proposalId: string, tab?: string) => void;
-  openTimelock: (txHash: string) => void;
+  openTimelock: (txHash: string, opIndex?: number) => void;
   clearDeepLink: () => void;
 }
 

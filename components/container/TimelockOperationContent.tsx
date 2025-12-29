@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { useTimelockOperation } from "@/hooks/use-timelock-operation";
@@ -10,7 +10,11 @@ import { getAllStageMetadata } from "@/lib/incremental-stage-tracker";
 import type { TimelockOperationInfo } from "@/lib/stage-tracker/timelock-operation-tracker";
 import { formatAddress } from "@/lib/utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
-import { ExternalLinkIcon, ReloadIcon } from "@radix-ui/react-icons";
+import {
+  ExternalLinkIcon,
+  InfoCircledIcon,
+  ReloadIcon,
+} from "@radix-ui/react-icons";
 
 import { ActionView } from "../payload/ActionView";
 import { LoadingSkeleton, StageItem } from "../proposal/stages";
@@ -18,6 +22,10 @@ import { LoadingSkeleton, StageItem } from "../proposal/stages";
 interface TimelockOperationContentProps {
   /** Transaction hash to track */
   txHash: string;
+  /** Initial operation index to select (1-based) */
+  initialOpIndex?: number;
+  /** Callback when an operation is selected (for URL updates) */
+  onOperationIndexChange?: (opIndex: number | undefined) => void;
 }
 
 /**
@@ -26,6 +34,8 @@ interface TimelockOperationContentProps {
  */
 export function TimelockOperationContent({
   txHash,
+  initialOpIndex,
+  onOperationIndexChange,
 }: TimelockOperationContentProps) {
   const {
     operations,
@@ -42,12 +52,42 @@ export function TimelockOperationContent({
     enabled: true,
   });
 
-  // Auto-select first operation if only one
+  // Auto-select operation based on initial index or single operation
   useEffect(() => {
-    if (operations.length === 1 && !selectedOperation) {
+    if (operations.length === 0 || selectedOperation) return;
+
+    // If initial operation index is provided, use it (1-based)
+    if (
+      initialOpIndex &&
+      initialOpIndex > 0 &&
+      initialOpIndex <= operations.length
+    ) {
+      selectOperation(operations[initialOpIndex - 1]);
+      return;
+    }
+
+    // Otherwise auto-select if only one operation
+    if (operations.length === 1) {
       selectOperation(operations[0]);
     }
-  }, [operations, selectedOperation, selectOperation]);
+  }, [operations, selectedOperation, selectOperation, initialOpIndex]);
+
+  // Wrapped handlers that update URL when operation selection changes
+  const handleSelectOperation = useCallback(
+    (operation: (typeof operations)[0]) => {
+      const opIndex =
+        operations.findIndex((op) => op.operationId === operation.operationId) +
+        1;
+      selectOperation(operation);
+      onOperationIndexChange?.(opIndex);
+    },
+    [operations, selectOperation, onOperationIndexChange]
+  );
+
+  const handleDeselectOperation = useCallback(() => {
+    deselectOperation();
+    onOperationIndexChange?.(undefined);
+  }, [deselectOperation, onOperationIndexChange]);
 
   if (isParsing) {
     return (
@@ -135,7 +175,10 @@ export function TimelockOperationContent({
             track:
           </p>
         </div>
-        <OperationSelector operations={operations} onSelect={selectOperation} />
+        <OperationSelector
+          operations={operations}
+          onSelect={handleSelectOperation}
+        />
       </div>
     );
   }
@@ -149,7 +192,7 @@ export function TimelockOperationContent({
           operation={selectedOperation}
           isLoading={isLoading}
           onRefresh={refetch}
-          onBack={showBackButton ? deselectOperation : undefined}
+          onBack={showBackButton ? handleDeselectOperation : undefined}
           operationIndex={
             operations.findIndex(
               (op) => op.operationId === selectedOperation.operationId
@@ -157,6 +200,19 @@ export function TimelockOperationContent({
           }
           totalOperations={operations.length}
         />
+
+        {/* Operation Lifecycle - shown first for visibility */}
+        <div className="glass rounded-xl p-4">
+          <div className="mb-4 pb-3 border-b border-border/50">
+            <h3 className="text-sm font-semibold">Operation Lifecycle</h3>
+          </div>
+          <StagesList
+            stages={stages}
+            isLoading={isLoading}
+            operation={selectedOperation}
+            onRefresh={refetch}
+          />
+        </div>
 
         {/* Operation Payload with decoded calldata */}
         <div className="glass rounded-xl p-4">
@@ -169,18 +225,6 @@ export function TimelockOperationContent({
             value={selectedOperation.value}
             calldata={selectedOperation.data}
             governorAddress={selectedOperation.timelockAddress}
-          />
-        </div>
-
-        <div className="glass rounded-xl p-4">
-          <div className="mb-4 pb-3 border-b border-border/50">
-            <h3 className="text-sm font-semibold">Operation Lifecycle</h3>
-          </div>
-          <StagesList
-            stages={stages}
-            isLoading={isLoading}
-            operation={selectedOperation}
-            onRefresh={refetch}
           />
         </div>
       </div>
@@ -353,12 +397,42 @@ interface StagesListProps {
   onRefresh: () => void;
 }
 
+// Threshold in seconds before showing slow tracking hint
+const SLOW_TRACKING_THRESHOLD = 15;
+
 function StagesList({
   stages,
   isLoading,
   operation,
   onRefresh,
 }: StagesListProps) {
+  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
+  const [showSlowHint, setShowSlowHint] = useState(false);
+
+  // Track loading duration and show hint when slow
+  useEffect(() => {
+    if (isLoading && !loadingStartTime) {
+      setLoadingStartTime(Date.now());
+      setShowSlowHint(false);
+    } else if (!isLoading) {
+      setLoadingStartTime(null);
+      setShowSlowHint(false);
+    }
+  }, [isLoading, loadingStartTime]);
+
+  useEffect(() => {
+    if (!loadingStartTime) return;
+
+    const timer = setInterval(() => {
+      const elapsed = (Date.now() - loadingStartTime) / 1000;
+      if (elapsed >= SLOW_TRACKING_THRESHOLD) {
+        setShowSlowHint(true);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [loadingStartTime]);
+
   const stageMap = useMemo(() => {
     const map = new Map<StageType, ProposalStage>();
     for (const stage of stages) {
@@ -463,6 +537,24 @@ function StagesList({
 
   return (
     <div className="relative">
+      {/* Slow tracking hint */}
+      {showSlowHint && isLoading && (
+        <div className="mb-4 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-start gap-2">
+            <InfoCircledIcon className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-yellow-800 dark:text-yellow-200">
+              <p className="font-medium">
+                Tracking is taking longer than usual
+              </p>
+              <p className="text-xs mt-1 text-yellow-700 dark:text-yellow-300">
+                Public RPCs can be slow. For faster tracking, configure your own
+                L1 RPC endpoint in Settings (gear icon in top-right).
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {relevantStages.map((meta, idx) => {
         const stage = stageMap.get(meta.type);
         const isTrackingThis = isLoading && idx === currentStageIndex + 1;

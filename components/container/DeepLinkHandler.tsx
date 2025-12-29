@@ -27,7 +27,7 @@ interface DeepLinkHandlerProps {
  * Displays the appropriate modal based on the URL hash state
  */
 export function DeepLinkHandler({ proposals }: DeepLinkHandlerProps) {
-  const { urlState, clearDeepLink } = useDeepLink();
+  const { urlState, clearDeepLink, openTimelock } = useDeepLink();
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [isOpen, setIsOpen] = useState(false);
 
@@ -59,6 +59,7 @@ export function DeepLinkHandler({ proposals }: DeepLinkHandlerProps) {
     null
   );
   const [lastId, setLastId] = useState<string | null>(null);
+  const [lastOpIndex, setLastOpIndex] = useState<number | undefined>(undefined);
 
   // Open modal when we have a deep link
   useEffect(() => {
@@ -66,6 +67,7 @@ export function DeepLinkHandler({ proposals }: DeepLinkHandlerProps) {
       setIsOpen(true);
       setLastType(urlState.type);
       setLastId(urlState.id);
+      setLastOpIndex(urlState.opIndex);
     } else {
       setIsOpen(false);
     }
@@ -86,6 +88,17 @@ export function DeepLinkHandler({ proposals }: DeepLinkHandlerProps) {
   // This ensures the modal stays rendered during close animation
   const activeType = urlState.type || lastType;
   const activeId = urlState.id || lastId;
+  const activeOpIndex = urlState.opIndex ?? lastOpIndex;
+
+  // Handle operation index changes (for timelock deep links)
+  const handleOperationIndexChange = useCallback(
+    (opIndex: number | undefined) => {
+      if (activeId) {
+        openTimelock(activeId, opIndex);
+      }
+    },
+    [activeId, openTimelock]
+  );
 
   // Render proposal modal content
   const renderProposalContent = () => {
@@ -171,8 +184,10 @@ export function DeepLinkHandler({ proposals }: DeepLinkHandlerProps) {
     return (
       <TimelockOperationTrackerModal
         txHash={activeId}
+        opIndex={activeOpIndex}
         isOpen={isOpen}
         onOpenChange={handleOpenChange}
+        onOperationIndexChange={handleOperationIndexChange}
         isDesktop={isDesktop}
       />
     );
@@ -300,20 +315,28 @@ function ProposalNotFoundState({
  */
 function TimelockOperationTrackerModal({
   txHash,
+  opIndex,
   isOpen,
   onOpenChange,
+  onOperationIndexChange,
   isDesktop,
 }: {
   txHash: string;
+  opIndex?: number;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onOperationIndexChange?: (opIndex: number | undefined) => void;
   isDesktop: boolean;
 }) {
   if (isDesktop) {
     return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[1000px] max-h-[85vh] overflow-hidden flex flex-col">
-          <TimelockOperationContent txHash={txHash} />
+          <TimelockOperationContent
+            txHash={txHash}
+            initialOpIndex={opIndex}
+            onOperationIndexChange={onOperationIndexChange}
+          />
         </DialogContent>
       </Dialog>
     );
@@ -322,7 +345,11 @@ function TimelockOperationTrackerModal({
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh] px-4 py-4">
-        <TimelockOperationContent txHash={txHash} />
+        <TimelockOperationContent
+          txHash={txHash}
+          initialOpIndex={opIndex}
+          onOperationIndexChange={onOperationIndexChange}
+        />
       </DrawerContent>
     </Drawer>
   );

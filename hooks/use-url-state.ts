@@ -11,6 +11,8 @@ export interface UrlState {
   type: UrlStateType;
   id: string | null;
   tab?: string;
+  /** Operation index for timelock deep links (1-based) */
+  opIndex?: number;
 }
 
 /**
@@ -19,6 +21,7 @@ export interface UrlState {
  * - #proposal/<proposalId>
  * - #proposal/<proposalId>/<tab>
  * - #timelock/<txHash>
+ * - #timelock/<txHash>/<opIndex>
  */
 function parseUrlHash(hash: string): UrlState {
   if (!hash || hash === "#") {
@@ -33,16 +36,23 @@ function parseUrlHash(hash: string): UrlState {
     return { type: null, id: null };
   }
 
-  const [type, id, tab] = parts;
+  const [type, id, thirdPart] = parts;
 
   if (type === "proposal" && id) {
-    return { type: "proposal", id, tab };
+    return { type: "proposal", id, tab: thirdPart };
   }
 
   if (type === "timelock" && id) {
     // Validate transaction hash format
     if (/^0x[a-fA-F0-9]{64}$/.test(id)) {
-      return { type: "timelock", id };
+      // Parse optional operation index (1-based)
+      const opIndex = thirdPart ? parseInt(thirdPart, 10) : undefined;
+      return {
+        type: "timelock",
+        id,
+        opIndex:
+          opIndex && !isNaN(opIndex) && opIndex > 0 ? opIndex : undefined,
+      };
     }
   }
 
@@ -65,6 +75,9 @@ function buildUrlHash(state: UrlState): string {
   }
 
   if (state.type === "timelock") {
+    if (state.opIndex && state.opIndex > 0) {
+      return `#timelock/${state.id}/${state.opIndex}`;
+    }
     return `#timelock/${state.id}`;
   }
 
@@ -139,8 +152,8 @@ export function useUrlState() {
   );
 
   const openTimelock = useCallback(
-    (txHash: string) => {
-      setUrlState({ type: "timelock", id: txHash });
+    (txHash: string, opIndex?: number) => {
+      setUrlState({ type: "timelock", id: txHash, opIndex });
     },
     [setUrlState]
   );
