@@ -4,6 +4,7 @@ import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { arbitrum, type AppKitNetwork } from "@reown/appkit/networks";
 import { createAppKit } from "@reown/appkit/react";
 import { useEffect, useState, type ReactNode } from "react";
+import { http } from "viem";
 import { WagmiProvider, type Config } from "wagmi";
 
 import { env } from "../env";
@@ -26,10 +27,23 @@ const metadata = {
   icons: ["/favicon/favicon.ico"],
 };
 
-// Configure Wagmi Adapter
+// Configure custom transport with rate limiting settings
+// Using Arbitrum's public RPC with batch support
+const customTransports = {
+  [arbitrum.id]: http("https://arb1.arbitrum.io/rpc", {
+    batch: {
+      wait: 50, // Wait 50ms to batch requests together
+    },
+    retryCount: 2,
+    retryDelay: 1000,
+  }),
+};
+
+// Configure Wagmi Adapter with custom transports
 const wagmiAdapter = new WagmiAdapter({
   projectId,
   networks,
+  transports: customTransports,
 });
 
 // Create modal instance
