@@ -1,0 +1,134 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  formatCacheAge,
+  formatVotingPower,
+  shortenAddress,
+} from "./format-utils";
+
+describe("format-utils", () => {
+  describe("formatVotingPower", () => {
+    it("returns 0 for zero value", () => {
+      expect(formatVotingPower("0")).toBe("0");
+    });
+
+    it("returns 0 for empty string", () => {
+      expect(formatVotingPower("")).toBe("0");
+    });
+
+    it("formats values less than 1000 correctly", () => {
+      // 500 tokens = 500 * 10^18 wei
+      expect(formatVotingPower("500000000000000000000")).toBe("500");
+      // 1.5 tokens
+      expect(formatVotingPower("1500000000000000000")).toBe("1.5");
+    });
+
+    it("formats thousands with K suffix", () => {
+      // 5000 tokens
+      expect(formatVotingPower("5000000000000000000000")).toBe("5K");
+      // 1,234 tokens
+      expect(formatVotingPower("1234000000000000000000")).toBe("1.23K");
+    });
+
+    it("formats millions with M suffix", () => {
+      // 1,000,000 tokens
+      expect(formatVotingPower("1000000000000000000000000")).toBe("1M");
+      // 2,500,000 tokens
+      expect(formatVotingPower("2500000000000000000000000")).toBe("2.5M");
+      // 12,345,678 tokens
+      expect(formatVotingPower("12345678000000000000000000")).toBe("12.35M");
+    });
+
+    it("formats billions with B suffix", () => {
+      // 1,000,000,000 tokens
+      expect(formatVotingPower("1000000000000000000000000000")).toBe("1B");
+      // 1,500,000,000 tokens
+      expect(formatVotingPower("1500000000000000000000000000")).toBe("1.5B");
+    });
+
+    it("removes trailing zeros", () => {
+      // 2,000,000 tokens (should be 2M, not 2.00M)
+      expect(formatVotingPower("2000000000000000000000000")).toBe("2M");
+    });
+
+    it("handles invalid input gracefully", () => {
+      expect(formatVotingPower("not-a-number")).toBe("0");
+    });
+  });
+
+  describe("shortenAddress", () => {
+    const validAddress = "0x1234567890abcdef1234567890abcdef12345678";
+
+    it("shortens valid address with default chars", () => {
+      expect(shortenAddress(validAddress)).toBe("0x1234...5678");
+    });
+
+    it("shortens address with custom chars", () => {
+      expect(shortenAddress(validAddress, 6)).toBe("0x123456...345678");
+    });
+
+    it("shortens address with chars=2", () => {
+      expect(shortenAddress(validAddress, 2)).toBe("0x12...78");
+    });
+
+    it("returns original for empty string", () => {
+      expect(shortenAddress("")).toBe("");
+    });
+
+    it("returns original for address without 0x prefix", () => {
+      expect(shortenAddress("1234567890abcdef1234567890abcdef12345678")).toBe(
+        "1234567890abcdef1234567890abcdef12345678"
+      );
+    });
+
+    it("returns original for short address", () => {
+      expect(shortenAddress("0x1234")).toBe("0x1234");
+    });
+
+    it("handles very large chars value safely", () => {
+      const result = shortenAddress(validAddress, 100);
+      // Should clamp to safe value (max 20)
+      expect(result).toBe("0x1234567890abcdef1234...567890abcdef12345678");
+    });
+
+    it("handles negative chars value safely", () => {
+      const result = shortenAddress(validAddress, -5);
+      // Should clamp to minimum 1
+      expect(result).toBe("0x1...8");
+    });
+  });
+
+  describe("formatCacheAge", () => {
+    it("returns < 1h for recent cache", () => {
+      const now = new Date();
+      expect(formatCacheAge(now)).toBe("< 1h");
+    });
+
+    it("returns hours for cache less than a day old", () => {
+      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      expect(formatCacheAge(threeHoursAgo)).toBe("3h");
+    });
+
+    it("returns days and hours for cache more than a day old", () => {
+      const twoDaysFiveHoursAgo = new Date(
+        Date.now() - (2 * 24 + 5) * 60 * 60 * 1000
+      );
+      expect(formatCacheAge(twoDaysFiveHoursAgo)).toBe("2d 5h");
+    });
+
+    it("accepts string date input", () => {
+      const now = new Date();
+      expect(formatCacheAge(now.toISOString())).toBe("< 1h");
+    });
+
+    it("handles exactly 24 hours", () => {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      expect(formatCacheAge(oneDayAgo)).toBe("1d 0h");
+    });
+
+    it("handles 1 day with extra hours", () => {
+      const oneDayThreeHoursAgo = new Date(Date.now() - 27 * 60 * 60 * 1000);
+      expect(formatCacheAge(oneDayThreeHoursAgo)).toBe("1d 3h");
+    });
+  });
+});
