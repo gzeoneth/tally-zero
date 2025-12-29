@@ -2,7 +2,12 @@
 
 import { ETHEREUM_RPC_URL } from "@/config/arbitrum-governance";
 import { getGovernorByAddress, isCoreGovernor } from "@/config/governors";
-import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
+import {
+  CACHE_TTL_CHECK_INTERVAL_MS,
+  DEFAULT_CACHE_TTL_MS,
+  L1_BLOCK_REFRESH_INTERVAL_MS,
+  STORAGE_KEYS,
+} from "@/config/storage-keys";
 import {
   emitVoteUpdate,
   trackerManager,
@@ -309,8 +314,8 @@ export function useProposalStages({
     // Fetch immediately
     fetchL1Block();
 
-    // Refresh every 60 seconds
-    const interval = setInterval(fetchL1Block, 60000);
+    // Refresh periodically
+    const interval = setInterval(fetchL1Block, L1_BLOCK_REFRESH_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [enabled, rpcHydrated, effectiveL1RpcUrl]);
@@ -438,8 +443,11 @@ export function useProposalStages({
       }
     };
 
-    // Check every 30 seconds
-    const interval = setInterval(checkTtlExpiration, 30000);
+    // Check periodically for expired cache
+    const interval = setInterval(
+      checkTtlExpiration,
+      CACHE_TTL_CHECK_INTERVAL_MS
+    );
 
     return () => clearInterval(interval);
   }, [enabled, proposalId, governorAddress, triggerBackgroundRefresh]);

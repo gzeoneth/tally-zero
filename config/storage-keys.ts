@@ -23,6 +23,11 @@ export const DEFAULT_TENDERLY_PROJECT = "PROJECT";
 export const CACHE_VERSION = 1;
 export const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
 
+// Timing constants for UI and polling
+export const COPY_SUCCESS_TIMEOUT_MS = 2000;
+export const CACHE_TTL_CHECK_INTERVAL_MS = 30000;
+export const L1_BLOCK_REFRESH_INTERVAL_MS = 60000;
+
 // Cache TTL options in seconds
 export const CACHE_TTL_OPTIONS = [
   { label: "15 min", value: 900 },

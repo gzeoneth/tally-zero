@@ -1,5 +1,6 @@
 "use client";
 
+import { COPY_SUCCESS_TIMEOUT_MS } from "@/config/storage-keys";
 import {
   Tooltip,
   TooltipContent,
@@ -45,7 +46,7 @@ export function CopyableText({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
     } catch {
       const textArea = document.createElement("textarea");
       textArea.value = value;
@@ -54,7 +55,7 @@ export function CopyableText({
       document.execCommand("copy");
       document.body.removeChild(textArea);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
     }
   }, [value]);
 

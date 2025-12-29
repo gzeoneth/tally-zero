@@ -1,5 +1,6 @@
 "use client";
 
+import { COPY_SUCCESS_TIMEOUT_MS } from "@/config/storage-keys";
 import { Button } from "@components/ui/Button";
 import {
   CheckIcon,
@@ -33,7 +34,7 @@ export function RawCalldataDisplay({
     try {
       await navigator.clipboard.writeText(calldata);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
     } catch {
       const textArea = document.createElement("textarea");
       textArea.value = calldata;
@@ -42,7 +43,7 @@ export function RawCalldataDisplay({
       document.execCommand("copy");
       document.body.removeChild(textArea);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
     }
   }, [calldata]);
 
