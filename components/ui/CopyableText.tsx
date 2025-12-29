@@ -1,15 +1,14 @@
 "use client";
 
-import { COPY_SUCCESS_TIMEOUT_MS } from "@/config/storage-keys";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@components/ui/Tooltip";
+import { useCopyToClipboard } from "@hooks/use-copy-to-clipboard";
 import { cn } from "@lib/utils";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
-import { useCallback, useState } from "react";
 
 interface CopyableTextProps {
   value: string;
@@ -30,7 +29,7 @@ export function CopyableText({
   tooltipText,
   showCopyButton = false,
 }: CopyableTextProps) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
   const truncatedText =
     displayText ??
@@ -42,22 +41,7 @@ export function CopyableText({
 
   const isTruncated = truncatedText !== value;
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
-    } catch {
-      const textArea = document.createElement("textarea");
-      textArea.value = value;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
-    }
-  }, [value]);
+  const handleCopy = () => copy(value);
 
   const content = (
     <button

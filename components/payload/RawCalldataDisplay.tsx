@@ -1,14 +1,13 @@
 "use client";
 
-import { COPY_SUCCESS_TIMEOUT_MS } from "@/config/storage-keys";
 import { Button } from "@components/ui/Button";
+import { useCopyToClipboard } from "@hooks/use-copy-to-clipboard";
 import {
   CheckIcon,
   CopyIcon,
   Pencil1Icon,
   ResetIcon,
 } from "@radix-ui/react-icons";
-import { useCallback, useState } from "react";
 
 export interface RawCalldataDisplayProps {
   calldata: string;
@@ -28,24 +27,9 @@ export function RawCalldataDisplay({
   onEdit,
   onReset,
 }: RawCalldataDisplayProps) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(calldata);
-      setCopied(true);
-      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
-    } catch {
-      const textArea = document.createElement("textarea");
-      textArea.value = calldata;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
-    }
-  }, [calldata]);
+  const handleCopy = () => copy(calldata);
 
   return (
     <div className="space-y-3">
