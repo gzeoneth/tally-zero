@@ -44,6 +44,13 @@ const config = {
     "dark:text-orange-200",
     "dark:text-red-100",
     "dark:text-rose-200",
+    // Glass effect utility safelist
+    "backdrop-blur-sm",
+    "backdrop-blur-md",
+    "animate-pulse-glow",
+    "animate-float",
+    "shadow-glass",
+    "shadow-card-hover",
   ],
   prefix: "",
   theme: {
@@ -95,6 +102,11 @@ const config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        glass: "var(--shadow-glass)",
+        "card-hover": "var(--shadow-card-hover)",
+        glow: "0 0 40px -10px",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -104,10 +116,25 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "0.4" },
+          "50%": { opacity: "0.8" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-4px)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        float: "float 3s ease-in-out infinite",
+        shimmer: "shimmer 2s linear infinite",
       },
     },
   },

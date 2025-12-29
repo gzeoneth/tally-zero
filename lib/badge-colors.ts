@@ -3,17 +3,17 @@
  * Use these constants to maintain consistency across the UI.
  */
 
-// Vote type colors
+// Vote type colors - using emerald/rose for semantic meaning
 export const VOTE_COLORS = {
   for: {
-    text: "text-green-600 dark:text-green-400",
-    bg: "bg-green-500 dark:bg-green-400",
-    dot: "bg-green-500 dark:bg-green-400",
+    text: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-500 dark:bg-emerald-400",
+    dot: "bg-emerald-500 dark:bg-emerald-400",
   },
   against: {
-    text: "text-red-600 dark:text-red-400",
-    bg: "bg-red-500 dark:bg-red-400",
-    dot: "bg-red-500 dark:bg-red-400",
+    text: "text-rose-600 dark:text-rose-400",
+    bg: "bg-rose-500 dark:bg-rose-400",
+    dot: "bg-rose-500 dark:bg-rose-400",
   },
   abstain: {
     text: "text-muted-foreground",
