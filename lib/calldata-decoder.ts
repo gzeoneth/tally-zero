@@ -1,6 +1,7 @@
 import localSignatures from "@data/function-signatures.json";
 import knownAddresses from "@data/known-addresses.json";
 import { ethers } from "ethers";
+import { getStoredValue, setStoredValue } from "./storage-utils";
 
 const FOURBYTE_API = "https://www.4byte.directory/api/v1/signatures/";
 const CACHE_KEY_PREFIX = "tally-zero-4byte-";
@@ -136,24 +137,13 @@ export async function lookup4byteDirectory(
   }
 
   // Check localStorage cache
-  if (typeof window !== "undefined") {
-    try {
-      const stored = localStorage.getItem(
-        CACHE_KEY_PREFIX + normalizedSelector
-      );
-      if (stored) {
-        const parsed = JSON.parse(stored) as {
-          signature: string | null;
-          timestamp: number;
-        };
-        if (Date.now() - parsed.timestamp < CACHE_TTL_MS) {
-          sessionCache.set(normalizedSelector, parsed);
-          return parsed.signature;
-        }
-      }
-    } catch {
-      // Ignore localStorage errors
-    }
+  const stored = getStoredValue<{
+    signature: string | null;
+    timestamp: number;
+  } | null>(CACHE_KEY_PREFIX + normalizedSelector, null);
+  if (stored && Date.now() - stored.timestamp < CACHE_TTL_MS) {
+    sessionCache.set(normalizedSelector, stored);
+    return stored.signature;
   }
 
   // Fetch from API
@@ -181,17 +171,7 @@ export async function lookup4byteDirectory(
     // Cache the result
     const cacheEntry = { signature, timestamp: Date.now() };
     sessionCache.set(normalizedSelector, cacheEntry);
-
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(
-          CACHE_KEY_PREFIX + normalizedSelector,
-          JSON.stringify(cacheEntry)
-        );
-      } catch {
-        // Ignore localStorage errors
-      }
-    }
+    setStoredValue(CACHE_KEY_PREFIX + normalizedSelector, cacheEntry);
 
     return signature;
   } catch (error) {
