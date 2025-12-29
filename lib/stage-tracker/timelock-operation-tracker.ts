@@ -6,7 +6,9 @@
  */
 
 import {
+  ARBITRUM_RPC_URL,
   DEFAULT_CHUNKING_CONFIG,
+  ETHEREUM_RPC_URL,
   L1_TIMELOCK,
   L2_CORE_TIMELOCK,
   OLD_CHALLENGE_PERIOD_L1_BLOCKS,
@@ -15,6 +17,7 @@ import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import { queryWithRetry } from "@/lib/rpc-utils";
 import type { ChunkingConfig, ProposalStage } from "@/types/proposal-stage";
 import {
+  ArbitrumProvider,
   ChildToParentMessageStatus,
   ChildTransactionReceipt,
 } from "@arbitrum/sdk";
@@ -675,12 +678,6 @@ export function createTimelockOperationTracker(
   l1RpcUrl?: string,
   chunkingConfig?: Partial<ChunkingConfig>
 ): TimelockOperationTracker {
-  const {
-    ARBITRUM_RPC_URL,
-    ETHEREUM_RPC_URL,
-  } = require("@/config/arbitrum-governance");
-  const { ArbitrumProvider } = require("@arbitrum/sdk");
-
   const baseL2Provider = new ethers.providers.JsonRpcProvider(
     l2RpcUrl || ARBITRUM_RPC_URL
   );
