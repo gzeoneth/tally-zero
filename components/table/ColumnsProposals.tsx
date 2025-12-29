@@ -16,8 +16,8 @@ import { LifecycleCell } from "@components/ui/LifecycleCell";
 import { VoteDisplay } from "@components/ui/VoteDisplay";
 
 import { getGovernorTypeFromName } from "@/config/governors";
+import { findStateByValue } from "@/lib/state-utils";
 import { ParsedProposal } from "@/types/proposal";
-import { states } from "@data/table/data";
 import { cn } from "@lib/utils";
 
 import { DotIcon } from "lucide-react";
@@ -98,10 +98,7 @@ export const columns: ColumnDef<ParsedProposal>[] = [
       <DataTableColumnHeader column={column} title="State" />
     ),
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
-      const rowState = (row.getValue("state") as string)?.toLowerCase();
-      const stateValue = states.find(
-        (state) => state.value.toLowerCase() === rowState
-      );
+      const stateValue = findStateByValue(row.getValue("state") as string);
       if (!stateValue) return null;
 
       return (

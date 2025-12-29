@@ -5,8 +5,8 @@ import { Dialog, DialogTrigger } from "@/components/ui/Dialog";
 import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
 
 import { proposalSchema } from "@/config/schema";
-import { states } from "@/data/table/data";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { findStateByValue } from "@/lib/state-utils";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
 import { ParsedProposal } from "@/types/proposal";
 
@@ -25,9 +25,7 @@ export function ClickableDescriptionCell({
 }) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const parsedProposal = proposalSchema.parse(proposal);
-  const stateValue = states.find(
-    (state) => state.value.toLowerCase() === proposal.state?.toLowerCase()
-  );
+  const stateValue = findStateByValue(proposal.state);
 
   if (!stateValue) {
     return <DescriptionCell mdxContent={proposal.description} />;

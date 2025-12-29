@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Drawer, DrawerTrigger } from "@/components/ui/Drawer";
 import { getGovernorTypeFromName } from "@/config/governors";
 import { proposalSchema } from "@/config/schema";
-import { states } from "@/data/table/data";
+import { findStateByValue } from "@/lib/state-utils";
 import { stripMarkdownAndHtml, truncateText } from "@/lib/text-utils";
 import { cn } from "@/lib/utils";
 import { ParsedProposal } from "@/types/proposal";
@@ -17,9 +17,7 @@ interface MobileProposalCardProps {
 
 export function MobileProposalCard({ proposal }: MobileProposalCardProps) {
   const parsedProposal = proposalSchema.parse(proposal);
-  const stateValue = states.find(
-    (state) => state.value.toLowerCase() === proposal.state?.toLowerCase()
-  );
+  const stateValue = findStateByValue(proposal.state);
   const plainText = truncateText(
     stripMarkdownAndHtml(proposal.description),
     80

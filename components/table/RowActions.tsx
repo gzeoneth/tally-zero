@@ -14,8 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@components/ui/DropdownMenu";
 
+import { findStateByValue } from "@/lib/state-utils";
 import { proposalSchema } from "@config/schema";
-import { states } from "@data/table/data";
 
 import { useMediaQuery } from "@hooks/use-media-query";
 
@@ -28,9 +28,7 @@ export function DataTableRowActions<TData>({
 }: DataTableRowActionsProps<TData>) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const proposal = proposalSchema.parse(row.original);
-  const stateValue = states.find(
-    (state) => state.value === row.getValue("state")
-  );
+  const stateValue = findStateByValue(row.getValue("state") as string);
 
   if (!stateValue) {
     return null;
