@@ -1,3 +1,4 @@
+import { delay } from "@/lib/delay-utils";
 import { ethers } from "ethers";
 
 export const DEFAULT_MAX_BLOCK_RANGE = 10_000_000;
@@ -67,7 +68,7 @@ export async function queryWithRetry<T>(
   options: RetryOptions = DEFAULT_RETRY_OPTIONS
 ): Promise<T> {
   let lastError: Error = new Error("All retry attempts failed");
-  let delay = options.initialDelay || 1000;
+  let retryDelay = options.initialDelay || 1000;
 
   for (let attempt = 0; attempt <= (options.maxRetries || 3); attempt++) {
     try {
@@ -88,10 +89,10 @@ export async function queryWithRetry<T>(
       }
 
       if (attempt < (options.maxRetries || 3)) {
-        console.warn(`Retry attempt ${attempt + 1} after ${delay}ms`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay = Math.min(
-          delay * (options.backoffFactor || 2),
+        console.warn(`Retry attempt ${attempt + 1} after ${retryDelay}ms`);
+        await delay(retryDelay);
+        retryDelay = Math.min(
+          retryDelay * (options.backoffFactor || 2),
           options.maxDelay || 16000
         );
       }
@@ -117,7 +118,7 @@ export async function batchQueryWithRateLimit<T>(
 
     // Add delay between batches to avoid rate limits
     if (i + batchSize < queries.length) {
-      await new Promise((resolve) => setTimeout(resolve, delayBetweenBatches));
+      await delay(delayBetweenBatches);
     }
   }
 

@@ -32,6 +32,7 @@ import { formatVotingPower } from "@lib/format-utils";
 import { toast } from "sonner";
 
 import OZ_Governor_ABI from "@data/OzGovernor_ABI.json";
+import { delay } from "@lib/delay-utils";
 import { useEffect } from "react";
 
 const ERC20_VOTES_ABI = [
@@ -102,7 +103,7 @@ export default function VoteForm({
   }, [hash]);
 
   async function onSubmit(_values: z.infer<typeof voteSchema>) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await delay(500);
     if (simulateData?.request) {
       writeContract(simulateData.request);
     }

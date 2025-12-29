@@ -1,3 +1,4 @@
+import { delay } from "@/lib/delay-utils";
 import { queryWithRetry } from "@/lib/rpc-utils";
 import { ethers } from "ethers";
 
@@ -9,8 +10,6 @@ export interface ArbitrumTransactionReceipt
   extends ethers.providers.TransactionReceipt {
   l1BlockNumber?: number | string | ethers.BigNumber;
 }
-
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Search for logs in chunks with optional early exit
@@ -55,7 +54,7 @@ export async function searchLogsInChunks(
     }
 
     if (end < toBlock && delayBetweenChunks > 0) {
-      await wait(delayBetweenChunks);
+      await delay(delayBetweenChunks);
     }
   }
 

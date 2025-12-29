@@ -10,6 +10,7 @@ import {
 } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { delay } from "@/lib/delay-utils";
 import { getDelegateLabel } from "@/lib/delegate-cache";
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
 
@@ -19,9 +20,6 @@ const GOVERNANCE_START_BLOCK = 70398215;
 // L2 block range per query (smaller chunks to avoid RPC limits)
 const L2_CHUNK_SIZE = 500_000;
 const DELAY_BETWEEN_CHUNKS = 200;
-
-// Helper to delay between chunks
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export type VoteSupport = "for" | "against" | "abstain";
 
