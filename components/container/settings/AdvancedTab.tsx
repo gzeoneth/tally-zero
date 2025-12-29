@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Trash2 } from "lucide-react";
 
+import { DelegateLookup } from "@/components/container/DelegateLookup";
 import { TimelockOperationTracker } from "@/components/container/TimelockOperationTracker";
 import { Button } from "@/components/ui/Button";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
@@ -209,17 +210,30 @@ export function AdvancedTab({
         </CollapsibleSection>
       </div>
 
-      {/* Timelock Operation Tracker (Nerd Mode Only) */}
+      {/* Nerd Mode Tools */}
       {nerdMode && (
-        <div className="glass-subtle rounded-lg p-4 space-y-3 transition-all duration-200 hover:shadow-md">
-          <Label className="text-sm font-medium">
-            Timelock Operation Tracker
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            Track arbitrary timelock operations (e.g., Security Council actions)
-            by providing a transaction hash containing a CallScheduled event.
-          </p>
-          <TimelockOperationTracker />
+        <div className="glass-subtle rounded-lg p-4 space-y-4 transition-all duration-200 hover:shadow-md">
+          <Label className="text-sm font-medium">Governance Tools</Label>
+          <div className="space-y-4">
+            {/* Delegate Lookup */}
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Look up any address to see their voting power and delegation
+                status in real-time.
+              </p>
+              <DelegateLookup />
+            </div>
+
+            {/* Timelock Operation Tracker */}
+            <div className="space-y-2 pt-3 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                Track arbitrary timelock operations (e.g., Security Council
+                actions) by providing a transaction hash containing a
+                CallScheduled event.
+              </p>
+              <TimelockOperationTracker />
+            </div>
+          </div>
         </div>
       )}
 
