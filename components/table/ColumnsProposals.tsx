@@ -116,14 +116,10 @@ export const columns: ColumnDef<ParsedProposal>[] = [
     cell: ({ row }: { row: Row<ParsedProposal> }) => {
       const votes = row.original.votes;
 
-      // Calculate total votes for quorum indicator
-      const totalVotes =
-        votes?.forVotes && votes?.againstVotes && votes?.abstainVotes
-          ? (
-              BigInt(votes.forVotes) +
-              BigInt(votes.againstVotes) +
-              BigInt(votes.abstainVotes)
-            ).toString()
+      // Calculate votes toward quorum (only For + Abstain count, not Against)
+      const votesTowardQuorum =
+        votes?.forVotes && votes?.abstainVotes
+          ? (BigInt(votes.forVotes) + BigInt(votes.abstainVotes)).toString()
           : "0";
 
       return (
@@ -138,7 +134,10 @@ export const columns: ColumnDef<ParsedProposal>[] = [
           </HoverCard>
           {votes?.quorum && (
             <div className="hidden xl:block">
-              <QuorumIndicator current={totalVotes} required={votes.quorum} />
+              <QuorumIndicator
+                current={votesTowardQuorum}
+                required={votes.quorum}
+              />
             </div>
           )}
         </div>

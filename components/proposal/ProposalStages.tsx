@@ -62,7 +62,7 @@ export default function ProposalStages({
   for (const stage of stages) {
     stageMap.set(stage.type, stage);
   }
-  const isDefeated = result?.currentState === "Defeated";
+  const isDefeated = result?.currentState?.toLowerCase() === "defeated";
 
   const relevantStageTypes = allStageTypes.filter((meta) => {
     if (isDefeated) {
@@ -153,8 +153,8 @@ export default function ProposalStages({
               isLoading={isLoading}
               isRefreshing={isRefreshingThis && isLoading}
               onRefresh={refetchFromStage}
-              estimatedCompletion={estimatedCompletion}
-              votingTimeRange={votingTimeRange}
+              estimatedCompletion={isDefeated ? undefined : estimatedCompletion}
+              votingTimeRange={isDefeated ? null : votingTimeRange}
               governorType={governorType}
               proposalId={proposalId}
               governorAddress={governorAddress}
