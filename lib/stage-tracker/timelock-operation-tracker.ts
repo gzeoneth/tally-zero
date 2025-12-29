@@ -668,11 +668,12 @@ export class TimelockOperationTracker {
 }
 
 /**
- * Create a timelock operation tracker with default RPC providers
+ * Create a timelock operation tracker with optional RPC providers and chunking config
  */
 export function createTimelockOperationTracker(
   l2RpcUrl?: string,
-  l1RpcUrl?: string
+  l1RpcUrl?: string,
+  chunkingConfig?: Partial<ChunkingConfig>
 ): TimelockOperationTracker {
   const {
     ARBITRUM_RPC_URL,
@@ -689,10 +690,12 @@ export function createTimelockOperationTracker(
     l1RpcUrl || ETHEREUM_RPC_URL
   );
 
+  const config = { ...DEFAULT_CHUNKING_CONFIG, ...chunkingConfig };
+
   return new TimelockOperationTracker(
     l2Provider,
     l1Provider,
-    DEFAULT_CHUNKING_CONFIG,
+    config,
     baseL2Provider
   );
 }

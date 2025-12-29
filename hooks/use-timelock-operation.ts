@@ -1,6 +1,9 @@
 "use client";
 
-import { ETHEREUM_RPC_URL } from "@/config/arbitrum-governance";
+import {
+  DEFAULT_FORM_VALUES,
+  ETHEREUM_RPC_URL,
+} from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import {
   createTimelockOperationTracker,
@@ -9,7 +12,7 @@ import {
   type TimelockTrackingResult,
 } from "@/lib/stage-tracker/timelock-operation-tracker";
 import type { StageProgressCallback } from "@/lib/stage-tracker/types";
-import { getStoredJsonString } from "@/lib/storage-utils";
+import { getStoredJsonString, getStoredNumber } from "@/lib/storage-utils";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -45,6 +48,10 @@ export function useTimelockOperation({
     ETHEREUM_RPC_URL
   );
   const storedL2Rpc = getStoredJsonString(STORAGE_KEYS.L2_RPC, "");
+  const storedL1BlockRange = getStoredNumber(
+    STORAGE_KEYS.L1_BLOCK_RANGE,
+    DEFAULT_FORM_VALUES.l1BlockRange
+  );
 
   const effectiveL1RpcUrl = l1RpcUrl || storedL1Rpc;
   const effectiveL2RpcUrl = l2RpcUrl || storedL2Rpc;
@@ -129,7 +136,8 @@ export function useTimelockOperation({
     try {
       const tracker = createTimelockOperationTracker(
         effectiveL2RpcUrl || undefined,
-        effectiveL1RpcUrl || undefined
+        effectiveL1RpcUrl || undefined,
+        { l1ChunkSize: storedL1BlockRange }
       );
 
       const onProgress: StageProgressCallback = (stage, index) => {
@@ -163,7 +171,13 @@ export function useTimelockOperation({
       setIsLoading(false);
       setIsTracking(false);
     }
-  }, [selectedOperation, enabled, effectiveL1RpcUrl, effectiveL2RpcUrl]);
+  }, [
+    selectedOperation,
+    enabled,
+    effectiveL1RpcUrl,
+    effectiveL2RpcUrl,
+    storedL1BlockRange,
+  ]);
 
   // Select an operation and start tracking
   const selectOperation = useCallback((operation: TimelockOperationInfo) => {
