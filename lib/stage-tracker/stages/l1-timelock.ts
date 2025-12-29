@@ -1,4 +1,4 @@
-import { CHALLENGE_PERIOD_L1_BLOCKS } from "@/config/arbitrum-governance";
+import { OLD_CHALLENGE_PERIOD_L1_BLOCKS } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { ChildTransactionReceipt } from "@arbitrum/sdk";
@@ -59,7 +59,7 @@ export async function trackL1Timelock(
     fromBlock = executableBlock.toNumber();
   } else {
     const l1BlockAtL2Tx = getL1BlockNumberFromReceipt(receipt);
-    fromBlock = l1BlockAtL2Tx + CHALLENGE_PERIOD_L1_BLOCKS;
+    fromBlock = l1BlockAtL2Tx + OLD_CHALLENGE_PERIOD_L1_BLOCKS;
   }
 
   // Use the message position to find the exact L1 execution transaction

@@ -6,10 +6,10 @@
  */
 
 import {
-  CHALLENGE_PERIOD_L1_BLOCKS,
   DEFAULT_CHUNKING_CONFIG,
   L1_TIMELOCK,
   L2_CORE_TIMELOCK,
+  OLD_CHALLENGE_PERIOD_L1_BLOCKS,
 } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import { queryWithRetry } from "@/lib/rpc-utils";
@@ -468,7 +468,7 @@ export class TimelockOperationTracker {
       fromBlock = executableBlock.toNumber();
     } else {
       const l1BlockAtL2Tx = getL1BlockNumberFromReceipt(receipt);
-      fromBlock = l1BlockAtL2Tx + CHALLENGE_PERIOD_L1_BLOCKS;
+      fromBlock = l1BlockAtL2Tx + OLD_CHALLENGE_PERIOD_L1_BLOCKS;
     }
 
     const currentBlock = await ctx.l1Provider.getBlockNumber();
