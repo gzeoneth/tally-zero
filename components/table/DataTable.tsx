@@ -112,14 +112,19 @@ export function DataTable<TData, TValue>({
         <MobileProposalList proposals={filteredData as ParsedProposal[]} />
       ) : (
         <div className="relative">
-          <div className="rounded-2xl border bg-white dark:bg-zinc-950 dark:border-zinc-800 overflow-x-auto scrollbar-thin">
+          <div className="glass rounded-2xl overflow-hidden">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
+                      const size = header.column.columnDef.size;
                       return (
-                        <TableHead key={header.id} colSpan={header.colSpan}>
+                        <TableHead
+                          key={header.id}
+                          colSpan={header.colSpan}
+                          style={size ? { width: size } : undefined}
+                        >
                           {header.isPlaceholder
                             ? null
                             : flexRender(

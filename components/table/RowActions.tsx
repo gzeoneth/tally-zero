@@ -41,7 +41,7 @@ export function DataTableRowActions<TData>({
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="flex h-8 w-8 p-0 data-[state=open]:bg-muted"
+              className="flex h-8 w-8 p-0 transition-all duration-200 hover:bg-white/20 dark:hover:bg-white/10 data-[state=open]:bg-white/20 dark:data-[state=open]:bg-white/10"
             >
               <DotsHorizontalIcon className="w-4 h-4 " />
               <span className="sr-only" data-state={proposal.state}>
@@ -49,15 +49,19 @@ export function DataTableRowActions<TData>({
               </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[200px]">
+          <DropdownMenuContent
+            align="end"
+            className="w-[200px] glass-subtle rounded-lg"
+          >
             <DialogTrigger asChild>
-              <DropdownMenuItem>
+              <DropdownMenuItem className="transition-all duration-200 hover:bg-white/20 dark:hover:bg-white/10">
                 <span>
                   View Proposal <span className="sr-only">{proposal.id}</span>
                 </span>
               </DropdownMenuItem>
             </DialogTrigger>
             <DropdownMenuItem
+              className="transition-all duration-200 hover:bg-white/20 dark:hover:bg-white/10"
               onClick={() => {
                 navigator.clipboard.writeText(proposal.id.toString());
               }}
@@ -81,7 +85,7 @@ export function DataTableRowActions<TData>({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="flex h-8 w-8 p-0 data-[state=open]:bg-muted"
+            className="flex h-8 w-8 p-0 transition-all duration-200 hover:bg-white/20 dark:hover:bg-white/10 data-[state=open]:bg-white/20 dark:data-[state=open]:bg-white/10"
           >
             <DotsHorizontalIcon className="w-4 h-4 " />
             <span className="sr-only" data-state={proposal.state}>
@@ -89,15 +93,19 @@ export function DataTableRowActions<TData>({
             </span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[200px]">
+        <DropdownMenuContent
+          align="end"
+          className="w-[200px] glass-subtle rounded-lg"
+        >
           <DrawerTrigger asChild>
-            <DropdownMenuItem>
+            <DropdownMenuItem className="transition-all duration-200 hover:bg-white/20 dark:hover:bg-white/10">
               <span>
                 View Proposal <span className="sr-only">{proposal.id}</span>
               </span>
             </DropdownMenuItem>
           </DrawerTrigger>
           <DropdownMenuItem
+            className="transition-all duration-200 hover:bg-white/20 dark:hover:bg-white/10"
             onClick={() => {
               navigator.clipboard.writeText(proposal.proposer);
             }}

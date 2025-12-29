@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Table } from "@tanstack/react-table";
 
+import { cn } from "@/lib/utils";
 import { ToolbarResetButton } from "@components/table/ToolbarResetButton";
 import { ToolbarSearch } from "@components/table/ToolbarSearch";
 import { DataTableViewOptions } from "@components/table/ViewOptions";
@@ -56,7 +57,12 @@ export function DelegatesToolbar<TData>({
             placeholder="Min voting power (ARB)"
             value={minPowerValue}
             onChange={handleMinPowerChange}
-            className="h-11 sm:h-12 w-full sm:w-[200px] text-base"
+            className={cn(
+              "h-12 w-full sm:w-[200px] text-base",
+              "glass-subtle rounded-xl",
+              "focus:ring-2 focus:ring-primary/30 focus:border-primary/50",
+              "placeholder:text-muted-foreground/40"
+            )}
             min="0"
             step="1000"
           />
