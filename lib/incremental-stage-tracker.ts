@@ -595,7 +595,9 @@ export class IncrementalStageTracker {
       data: {
         proposer: parsed.args.proposer,
         targets: parsed.args.targets,
-        description: parsed.args.description?.substring(0, 200) + "...",
+        description: parsed.args.description
+          ? parsed.args.description.substring(0, 200) + "..."
+          : "",
         startBlock: parsed.args.startBlock.toString(),
         endBlock: parsed.args.endBlock.toString(),
       },
