@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { isValidAddress } from "@/lib/address-utils";
 import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
 import { getErrorMessage } from "@/lib/error-utils";
 
@@ -57,8 +58,7 @@ export function useDelegateLookup({
   const fetchDelegateInfo = useCallback(async () => {
     if (!address || !enabled) return;
 
-    // Validate address format
-    if (!ethers.utils.isAddress(address)) {
+    if (!isValidAddress(address)) {
       setError("Invalid Ethereum address");
       return;
     }

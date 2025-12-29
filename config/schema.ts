@@ -1,10 +1,8 @@
+import { ETH_ADDRESS_REGEX } from "@/lib/address-utils";
 import { isValidRpcUrl } from "@lib/utils";
 import * as z from "zod";
 
 import { DEFAULT_FORM_VALUES } from "./arbitrum-governance";
-
-// `0x${string}` is a valid Ethereum address
-const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
 
 // RPC URL validation schema
 const rpcUrlSchema = z
@@ -22,7 +20,7 @@ const rpcUrlSchema = z
   .or(z.literal(""));
 
 export const formSchema = z.object({
-  address: z.string().regex(ethAddressRegex, "Invalid Ethereum address"),
+  address: z.string().regex(ETH_ADDRESS_REGEX, "Invalid Ethereum address"),
   networkId: z.string(),
   daysToSearch: z
     .number()
