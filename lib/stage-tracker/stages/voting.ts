@@ -4,7 +4,7 @@ import {
   isFailedState,
 } from "@/config/arbitrum-governance";
 import GovernorABI from "@/data/L2ArbitrumGovernor_ABI.json";
-import { debugLog } from "@/lib/delay-utils";
+import { debug } from "@/lib/debug";
 import type { ProposalStage, StageStatus } from "@/types/proposal-stage";
 import { ethers } from "ethers";
 import { searchLogsInChunks } from "../log-search";
@@ -60,7 +60,7 @@ export async function trackVotingStage(
         creationBlock + maxVotingPeriodBlocks,
         currentBlock
       );
-      debugLog(
+      debug.stageTracker(
         `[trackVotingStage] Optimized search range: voting finished, searching from ${creationBlock} to ${searchEndBlock} (creation + max voting period)`
       );
     }

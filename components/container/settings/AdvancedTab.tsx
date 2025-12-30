@@ -13,6 +13,7 @@ import { CACHE_TTL_OPTIONS } from "@/config/storage-keys";
 import { BackupRestoreSection } from "./BackupRestoreSection";
 import { CacheManagementSection } from "./CacheManagementSection";
 import { DebugInfoSection } from "./DebugInfoSection";
+import { DebugLoggingToggle } from "./DebugLoggingToggle";
 import { formatTtl } from "./settings-utils";
 import { TenderlyConfigSection } from "./TenderlyConfigSection";
 import type { StoredSettings } from "./types";
@@ -209,6 +210,9 @@ export function AdvancedTab({
           </div>
         </CollapsibleSection>
       </div>
+
+      {/* Debug Logging Toggle (Nerd Mode Only) */}
+      {nerdMode && <DebugLoggingToggle />}
 
       {/* Nerd Mode Tools */}
       {nerdMode && (

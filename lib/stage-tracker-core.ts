@@ -20,7 +20,7 @@ import {
   isCoreGovernor as isCoreGov,
   isTreasuryGovernor as isTreasuryGov,
 } from "@/config/governors";
-import { debugLog } from "@/lib/delay-utils";
+import { debug } from "@/lib/debug";
 import type {
   ChunkingConfig,
   ProposalStage,
@@ -115,17 +115,19 @@ export async function trackProposalStages(
     startFromStageIndex,
   } = options;
 
-  debugLog(`[stage-tracker-core] trackProposalStages called`);
-  debugLog(`  proposalId: ${proposalId.slice(0, 20)}...`);
-  debugLog(`  creationTxHash: ${creationTxHash}`);
-  debugLog(`  governorAddress: ${governorAddress}`);
-  debugLog(`  existingStages: ${existingStages?.length ?? 0}`);
-  debugLog(`  startFromStageIndex: ${startFromStageIndex ?? "undefined"}`);
+  debug.stageTracker(`[stage-tracker-core] trackProposalStages called`);
+  debug.stageTracker(`  proposalId: ${proposalId.slice(0, 20)}...`);
+  debug.stageTracker(`  creationTxHash: ${creationTxHash}`);
+  debug.stageTracker(`  governorAddress: ${governorAddress}`);
+  debug.stageTracker(`  existingStages: ${existingStages?.length ?? 0}`);
+  debug.stageTracker(
+    `  startFromStageIndex: ${startFromStageIndex ?? "undefined"}`
+  );
 
   // Validate governor address
   const governorConfig = getGovernorByAddress(governorAddress);
   if (!governorConfig) {
-    debugLog(`[stage-tracker-core] Unknown governor address`);
+    debug.stageTracker(`[stage-tracker-core] Unknown governor address`);
     return {
       stages: [],
       error: `Unknown governor address: ${governorAddress}`,
@@ -133,7 +135,7 @@ export async function trackProposalStages(
   }
 
   try {
-    debugLog(`[stage-tracker-core] Creating tracker...`);
+    debug.stageTracker(`[stage-tracker-core] Creating tracker...`);
     const tracker = createTracker(
       governorAddress,
       l2RpcUrl,
@@ -141,7 +143,7 @@ export async function trackProposalStages(
       chunkingConfig
     );
 
-    debugLog(`[stage-tracker-core] Calling tracker.trackProposal...`);
+    debug.stageTracker(`[stage-tracker-core] Calling tracker.trackProposal...`);
     const result = await tracker.trackProposal(
       proposalId,
       creationTxHash,
@@ -150,9 +152,9 @@ export async function trackProposalStages(
       startFromStageIndex
     );
 
-    debugLog(`[stage-tracker-core] tracker.trackProposal completed`);
-    debugLog(`  stages: ${result.stages.length}`);
-    debugLog(`  currentState: ${result.currentState ?? "undefined"}`);
+    debug.stageTracker(`[stage-tracker-core] tracker.trackProposal completed`);
+    debug.stageTracker(`  stages: ${result.stages.length}`);
+    debug.stageTracker(`  currentState: ${result.currentState ?? "undefined"}`);
 
     return {
       stages: result.stages,
@@ -160,7 +162,7 @@ export async function trackProposalStages(
       timelockLink: result.timelockLink,
     };
   } catch (error) {
-    debugLog(
+    debug.stageTracker(
       `[stage-tracker-core] Error: ${error instanceof Error ? error.message : String(error)}`
     );
     return {

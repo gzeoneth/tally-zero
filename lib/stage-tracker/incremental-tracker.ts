@@ -5,7 +5,7 @@ import {
 import { isCoreGovernor } from "@/config/governors";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import GovernorABI from "@/data/L2ArbitrumGovernor_ABI.json";
-import { debugLog } from "@/lib/delay-utils";
+import { debug } from "@/lib/debug";
 import { queryWithRetry } from "@/lib/rpc-utils";
 import { saveCachedTimelockResult } from "@/lib/unified-cache";
 import type {
@@ -54,9 +54,9 @@ export class IncrementalStageTracker {
     existingStages?: ProposalStage[],
     startFromStageIndex?: number
   ): Promise<ProposalTrackingResult> {
-    debugLog(`[IncrementalStageTracker] trackProposal called`);
-    debugLog(`  proposalId: ${proposalId.slice(0, 20)}...`);
-    debugLog(`  startFromStageIndex: ${startFromStageIndex ?? 0}`);
+    debug.stageTracker(`[IncrementalStageTracker] trackProposal called`);
+    debug.stageTracker(`  proposalId: ${proposalId.slice(0, 20)}...`);
+    debug.stageTracker(`  startFromStageIndex: ${startFromStageIndex ?? 0}`);
     const stages: ProposalStage[] = [];
     const startIndex = startFromStageIndex ?? 0;
 
@@ -89,14 +89,14 @@ export class IncrementalStageTracker {
       }
     }
 
-    debugLog(`[IncrementalStageTracker] Getting creation receipt...`);
+    debug.stageTracker(`[IncrementalStageTracker] Getting creation receipt...`);
     ctx.creationReceipt = await queryWithRetry(() =>
       this.l2Provider.getTransactionReceipt(creationTxHash)
     );
     if (!ctx.creationReceipt) {
       throw new Error(`Transaction not found: ${creationTxHash}`);
     }
-    debugLog(
+    debug.stageTracker(
       `[IncrementalStageTracker] Got creation receipt, block: ${ctx.creationReceipt.blockNumber}`
     );
     ctx.creationL1BlockNumber = getL1BlockNumberFromReceipt(
@@ -110,35 +110,39 @@ export class IncrementalStageTracker {
     );
     let currentState: string | undefined;
     try {
-      debugLog(`[IncrementalStageTracker] Getting proposal state...`);
+      debug.stageTracker(`[IncrementalStageTracker] Getting proposal state...`);
       const stateNum = await governor.state(proposalId);
       currentState =
         PROPOSAL_STATE_NAMES[stateNum as keyof typeof PROPOSAL_STATE_NAMES];
-      debugLog(`[IncrementalStageTracker] Proposal state: ${currentState}`);
+      debug.stageTracker(
+        `[IncrementalStageTracker] Proposal state: ${currentState}`
+      );
     } catch (e) {
-      debugLog(
+      debug.stageTracker(
         "[IncrementalStageTracker] Failed to get proposal state:",
         e instanceof Error ? e.message : e
       );
     }
 
     if (startIndex <= 0) {
-      debugLog(
+      debug.stageTracker(
         `[IncrementalStageTracker] Tracking stage 1: PROPOSAL_CREATED...`
       );
       const createdStage = await trackProposalCreated(ctx);
       addStage(createdStage);
-      debugLog(
+      debug.stageTracker(
         `[IncrementalStageTracker] Stage 1 complete: ${createdStage.status}`
       );
     }
 
     let votingStage: ProposalStage;
     if (startIndex <= 1) {
-      debugLog(`[IncrementalStageTracker] Tracking stage 2: VOTING_ACTIVE...`);
+      debug.stageTracker(
+        `[IncrementalStageTracker] Tracking stage 2: VOTING_ACTIVE...`
+      );
       votingStage = await trackVotingStage(ctx);
       addStage(votingStage);
-      debugLog(
+      debug.stageTracker(
         `[IncrementalStageTracker] Stage 2 complete: ${votingStage.status}`
       );
     } else {
@@ -146,7 +150,7 @@ export class IncrementalStageTracker {
     }
 
     if (votingStage && votingStage.status === "PENDING") {
-      debugLog(
+      debug.stageTracker(
         `[IncrementalStageTracker] Voting still pending, returning early`
       );
       return {
@@ -159,7 +163,9 @@ export class IncrementalStageTracker {
     }
 
     if (votingStage && votingStage.status === "FAILED") {
-      debugLog(`[IncrementalStageTracker] Voting failed, returning early`);
+      debug.stageTracker(
+        `[IncrementalStageTracker] Voting failed, returning early`
+      );
       return {
         proposalId,
         creationTxHash,
@@ -171,12 +177,12 @@ export class IncrementalStageTracker {
 
     let queuedStage: ProposalStage;
     if (startIndex <= 2) {
-      debugLog(
+      debug.stageTracker(
         `[IncrementalStageTracker] Tracking stage 3: PROPOSAL_QUEUED...`
       );
       queuedStage = await trackProposalQueued(ctx);
       addStage(queuedStage);
-      debugLog(
+      debug.stageTracker(
         `[IncrementalStageTracker] Stage 3 complete: ${queuedStage.status}`
       );
     } else {
@@ -184,7 +190,9 @@ export class IncrementalStageTracker {
     }
 
     if (!queuedStage || queuedStage.status !== "COMPLETED") {
-      debugLog(`[IncrementalStageTracker] Proposal not queued yet, returning`);
+      debug.stageTracker(
+        `[IncrementalStageTracker] Proposal not queued yet, returning`
+      );
       return {
         proposalId,
         creationTxHash,
@@ -195,7 +203,7 @@ export class IncrementalStageTracker {
     }
 
     // Ensure we have proposal data for operationId computation
-    debugLog(
+    debug.stageTracker(
       `[IncrementalStageTracker] Getting proposal data for operationId...`
     );
     if (!ctx.proposalData) {
@@ -203,7 +211,7 @@ export class IncrementalStageTracker {
     }
 
     // Compute operationId for the timelock operation
-    debugLog(`[IncrementalStageTracker] Computing operationId...`);
+    debug.stageTracker(`[IncrementalStageTracker] Computing operationId...`);
     const operationId = ethers.utils.keccak256(
       ethers.utils.defaultAbiCoder.encode(
         ["address[]", "uint256[]", "bytes[]", "bytes32", "bytes32"],
@@ -267,17 +275,17 @@ export class IncrementalStageTracker {
     };
 
     // Use shared tracker for stages 4-10
-    debugLog(
+    debug.stageTracker(
       `[IncrementalStageTracker] Tracking post-L2 timelock stages (4-10)...`
     );
-    debugLog(`  isCore: ${isCore}`);
-    debugLog(`  operationId: ${operationId.slice(0, 20)}...`);
-    debugLog(`  queueBlockNumber: ${queueBlockNumber}`);
+    debug.stageTracker(`  isCore: ${isCore}`);
+    debug.stageTracker(`  operationId: ${operationId.slice(0, 20)}...`);
+    debug.stageTracker(`  queueBlockNumber: ${queueBlockNumber}`);
     const postL2StartTime = Date.now();
     const postL2Result = await trackPostL2TimelockStages(
       postL2Context,
       (stage, index, isLast) => {
-        debugLog(
+        debug.stageTracker(
           `[IncrementalStageTracker] Post-L2 stage ${index + 4}: ${stage.type} -> ${stage.status}`
         );
         // Only add stages that haven't been added yet
@@ -287,7 +295,7 @@ export class IncrementalStageTracker {
       },
       isCore
     );
-    debugLog(
+    debug.stageTracker(
       `[IncrementalStageTracker] Post-L2 timelock tracking completed in ${Date.now() - postL2StartTime}ms`
     );
 

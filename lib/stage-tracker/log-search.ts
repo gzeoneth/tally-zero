@@ -1,4 +1,5 @@
-import { debugLog, delay } from "@/lib/delay-utils";
+import { debug } from "@/lib/debug";
+import { delay } from "@/lib/delay-utils";
 import { queryWithRetry } from "@/lib/rpc-utils";
 import { ethers } from "ethers";
 
@@ -33,7 +34,7 @@ export async function searchLogsInChunks(
 ): Promise<ethers.providers.Log[]> {
   const totalBlocks = toBlock - fromBlock;
   const totalChunks = Math.ceil(totalBlocks / chunkSize);
-  debugLog(
+  debug.stageTracker(
     `[searchLogsInChunks] Searching ${fromBlock} to ${toBlock} (${totalBlocks} blocks, ${totalChunks} chunks)`
   );
   const startTime = Date.now();
@@ -45,7 +46,7 @@ export async function searchLogsInChunks(
     const end = Math.min(start + chunkSize - 1, toBlock);
 
     if (chunkNum === 1 || chunkNum % 10 === 0 || chunkNum === totalChunks) {
-      debugLog(
+      debug.stageTracker(
         `[searchLogsInChunks] Chunk ${chunkNum}/${totalChunks}: ${start}-${end}`
       );
     }
@@ -63,7 +64,7 @@ export async function searchLogsInChunks(
     if (earlyExitCheck && logs.length > 0) {
       const match = earlyExitCheck(logs);
       if (match) {
-        debugLog(
+        debug.stageTracker(
           `[searchLogsInChunks] Early exit at chunk ${chunkNum}, found ${allLogs.length} logs in ${Date.now() - startTime}ms`
         );
         return allLogs;
@@ -75,7 +76,7 @@ export async function searchLogsInChunks(
     }
   }
 
-  debugLog(
+  debug.stageTracker(
     `[searchLogsInChunks] Completed: ${allLogs.length} logs found in ${Date.now() - startTime}ms`
   );
   return allLogs;

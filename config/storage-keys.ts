@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   TIMELOCK_OP_CACHE_PREFIX: "tally-zero-timelock-op-",
   DAYS_TO_SEARCH: "tally-zero-days-to-search",
   NERD_MODE: "tally-zero-nerd-mode",
+  DEBUG_LOGGING: "tally-zero-debug-logging",
   CACHE_TTL: "tally-zero-cache-ttl",
   SKIP_PRELOAD_CACHE: "tally-zero-skip-preload-cache",
   SKIP_DELEGATE_CACHE: "tally-zero-skip-delegate-cache",

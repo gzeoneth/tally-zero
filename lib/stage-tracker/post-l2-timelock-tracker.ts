@@ -23,7 +23,7 @@ import {
 } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import { addressesEqual } from "@/lib/address-utils";
-import { debugLog } from "@/lib/delay-utils";
+import { debug } from "@/lib/debug";
 import type {
   ChunkingConfig,
   ProposalStage,
@@ -105,10 +105,10 @@ export async function trackPostL2TimelockStages(
   onProgress?: StageProgressCallback,
   isCoreGovernor: boolean = true
 ): Promise<PostL2TimelockResult> {
-  debugLog(`[postL2Tracker] trackPostL2TimelockStages called`);
-  debugLog(`  isCoreGovernor: ${isCoreGovernor}`);
-  debugLog(`  operationId: ${ctx.operationId.slice(0, 20)}...`);
-  debugLog(`  queueBlockNumber: ${ctx.queueBlockNumber}`);
+  debug.stageTracker(`[postL2Tracker] trackPostL2TimelockStages called`);
+  debug.stageTracker(`  isCoreGovernor: ${isCoreGovernor}`);
+  debug.stageTracker(`  operationId: ${ctx.operationId.slice(0, 20)}...`);
+  debug.stageTracker(`  queueBlockNumber: ${ctx.queueBlockNumber}`);
   const stages: ProposalStage[] = [];
   let stageIndex = 0;
   let l2TimelockTxHash: string | undefined = ctx.l2TimelockTxHash;
@@ -124,10 +124,12 @@ export async function trackPostL2TimelockStages(
   };
 
   // Stage 4: L2 Timelock Execution
-  debugLog(`[postL2Tracker] Tracking stage 4: L2_TIMELOCK_EXECUTED...`);
+  debug.stageTracker(
+    `[postL2Tracker] Tracking stage 4: L2_TIMELOCK_EXECUTED...`
+  );
   const l2ExecStartTime = Date.now();
   const l2ExecutionStage = await trackL2TimelockExecution(ctx);
-  debugLog(
+  debug.stageTracker(
     `[postL2Tracker] Stage 4 completed in ${Date.now() - l2ExecStartTime}ms: ${l2ExecutionStage.status}`
   );
   addStage(
@@ -190,14 +192,14 @@ export async function trackPostL2TimelockStages(
   }
 
   // Stage 5-6: L2→L1 Message tracking
-  debugLog(`[postL2Tracker] Tracking stages 5-6: L2→L1 Message...`);
+  debug.stageTracker(`[postL2Tracker] Tracking stages 5-6: L2→L1 Message...`);
   const l2ToL1StartTime = Date.now();
   const l2ToL1Stages = await trackL2ToL1Message(ctx, l2TimelockTxHash);
-  debugLog(
+  debug.stageTracker(
     `[postL2Tracker] Stages 5-6 completed in ${Date.now() - l2ToL1StartTime}ms`
   );
   for (const stage of l2ToL1Stages) {
-    debugLog(`[postL2Tracker]   ${stage.type}: ${stage.status}`);
+    debug.stageTracker(`[postL2Tracker]   ${stage.type}: ${stage.status}`);
     addStage(stage);
   }
 
@@ -236,14 +238,14 @@ export async function trackPostL2TimelockStages(
   }
 
   // Stage 7-8: L1 Timelock tracking
-  debugLog(`[postL2Tracker] Tracking stages 7-8: L1 Timelock...`);
+  debug.stageTracker(`[postL2Tracker] Tracking stages 7-8: L1 Timelock...`);
   const l1TimelockStartTime = Date.now();
   const l1TimelockResult = await trackL1TimelockStages(ctx, l2TimelockTxHash);
-  debugLog(
+  debug.stageTracker(
     `[postL2Tracker] Stages 7-8 completed in ${Date.now() - l1TimelockStartTime}ms`
   );
   for (const stage of l1TimelockResult.stages) {
-    debugLog(`[postL2Tracker]   ${stage.type}: ${stage.status}`);
+    debug.stageTracker(`[postL2Tracker]   ${stage.type}: ${stage.status}`);
     addStage(stage);
   }
   l1OperationId = l1TimelockResult.operationId;
@@ -276,15 +278,15 @@ export async function trackPostL2TimelockStages(
 
   // Stage 9-10: Retryable tracking
   if (l1ExecutionTxHash) {
-    debugLog(`[postL2Tracker] Tracking stages 9-10: Retryables...`);
+    debug.stageTracker(`[postL2Tracker] Tracking stages 9-10: Retryables...`);
     const retryableStartTime = Date.now();
     const retryableStages = await trackRetryables(ctx, l1ExecutionTxHash);
-    debugLog(
+    debug.stageTracker(
       `[postL2Tracker] Stages 9-10 completed in ${Date.now() - retryableStartTime}ms`
     );
     const lastIndex = retryableStages.length - 1;
     retryableStages.forEach((stage, i) => {
-      debugLog(`[postL2Tracker]   ${stage.type}: ${stage.status}`);
+      debug.stageTracker(`[postL2Tracker]   ${stage.type}: ${stage.status}`);
       addStage(stage, i === lastIndex);
     });
   } else {
@@ -392,15 +394,15 @@ async function trackL2ToL1Message(
   ctx: PostL2TimelockContext,
   l2TimelockTxHash: string
 ): Promise<ProposalStage[]> {
-  debugLog(
+  debug.stageTracker(
     `[trackL2ToL1Message] Starting for tx: ${l2TimelockTxHash.slice(0, 20)}...`
   );
   const stages: ProposalStage[] = [];
 
-  debugLog(`[trackL2ToL1Message] Getting transaction receipt...`);
+  debug.stageTracker(`[trackL2ToL1Message] Getting transaction receipt...`);
   const receiptStartTime = Date.now();
   const receipt = await ctx.l2Provider.getTransactionReceipt(l2TimelockTxHash);
-  debugLog(
+  debug.stageTracker(
     `[trackL2ToL1Message] Got receipt in ${Date.now() - receiptStartTime}ms`
   );
   if (!receipt) {
@@ -418,12 +420,16 @@ async function trackL2ToL1Message(
     ];
   }
 
-  debugLog(`[trackL2ToL1Message] Creating ChildTransactionReceipt...`);
+  debug.stageTracker(
+    `[trackL2ToL1Message] Creating ChildTransactionReceipt...`
+  );
   const childReceipt = new ChildTransactionReceipt(receipt);
-  debugLog(`[trackL2ToL1Message] Getting L2→L1 messages (this may be slow)...`);
+  debug.stageTracker(
+    `[trackL2ToL1Message] Getting L2→L1 messages (this may be slow)...`
+  );
   const messagesStartTime = Date.now();
   const messages = await childReceipt.getChildToParentMessages(ctx.l1Provider);
-  debugLog(
+  debug.stageTracker(
     `[trackL2ToL1Message] Got ${messages.length} messages in ${Date.now() - messagesStartTime}ms`
   );
 
@@ -465,12 +471,12 @@ async function trackL2ToL1Message(
 
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i];
-    debugLog(
+    debug.stageTracker(
       `[trackL2ToL1Message] Checking status of message ${i + 1}/${messages.length}...`
     );
     const statusStartTime = Date.now();
     const status = await message.status(ctx.baseL2Provider);
-    debugLog(
+    debug.stageTracker(
       `[trackL2ToL1Message] Got status in ${Date.now() - statusStartTime}ms`
     );
     const statusName = ChildToParentMessageStatus[status];
@@ -487,12 +493,14 @@ async function trackL2ToL1Message(
     }
 
     if (firstExecutableBlock === null) {
-      debugLog(`[trackL2ToL1Message] Getting first executable block...`);
+      debug.stageTracker(
+        `[trackL2ToL1Message] Getting first executable block...`
+      );
       const execBlockStartTime = Date.now();
       const executableBlock = await message.getFirstExecutableBlock(
         ctx.baseL2Provider
       );
-      debugLog(
+      debug.stageTracker(
         `[trackL2ToL1Message] Got executable block in ${Date.now() - execBlockStartTime}ms`
       );
       if (executableBlock) {
@@ -527,14 +535,16 @@ async function trackL1TimelockStages(
   operationId?: string;
   l1ExecutionTxHash?: string;
 }> {
-  debugLog(`[trackL1TimelockStages] Starting...`);
+  debug.stageTracker(`[trackL1TimelockStages] Starting...`);
   const stages: ProposalStage[] = [];
-  debugLog(`[trackL1TimelockStages] Getting L1 current block...`);
+  debug.stageTracker(`[trackL1TimelockStages] Getting L1 current block...`);
   const currentBlock = await ctx.l1Provider.getBlockNumber();
-  debugLog(`[trackL1TimelockStages] L1 current block: ${currentBlock}`);
+  debug.stageTracker(
+    `[trackL1TimelockStages] L1 current block: ${currentBlock}`
+  );
 
   // Get L2 receipt
-  debugLog(`[trackL1TimelockStages] Getting L2 receipt...`);
+  debug.stageTracker(`[trackL1TimelockStages] Getting L2 receipt...`);
   const receipt = await ctx.l2Provider.getTransactionReceipt(l2TimelockTxHash);
   if (!receipt) {
     return {
@@ -555,11 +565,11 @@ async function trackL1TimelockStages(
   }
 
   // Get L2→L1 messages
-  debugLog(`[trackL1TimelockStages] Getting L2→L1 messages...`);
+  debug.stageTracker(`[trackL1TimelockStages] Getting L2→L1 messages...`);
   const childReceipt = new ChildTransactionReceipt(receipt);
   const messagesStartTime = Date.now();
   const messages = await childReceipt.getChildToParentMessages(ctx.l1Provider);
-  debugLog(
+  debug.stageTracker(
     `[trackL1TimelockStages] Got ${messages.length} messages in ${Date.now() - messagesStartTime}ms`
   );
 
@@ -583,11 +593,13 @@ async function trackL1TimelockStages(
 
   // Fast path: Check message status before expensive log search
   // Only search for OutBoxTransactionExecuted if message is already EXECUTED
-  debugLog(`[trackL1TimelockStages] Checking message status (fast path)...`);
+  debug.stageTracker(
+    `[trackL1TimelockStages] Checking message status (fast path)...`
+  );
   const statusCheckStart = Date.now();
   const messageStatus = await messages[0].status(ctx.baseL2Provider);
   const statusName = ChildToParentMessageStatus[messageStatus];
-  debugLog(
+  debug.stageTracker(
     `[trackL1TimelockStages] Message status: ${statusName} (${Date.now() - statusCheckStart}ms)`
   );
 
@@ -611,7 +623,7 @@ async function trackL1TimelockStages(
       l1ExecutedStatus = "NOT_STARTED";
     }
 
-    debugLog(
+    debug.stageTracker(
       `[trackL1TimelockStages] Message not executed yet (${statusName}), skipping L1 log search`
     );
     return {
@@ -632,12 +644,14 @@ async function trackL1TimelockStages(
   }
 
   // Get the first executable block for calculating search range
-  debugLog(`[trackL1TimelockStages] Getting first executable block...`);
+  debug.stageTracker(
+    `[trackL1TimelockStages] Getting first executable block...`
+  );
   const execBlockStartTime = Date.now();
   const executableBlock = await messages[0].getFirstExecutableBlock(
     ctx.baseL2Provider
   );
-  debugLog(
+  debug.stageTracker(
     `[trackL1TimelockStages] Got executable block in ${Date.now() - execBlockStartTime}ms`
   );
   let fromBlock: number;
@@ -647,10 +661,12 @@ async function trackL1TimelockStages(
     const l1BlockAtL2Tx = getL1BlockNumberFromReceipt(receipt);
     fromBlock = l1BlockAtL2Tx + OLD_CHALLENGE_PERIOD_L1_BLOCKS;
   }
-  debugLog(`[trackL1TimelockStages] Search from block: ${fromBlock}`);
+  debug.stageTracker(`[trackL1TimelockStages] Search from block: ${fromBlock}`);
 
   // Find the L1 execution transaction via Outbox
-  debugLog(`[trackL1TimelockStages] Finding L1 execution transaction...`);
+  debug.stageTracker(
+    `[trackL1TimelockStages] Finding L1 execution transaction...`
+  );
   const findL1TxStartTime = Date.now();
   const l1ExecutionTx = await findL1ExecutionTransaction(
     {
@@ -663,10 +679,10 @@ async function trackL1TimelockStages(
     fromBlock,
     currentBlock
   );
-  debugLog(
+  debug.stageTracker(
     `[trackL1TimelockStages] findL1ExecutionTransaction completed in ${Date.now() - findL1TxStartTime}ms`
   );
-  debugLog(
+  debug.stageTracker(
     `[trackL1TimelockStages] L1 execution tx found: ${l1ExecutionTx ? l1ExecutionTx.hash.slice(0, 20) + "..." : "null"}`
   );
 
@@ -856,15 +872,15 @@ async function trackRetryables(
   ctx: PostL2TimelockContext,
   l1ExecutionTxHash: string
 ): Promise<ProposalStage[]> {
-  debugLog(
+  debug.stageTracker(
     `[trackRetryables] Starting for L1 tx: ${l1ExecutionTxHash.slice(0, 20)}...`
   );
   const stages: ProposalStage[] = [];
 
-  debugLog(`[trackRetryables] Getting L1 receipt...`);
+  debug.stageTracker(`[trackRetryables] Getting L1 receipt...`);
   const receipt = await ctx.l1Provider.getTransactionReceipt(l1ExecutionTxHash);
   if (!receipt) {
-    debugLog(`[trackRetryables] No receipt found`);
+    debug.stageTracker(`[trackRetryables] No receipt found`);
     return [
       {
         type: "RETRYABLE_CREATED",
@@ -878,7 +894,9 @@ async function trackRetryables(
       },
     ];
   }
-  debugLog(`[trackRetryables] Got L1 receipt, block: ${receipt.blockNumber}`);
+  debug.stageTracker(
+    `[trackRetryables] Got L1 receipt, block: ${receipt.blockNumber}`
+  );
 
   // Detect target chains by checking which inboxes were interacted with
   const hasArb1Inbox = receipt.logs.some((log) =>
@@ -916,7 +934,7 @@ async function trackRetryables(
     });
   }
 
-  debugLog(
+  debug.stageTracker(
     `[trackRetryables] Target chains: ${chains.map((c) => c.name).join(", ")}`
   );
 
@@ -939,28 +957,32 @@ async function trackRetryables(
   let allRedeemed = true;
 
   for (const chain of chains) {
-    debugLog(`[trackRetryables] Getting messages for chain ${chain.name}...`);
+    debug.stageTracker(
+      `[trackRetryables] Getting messages for chain ${chain.name}...`
+    );
     const chainMsgStartTime = Date.now();
     const messages = await parentReceipt.getParentToChildMessages(
       chain.provider
     );
-    debugLog(
+    debug.stageTracker(
       `[trackRetryables] Got ${messages.length} messages for ${chain.name} in ${Date.now() - chainMsgStartTime}ms`
     );
 
     for (let i = 0; i < messages.length; i++) {
       const globalIndex = totalMessages + i;
       const msg = messages[i];
-      debugLog(
+      debug.stageTracker(
         `[trackRetryables] Processing message ${i + 1}/${messages.length} on ${chain.name}...`
       );
 
       // Track creation
       try {
-        debugLog(`[trackRetryables] Getting retryable creation receipt...`);
+        debug.stageTracker(
+          `[trackRetryables] Getting retryable creation receipt...`
+        );
         const creationStartTime = Date.now();
         const creationReceipt = await msg.getRetryableCreationReceipt();
-        debugLog(
+        debug.stageTracker(
           `[trackRetryables] Got creation receipt in ${Date.now() - creationStartTime}ms`
         );
         if (creationReceipt) {
@@ -999,10 +1021,12 @@ async function trackRetryables(
 
       // Track redemption
       try {
-        debugLog(`[trackRetryables] Getting successful redeem status...`);
+        debug.stageTracker(
+          `[trackRetryables] Getting successful redeem status...`
+        );
         const redeemStartTime = Date.now();
         const redeemResult = await msg.getSuccessfulRedeem();
-        debugLog(
+        debug.stageTracker(
           `[trackRetryables] Got redeem status in ${Date.now() - redeemStartTime}ms`
         );
         const statusName = ParentToChildMessageStatus[redeemResult.status];
