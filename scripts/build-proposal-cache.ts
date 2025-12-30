@@ -36,6 +36,7 @@ import * as fs from "fs";
 
 import { addressesEqual, findByAddress } from "../lib/address-utils";
 import { delay } from "../lib/delay-utils";
+import { fetchProposalStateAndVotes } from "../lib/governor-search";
 import { batchQueryWithRateLimit } from "../lib/rpc-utils";
 import { trackProposalStages } from "../lib/stage-tracker-core";
 import {
@@ -265,20 +266,11 @@ async function parseProposals(
         provider
       );
 
-      const [proposalState, votes] = await Promise.all([
-        contract.state(proposal.id),
-        contract.proposalVotes(proposal.id),
-      ]);
-
-      let quorum: string | undefined;
-      if (proposalState !== 0) {
-        try {
-          const quorumBN = await contract.quorum(proposal.startBlock);
-          quorum = quorumBN.toString();
-        } catch {
-          // Quorum fetch can fail for some states
-        }
-      }
+      const stateData = await fetchProposalStateAndVotes(
+        contract,
+        proposal.id,
+        proposal.startBlock
+      );
 
       const governor = findByAddress(GOVERNORS, proposal.contractAddress);
 
@@ -286,13 +278,11 @@ async function parseProposals(
         ...proposal,
         contractAddress: proposal.contractAddress as Address,
         networkId: String(ARBITRUM_CHAIN_ID),
-        state: PROPOSAL_STATE_NAMES[proposalState] ?? "pending",
+        state: PROPOSAL_STATE_NAMES[stateData.state] ?? "pending",
         governorName: governor?.name || "Unknown",
         votes: {
-          againstVotes: votes.againstVotes.toString(),
-          forVotes: votes.forVotes.toString(),
-          abstainVotes: votes.abstainVotes.toString(),
-          quorum,
+          ...stateData.votes,
+          quorum: stateData.quorum,
         },
       });
 
@@ -605,29 +595,18 @@ async function refreshProposalStates(
         provider
       );
 
-      const [proposalState, votes] = await Promise.all([
-        contract.state(proposal.id),
-        contract.proposalVotes(proposal.id),
-      ]);
-
-      let quorum: string | undefined;
-      if (proposalState !== 0) {
-        try {
-          const quorumBN = await contract.quorum(proposal.startBlock);
-          quorum = quorumBN.toString();
-        } catch {
-          // Quorum fetch can fail
-        }
-      }
+      const stateData = await fetchProposalStateAndVotes(
+        contract,
+        proposal.id,
+        proposal.startBlock
+      );
 
       refreshed.push({
         ...proposal,
-        state: PROPOSAL_STATE_NAMES[proposalState] ?? "pending",
+        state: PROPOSAL_STATE_NAMES[stateData.state] ?? "pending",
         votes: {
-          againstVotes: votes.againstVotes.toString(),
-          forVotes: votes.forVotes.toString(),
-          abstainVotes: votes.abstainVotes.toString(),
-          quorum,
+          ...stateData.votes,
+          quorum: stateData.quorum,
         },
       });
 

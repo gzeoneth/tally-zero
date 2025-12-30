@@ -29,7 +29,7 @@ function createContractCache(provider: ethers.providers.Provider) {
   };
 }
 
-interface ProposalStateData {
+export interface ProposalStateData {
   state: number;
   votes: {
     forVotes: string;
@@ -43,7 +43,7 @@ interface ProposalStateData {
  * Fetches proposal state, votes, and quorum from the governor contract.
  * Consolidates the common pattern used across multiple functions.
  */
-async function fetchProposalStateAndVotes(
+export async function fetchProposalStateAndVotes(
   contract: ethers.Contract,
   proposalId: string,
   startBlock: string
