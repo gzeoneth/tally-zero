@@ -1,3 +1,10 @@
+/**
+ * Delegate cache utilities
+ *
+ * Provides functions for loading, validating, and querying the delegate
+ * cache containing ARB token delegate voting power data.
+ */
+
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import type {
   DelegateCache,
@@ -9,6 +16,7 @@ import { debug } from "./debug";
 import { formatCacheAge } from "./format-utils";
 import { getStoredValue } from "./storage-utils";
 
+/** Current cache format version for compatibility checks */
 export const CURRENT_DELEGATE_CACHE_VERSION = 1;
 
 // Type for the delegate labels JSON structure
@@ -40,6 +48,11 @@ export function getDelegateLabel(address: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Check if delegate cache should be skipped based on user settings
+ *
+ * @returns True if user has disabled delegate cache
+ */
 function getSkipDelegateCacheSetting(): boolean {
   return (
     getStoredValue<boolean>(STORAGE_KEYS.SKIP_DELEGATE_CACHE, false) === true
