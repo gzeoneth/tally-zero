@@ -148,7 +148,6 @@ export function DeepLinkHandler({ proposals }: DeepLinkHandlerProps) {
       | "description"
       | "payload"
       | "stages"
-      | "voters"
       | "vote"
       | undefined;
 
