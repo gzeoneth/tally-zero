@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { findStateByValue } from "./state-utils";
+import { findStateByValue, getStateName } from "./state-utils";
 
 describe("state-utils", () => {
   describe("findStateByValue", () => {
@@ -74,6 +74,46 @@ describe("state-utils", () => {
       expect(result).toHaveProperty("label");
       expect(result).toHaveProperty("bgColor");
       expect(result).toHaveProperty("icon");
+    });
+  });
+
+  describe("getStateName", () => {
+    it("converts state 0 to pending", () => {
+      expect(getStateName(0)).toBe("pending");
+    });
+
+    it("converts state 1 to active", () => {
+      expect(getStateName(1)).toBe("active");
+    });
+
+    it("converts state 2 to canceled", () => {
+      expect(getStateName(2)).toBe("canceled");
+    });
+
+    it("converts state 3 to defeated", () => {
+      expect(getStateName(3)).toBe("defeated");
+    });
+
+    it("converts state 4 to succeeded", () => {
+      expect(getStateName(4)).toBe("succeeded");
+    });
+
+    it("converts state 5 to queued", () => {
+      expect(getStateName(5)).toBe("queued");
+    });
+
+    it("converts state 6 to expired", () => {
+      expect(getStateName(6)).toBe("expired");
+    });
+
+    it("converts state 7 to executed", () => {
+      expect(getStateName(7)).toBe("executed");
+    });
+
+    it("returns pending for invalid state numbers", () => {
+      expect(getStateName(8)).toBe("pending");
+      expect(getStateName(-1)).toBe("pending");
+      expect(getStateName(100)).toBe("pending");
     });
   });
 });

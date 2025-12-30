@@ -3,13 +3,13 @@ import { ethers } from "ethers";
 import { findByAddress } from "@/lib/address-utils";
 import { debug } from "@/lib/debug";
 import { batchQueryWithRateLimit } from "@/lib/rpc-utils";
+import { getStateName } from "@/lib/state-utils";
 import type { ParsedProposal, Proposal } from "@/types/proposal";
 import {
   ARBITRUM_CHAIN_ID,
   ARBITRUM_GOVERNORS,
   BLOCKS_PER_DAY,
 } from "@config/arbitrum-governance";
-import { ProposalState } from "@config/initial-state";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 /**
@@ -227,7 +227,7 @@ export async function parseProposals(
       return {
         ...proposal,
         networkId: String(ARBITRUM_CHAIN_ID),
-        state: (ProposalState[stateData.state] as string)?.toLowerCase(),
+        state: getStateName(stateData.state),
         governorName: governor?.name || "Unknown",
         creationTxHash: proposal.creationTxHash,
         votes: {
@@ -270,9 +270,7 @@ export async function refreshProposalStates(
 
       return {
         ...proposal,
-        state: (
-          ProposalState[stateData.state] as string
-        )?.toLowerCase() as ParsedProposal["state"],
+        state: getStateName(stateData.state),
         votes: {
           ...stateData.votes,
           quorum: stateData.quorum,

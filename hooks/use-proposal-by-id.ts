@@ -11,12 +11,8 @@ import {
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { createRpcProvider } from "@/lib/rpc-utils";
-import type {
-  ParsedProposal,
-  ProposalStateName,
-  ProposalVotes,
-} from "@/types/proposal";
-import { ProposalState } from "@config/initial-state";
+import { getStateName } from "@/lib/state-utils";
+import type { ParsedProposal, ProposalVotes } from "@/types/proposal";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 interface UseProposalByIdOptions {
@@ -133,7 +129,7 @@ export function useProposalById({
                 endBlock: proposalDeadline.toString(),
                 description: `Proposal ${proposalId}`,
                 networkId: String(ARBITRUM_CHAIN_ID),
-                state: ProposalState[proposalState] as ProposalStateName,
+                state: getStateName(proposalState),
                 governorName: governor.name,
                 votes: formatVotes(votes, quorum),
               };
@@ -181,7 +177,7 @@ export function useProposalById({
               endBlock: propEndBlock.toString(),
               description,
               networkId: String(ARBITRUM_CHAIN_ID),
-              state: ProposalState[proposalState] as ProposalStateName,
+              state: getStateName(proposalState),
               governorName: governor.name,
               creationTxHash: event.transactionHash,
               votes: formatVotes(votes, quorum),
