@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Hook for tracking timelock operations across L1/L2
+ * Parses transactions, tracks lifecycle stages, and manages caching
+ */
+
 import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { isValidTxHash } from "@/lib/address-utils";
@@ -20,27 +25,49 @@ import type { ProposalStage } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
 
+/** Options for configuring timelock operation tracking */
 interface UseTimelockOperationOptions {
+  /** Transaction hash containing CallScheduled events */
   txHash: string;
+  /** Whether tracking is enabled */
   enabled?: boolean;
+  /** Custom L1 (Ethereum) RPC URL */
   l1RpcUrl?: string;
+  /** Custom L2 (Arbitrum) RPC URL */
   l2RpcUrl?: string;
 }
 
+/** Return type for useTimelockOperation hook */
 interface UseTimelockOperationResult {
+  /** List of timelock operations found in transaction */
   operations: TimelockOperationInfo[];
+  /** Currently selected operation for tracking */
   selectedOperation: TimelockOperationInfo | null;
+  /** Lifecycle stages for the selected operation */
   stages: ProposalStage[];
+  /** Whether any operation is loading */
   isLoading: boolean;
+  /** Whether transaction is being parsed */
   isParsing: boolean;
+  /** Whether operation is being tracked */
   isTracking: boolean;
+  /** Error message if any operation failed */
   error: string | null;
+  /** Full tracking result for selected operation */
   result: TimelockTrackingResult | null;
+  /** Function to select an operation for tracking */
   selectOperation: (operation: TimelockOperationInfo) => void;
+  /** Function to deselect and go back to list */
   deselectOperation: () => void;
+  /** Function to force refresh tracking */
   refetch: () => void;
 }
 
+/**
+ * Hook for tracking timelock operations from a transaction
+ * @param options - Tracking options including txHash and RPC URLs
+ * @returns Operations, stages, loading state, and control functions
+ */
 export function useTimelockOperation({
   txHash,
   enabled = true,

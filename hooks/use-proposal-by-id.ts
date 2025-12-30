@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Hook for fetching a single proposal by ID
+ * Searches all governors and used for deep linking
+ */
+
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
@@ -15,22 +20,33 @@ import { getStateName } from "@/lib/state-utils";
 import type { ParsedProposal, ProposalVotes } from "@/types/proposal";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
+/** Options for configuring proposal lookup */
 interface UseProposalByIdOptions {
+  /** The proposal ID to fetch */
   proposalId: string | null;
+  /** Whether lookup is enabled */
   enabled?: boolean;
+  /** Custom RPC URL to use */
   customRpcUrl?: string;
 }
 
+/** Return type for useProposalById hook */
 interface UseProposalByIdResult {
+  /** Fetched proposal or null */
   proposal: ParsedProposal | null;
+  /** Whether fetch is in progress */
   isLoading: boolean;
+  /** Error if fetch failed */
   error: Error | null;
+  /** Function to manually refetch */
   refetch: () => void;
 }
 
 /**
  * Hook to fetch a single proposal by ID from all governors
  * Used for deep linking when the proposal isn't in the cached/searched results
+ * @param options - Fetch options including proposal ID and RPC URL
+ * @returns Proposal, loading state, error, and refetch function
  */
 export function useProposalById({
   proposalId,
@@ -224,6 +240,12 @@ export function useProposalById({
   };
 }
 
+/**
+ * Format raw vote data into ProposalVotes structure
+ * @param votes - Raw vote counts from contract
+ * @param quorum - Optional quorum threshold
+ * @returns Formatted proposal votes
+ */
 function formatVotes(
   votes: {
     forVotes: ethers.BigNumber;

@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Hook for finding top delegates who haven't voted on a proposal
+ * Useful for highlighting key stakeholders who could still influence the vote
+ */
+
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -17,16 +22,30 @@ import { createRpcProvider } from "@/lib/rpc-utils";
 import type { DelegateInfo } from "@/types/delegate";
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
 
+/** Delegate who hasn't voted on a proposal */
 export interface DelegateNotVoted {
+  /** Delegate's address */
   address: string;
+  /** Optional label from known delegates list */
   label: string | undefined;
+  /** Delegate's voting power in wei */
   votingPower: string;
 }
 
+/** Number of delegates to check per RPC batch */
 const BATCH_SIZE = 20;
+
+/** Maximum number of top delegates to scan */
 const MAX_DELEGATES_TO_CHECK = 100;
+
+/** Default number of non-voting delegates to return */
 const DEFAULT_LIMIT = 5;
 
+/**
+ * Hook for finding top delegates who haven't voted on a specific proposal
+ * @param options - Proposal ID, governor address, limit, and optional RPC URL
+ * @returns List of non-voting delegates, loading state, and error
+ */
 export function useTopDelegatesNotVoted({
   proposalId,
   governorAddress,

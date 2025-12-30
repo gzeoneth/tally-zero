@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Hook for searching proposals across multiple governors
+ * Combines cached and fresh proposals with state refresh for active ones
+ */
+
 import { useCallback, useEffect, useState } from "react";
 
 import { debug } from "@/lib/debug";
@@ -31,8 +36,14 @@ import {
   BLOCKS_PER_DAY,
 } from "@config/arbitrum-governance";
 
+/** Default block range for chunked RPC queries */
 const DEFAULT_BLOCK_RANGE = 10000000;
 
+/**
+ * Hook for searching proposals across Core and Treasury governors
+ * @param options - Search options including days to search and RPC URL
+ * @returns Proposals, progress, errors, and cache information
+ */
 export function useMultiGovernorSearch({
   daysToSearch,
   enabled,
