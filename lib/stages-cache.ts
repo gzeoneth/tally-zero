@@ -9,12 +9,13 @@ import type {
   ProposalTrackingResult,
   TimelockLink,
 } from "@/types/proposal-stage";
+import { MS_PER_DAY } from "./date-utils";
 import { debug, isBrowser } from "./debug";
 import type { TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
 import { seedTimelockFromCache } from "./unified-cache";
 
 // Time after proposal creation to stop tracking (60 days)
-export const MAX_TRACKING_AGE_MS = 60 * 24 * 60 * 60 * 1000;
+export const MAX_TRACKING_AGE_MS = 60 * MS_PER_DAY;
 
 export interface CachedStagesResult {
   version: number;
