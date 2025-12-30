@@ -1,7 +1,7 @@
 "use client";
 
 import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
-import { CACHE_VERSION, STORAGE_KEYS } from "@/config/storage-keys";
+import { STORAGE_KEYS } from "@/config/storage-keys";
 import { isValidTxHash } from "@/lib/address-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
@@ -12,67 +12,13 @@ import {
 } from "@/lib/stage-tracker/timelock-operation-tracker";
 import type { StageProgressCallback } from "@/lib/stage-tracker/types";
 import { getStoredCacheTtlMs, getStoredNumber } from "@/lib/storage-utils";
+import {
+  loadCachedTimelockResult,
+  saveCachedTimelockResult,
+} from "@/lib/unified-cache";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
-
-interface CachedTimelockResult {
-  version: number;
-  timestamp: number;
-  result: TimelockTrackingResult;
-}
-
-function getTimelockCacheKey(txHash: string, operationId: string): string {
-  return `${STORAGE_KEYS.TIMELOCK_OP_CACHE_PREFIX}${txHash.toLowerCase()}-${operationId.toLowerCase()}`;
-}
-
-function loadCachedTimelockResult(
-  txHash: string,
-  operationId: string,
-  ttlMs: number
-): { result: TimelockTrackingResult | null; isExpired: boolean } {
-  if (typeof window === "undefined") {
-    return { result: null, isExpired: false };
-  }
-
-  try {
-    const key = getTimelockCacheKey(txHash, operationId);
-    const cached = localStorage.getItem(key);
-    if (!cached) {
-      return { result: null, isExpired: false };
-    }
-
-    const parsed: CachedTimelockResult = JSON.parse(cached);
-    if (parsed.version !== CACHE_VERSION) {
-      return { result: null, isExpired: false };
-    }
-
-    const isExpired = Date.now() - parsed.timestamp > ttlMs;
-    return { result: parsed.result, isExpired };
-  } catch {
-    return { result: null, isExpired: false };
-  }
-}
-
-function saveCachedTimelockResult(
-  txHash: string,
-  operationId: string,
-  result: TimelockTrackingResult
-): void {
-  if (typeof window === "undefined") return;
-
-  try {
-    const key = getTimelockCacheKey(txHash, operationId);
-    const cached: CachedTimelockResult = {
-      version: CACHE_VERSION,
-      timestamp: Date.now(),
-      result,
-    };
-    localStorage.setItem(key, JSON.stringify(cached));
-  } catch {
-    // Storage full or unavailable
-  }
-}
 
 interface UseTimelockOperationOptions {
   txHash: string;
