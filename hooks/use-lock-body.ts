@@ -1,7 +1,7 @@
 import * as React from "react";
 
 // @see https://usehooks.com/useLockBodyScroll.
-export function useLockBody() {
+export function useLockBody(): void {
   React.useLayoutEffect((): (() => void) => {
     const originalStyle: string = window.getComputedStyle(
       document.body

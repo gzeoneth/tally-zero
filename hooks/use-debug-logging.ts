@@ -4,13 +4,19 @@ import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useCallback, useMemo } from "react";
 
+interface UseDebugLoggingResult {
+  enabled: boolean;
+  setEnabled: (value: boolean) => void;
+  toggle: () => void;
+}
+
 /**
  * Hook to manage debug logging state
  *
  * Debug logging is only effective when nerd mode is also enabled.
  * Changes take effect after page refresh.
  */
-export function useDebugLogging() {
+export function useDebugLogging(): UseDebugLoggingResult {
   const [enabled, setEnabled] = useLocalStorage<boolean>(
     STORAGE_KEYS.DEBUG_LOGGING,
     false

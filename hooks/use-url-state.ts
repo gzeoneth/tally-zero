@@ -80,11 +80,19 @@ function buildUrlHash(state: UrlState): string {
   return "";
 }
 
+interface UseUrlStateResult {
+  urlState: UrlState;
+  setUrlState: (newState: UrlState) => void;
+  openProposal: (proposalId: string, tab?: string) => void;
+  openTimelock: (txHash: string, opIndex?: number) => void;
+  clearUrlState: () => void;
+}
+
 /**
  * Hook for managing URL hash state for deep linking
  * Provides bidirectional sync between URL hash and component state
  */
-export function useUrlState() {
+export function useUrlState(): UseUrlStateResult {
   const [urlState, setUrlStateInternal] = useState<UrlState>({
     type: null,
     id: null,
