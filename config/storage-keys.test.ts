@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { MS_PER_HOUR } from "@/lib/date-utils";
+import {
+  MS_PER_HOUR,
+  SECONDS_PER_DAY,
+  SECONDS_PER_HOUR,
+  SECONDS_PER_MINUTE,
+} from "@/lib/date-utils";
 
 import {
   CACHE_TTL_OPTIONS,
@@ -140,12 +145,12 @@ describe("storage-keys config", () => {
 
     it("includes expected time options", () => {
       const values = CACHE_TTL_OPTIONS.map((o) => o.value);
-      expect(values).toContain(900); // 15 min
-      expect(values).toContain(1800); // 30 min
-      expect(values).toContain(3600); // 1 hour
-      expect(values).toContain(7200); // 2 hours
-      expect(values).toContain(21600); // 6 hours
-      expect(values).toContain(86400); // 24 hours
+      expect(values).toContain(15 * SECONDS_PER_MINUTE); // 15 min
+      expect(values).toContain(30 * SECONDS_PER_MINUTE); // 30 min
+      expect(values).toContain(SECONDS_PER_HOUR); // 1 hour
+      expect(values).toContain(2 * SECONDS_PER_HOUR); // 2 hours
+      expect(values).toContain(6 * SECONDS_PER_HOUR); // 6 hours
+      expect(values).toContain(SECONDS_PER_DAY); // 24 hours
     });
 
     it("has human-readable labels", () => {

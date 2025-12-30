@@ -1,4 +1,11 @@
-import { MS_PER_HOUR, MS_PER_MINUTE } from "@/lib/date-utils";
+import {
+  MS_PER_HOUR,
+  MS_PER_MINUTE,
+  MS_PER_SECOND,
+  SECONDS_PER_DAY,
+  SECONDS_PER_HOUR,
+  SECONDS_PER_MINUTE,
+} from "@/lib/date-utils";
 
 /** Common prefix for all TallyZero localStorage keys */
 export const STORAGE_PREFIX = "tally-zero";
@@ -31,15 +38,15 @@ export const DEFAULT_CACHE_TTL_MS = MS_PER_HOUR;
 
 // Timing constants for UI and polling
 export const COPY_SUCCESS_TIMEOUT_MS = 2000;
-export const CACHE_TTL_CHECK_INTERVAL_MS = 30 * 1000;
+export const CACHE_TTL_CHECK_INTERVAL_MS = 30 * MS_PER_SECOND;
 export const L1_BLOCK_REFRESH_INTERVAL_MS = MS_PER_MINUTE;
 
 // Cache TTL options in seconds
 export const CACHE_TTL_OPTIONS = [
-  { label: "15 min", value: 900 },
-  { label: "30 min", value: 1800 },
-  { label: "1 hour", value: 3600 },
-  { label: "2 hours", value: 7200 },
-  { label: "6 hours", value: 21600 },
-  { label: "24 hours", value: 86400 },
+  { label: "15 min", value: 15 * SECONDS_PER_MINUTE },
+  { label: "30 min", value: 30 * SECONDS_PER_MINUTE },
+  { label: "1 hour", value: SECONDS_PER_HOUR },
+  { label: "2 hours", value: 2 * SECONDS_PER_HOUR },
+  { label: "6 hours", value: 6 * SECONDS_PER_HOUR },
+  { label: "24 hours", value: SECONDS_PER_DAY },
 ] as const;

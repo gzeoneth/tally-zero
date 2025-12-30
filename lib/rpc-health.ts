@@ -6,6 +6,7 @@ import {
   DEFAULT_CHUNKING_CONFIG,
   ETHEREUM_RPC_URL,
 } from "@/config/arbitrum-governance";
+import { MS_PER_MINUTE, MS_PER_SECOND } from "@/lib/date-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 
 export type RpcId = "arb1" | "nova" | "l1";
@@ -54,9 +55,9 @@ export const DEFAULT_RPC_ENDPOINTS: RpcEndpoint[] = [
   },
 ];
 
-const HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds
-const LOG_SEARCH_TIMEOUT = 10000; // 10 seconds for log search
-const HEALTH_CACHE_TTL = 60000; // 60 seconds cache for health results
+const HEALTH_CHECK_TIMEOUT = 5 * MS_PER_SECOND; // 5 seconds
+const LOG_SEARCH_TIMEOUT = 10 * MS_PER_SECOND; // 10 seconds for log search
+const HEALTH_CACHE_TTL = MS_PER_MINUTE; // 60 seconds cache for health results
 
 // Cache for health check results to avoid redundant RPC calls
 interface HealthCacheEntry {
