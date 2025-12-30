@@ -3,6 +3,7 @@
  * Ensures only one tracking session exists per proposal.
  */
 
+import { debug } from "@/lib/debug";
 import type {
   ProposalStage,
   ProposalTrackingResult,
@@ -162,7 +163,7 @@ class ProposalTrackerManager {
       try {
         callback(session);
       } catch (e) {
-        console.error("[TrackerManager] Subscriber error:", e);
+        debug.stageTracker("subscriber error: %O", e);
       }
     });
   }
@@ -172,7 +173,7 @@ class ProposalTrackerManager {
       try {
         callback();
       } catch (e) {
-        console.error("[TrackerManager] Global subscriber error:", e);
+        debug.stageTracker("global subscriber error: %O", e);
       }
     });
   }
@@ -370,7 +371,7 @@ export function emitVoteUpdate(update: VoteUpdate): void {
     try {
       callback(update);
     } catch (e) {
-      console.error("[VoteUpdate] Subscriber error:", e);
+      debug.stageTracker("vote update subscriber error: %O", e);
     }
   });
 }

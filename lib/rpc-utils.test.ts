@@ -186,8 +186,6 @@ describe("rpc-utils", () => {
         .mockRejectedValueOnce(rateLimitError)
         .mockResolvedValue("success");
 
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
       const resultPromise = queryWithRetry(queryFn, {
         maxRetries: 2,
         initialDelay: 100,
@@ -197,11 +195,7 @@ describe("rpc-utils", () => {
 
       const result = await resultPromise;
       expect(result).toBe("success");
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Rate limit hit")
-      );
-
-      consoleSpy.mockRestore();
+      // Rate limit handling is logged via debug module (not console.warn)
     });
 
     it("handles non-Error rejections", async () => {

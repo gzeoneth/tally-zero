@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ARBITRUM_RPC_URL } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { debug } from "@/lib/debug";
 import {
   getDelegateLabel,
   getTopDelegates,
@@ -113,7 +114,7 @@ export function useTopDelegatesNotVoted({
       setDelegatesNotVoted(notVoted);
       setAllTopDelegatesVoted(notVoted.length === 0 && offset >= BATCH_SIZE);
     } catch (err) {
-      console.error("[useTopDelegatesNotVoted] Error:", err);
+      debug.delegates("top delegates not voted error: %O", err);
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);

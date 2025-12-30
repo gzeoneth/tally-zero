@@ -12,6 +12,7 @@ import {
 } from "@/components/container/delegate";
 import { useDelegateSearch } from "@/hooks/use-delegate-search";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
+import { debug } from "@/lib/debug";
 
 export default function DelegateSearch() {
   const searchParams = useSearchParams();
@@ -49,7 +50,7 @@ export default function DelegateSearch() {
       const weiValue = BigNumber.from(10).pow(18).mul(Math.floor(arbValue));
       return weiValue.toString();
     } catch (error) {
-      console.warn("Invalid min power filter:", error);
+      debug.delegates("invalid min power filter: %O", error);
       return undefined;
     }
   }, [minPowerFilter]);
@@ -89,7 +90,7 @@ export default function DelegateSearch() {
         100;
       return percentage.toFixed(2);
     } catch (error) {
-      console.error("Error calculating delegated percentage:", error);
+      debug.delegates("error calculating delegated percentage: %O", error);
       return "0.00";
     }
   }, [totalVotingPower, totalSupply]);

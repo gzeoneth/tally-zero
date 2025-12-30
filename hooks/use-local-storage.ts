@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { debug } from "@/lib/debug";
+
 export function useLocalStorage<T>(
   key: string,
   initialValue: T
@@ -16,10 +18,7 @@ export function useLocalStorage<T>(
         setStoredValue(JSON.parse(item) as T);
       }
     } catch (error) {
-      console.debug(
-        `[useLocalStorage] Failed to parse stored value for "${key}":`,
-        error
-      );
+      debug.storage("failed to parse stored value for %s: %O", key, error);
     }
     setIsHydrated(true);
   }, [key]);
@@ -31,7 +30,7 @@ export function useLocalStorage<T>(
         try {
           window.localStorage.setItem(key, JSON.stringify(valueToStore));
         } catch (error) {
-          console.warn(`[useLocalStorage] Failed to save "${key}":`, error);
+          debug.storage("failed to save %s: %O", key, error);
         }
         return valueToStore;
       });
@@ -46,10 +45,7 @@ export function useLocalStorage<T>(
         try {
           setStoredValue(JSON.parse(e.newValue) as T);
         } catch (error) {
-          console.debug(
-            `[useLocalStorage] Failed to parse storage event for "${key}":`,
-            error
-          );
+          debug.storage("failed to parse storage event for %s: %O", key, error);
         }
       }
     };

@@ -1,3 +1,4 @@
+import { debug } from "@/lib/debug";
 import { delay } from "@/lib/delay-utils";
 import { ethers } from "ethers";
 
@@ -83,13 +84,15 @@ export async function queryWithRetry<T>(
         errorObj.message?.includes("rate limit") ||
         errorObj.message?.includes("too many requests")
       ) {
-        console.warn(
-          `Rate limit hit, attempt ${attempt + 1}/${(options.maxRetries || 3) + 1}`
+        debug.rpc(
+          "rate limit hit, attempt %d/%d",
+          attempt + 1,
+          (options.maxRetries || 3) + 1
         );
       }
 
       if (attempt < (options.maxRetries || 3)) {
-        console.warn(`Retry attempt ${attempt + 1} after ${retryDelay}ms`);
+        debug.rpc("retry attempt %d after %dms", attempt + 1, retryDelay);
         await delay(retryDelay);
         retryDelay = Math.min(
           retryDelay * (options.backoffFactor || 2),

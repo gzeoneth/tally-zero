@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { debug } from "@/lib/debug";
 import {
   checkAllRpcHealth,
   DEFAULT_RPC_ENDPOINTS,
@@ -62,7 +63,7 @@ export function useRpcHealth({
       setResults(healthResults);
       setLastCheckedAt(new Date());
     } catch (error) {
-      console.error("Failed to check RPC health:", error);
+      debug.rpc("failed to check RPC health: %O", error);
     } finally {
       setIsChecking(false);
     }

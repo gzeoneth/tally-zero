@@ -600,10 +600,6 @@ describe("proposal-tracker-manager", () => {
       subscribeToVoteUpdates(errorCallback);
       subscribeToVoteUpdates(normalCallback);
 
-      const consoleSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-
       emitVoteUpdate({
         proposalId: "123",
         governorAddress: "0x1234",
@@ -613,10 +609,8 @@ describe("proposal-tracker-manager", () => {
       });
 
       // Normal callback should still be called even if one throws
+      // Errors are logged via debug module (not console.error)
       expect(normalCallback).toHaveBeenCalled();
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
     });
   });
 });
