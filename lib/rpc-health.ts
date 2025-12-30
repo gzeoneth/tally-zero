@@ -1,3 +1,10 @@
+/**
+ * RPC endpoint health monitoring
+ *
+ * Provides functions to check RPC endpoint health, including
+ * connectivity, latency, and log search capability verification.
+ */
+
 import { ethers } from "ethers";
 
 import {
@@ -9,25 +16,42 @@ import {
 import { MS_PER_MINUTE, MS_PER_SECOND } from "@/lib/date-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 
+/** RPC endpoint identifier */
 export type RpcId = "arb1" | "nova" | "l1";
 
+/** RPC endpoint configuration */
 export interface RpcEndpoint {
+  /** Unique endpoint identifier */
   id: RpcId;
+  /** Human-readable endpoint name */
   name: string;
+  /** RPC URL */
   url: string;
+  /** Chain ID for the network */
   chainId: number;
+  /** Whether this endpoint is required for operation */
   required: boolean;
 }
 
+/** Result of an RPC health check */
 export interface RpcHealthResult {
+  /** Endpoint identifier */
   id: RpcId;
+  /** Human-readable endpoint name */
   name: string;
+  /** RPC URL that was checked */
   url: string;
+  /** Health status */
   status: "checking" | "healthy" | "degraded" | "down";
+  /** Response latency in milliseconds */
   latencyMs?: number;
+  /** Current block number */
   blockNumber?: number;
+  /** Error message if check failed */
   error?: string;
+  /** Whether log search queries are supported */
   logSearchSupported?: boolean;
+  /** Error from log search test */
   logSearchError?: string;
 }
 
@@ -68,6 +92,11 @@ const healthCache = new Map<string, HealthCacheEntry>();
 
 /**
  * Generate a cache key for an RPC health check
+ *
+ * @param endpointId - The RPC endpoint identifier
+ * @param customUrl - Optional custom URL override
+ * @param chunkSize - Optional chunk size for log search test
+ * @returns The cache key string
  */
 function getCacheKey(
   endpointId: RpcId,
@@ -80,6 +109,12 @@ function getCacheKey(
 /**
  * Test connectivity to a single RPC endpoint.
  * Results are cached for 60 seconds to reduce redundant RPC calls.
+ *
+ * @param endpoint - The RPC endpoint configuration
+ * @param customUrl - Optional custom URL override
+ * @param chunkSize - Optional chunk size for log search test
+ * @param skipCache - Whether to skip the cache and force a fresh check
+ * @returns Health check result with status, latency, and log search support
  */
 export async function checkRpcHealth(
   endpoint: RpcEndpoint,
@@ -194,6 +229,11 @@ export function clearHealthCache(): void {
 
 /**
  * Test if the RPC supports log searches with the given chunk size
+ *
+ * @param provider - The ethers JSON-RPC provider
+ * @param currentBlock - The current block number
+ * @param chunkSize - The chunk size to test
+ * @returns Object indicating if log search is supported and any error
  */
 async function testLogSearch(
   provider: ethers.providers.JsonRpcProvider,
@@ -253,6 +293,10 @@ async function testLogSearch(
 
 /**
  * Check health of all RPC endpoints in parallel
+ *
+ * @param customUrls - Optional custom URLs for each endpoint
+ * @param chunkSizes - Optional chunk sizes for log search tests
+ * @returns Array of health check results for all endpoints
  */
 export async function checkAllRpcHealth(
   customUrls?: {
@@ -283,6 +327,9 @@ export async function checkAllRpcHealth(
 
 /**
  * Get a summary of RPC health status
+ *
+ * @param results - Array of health check results
+ * @returns Summary with counts and health status flags
  */
 export function getRpcHealthSummary(results: RpcHealthResult[]): {
   allHealthy: boolean;
