@@ -1,7 +1,20 @@
+/**
+ * Hook for synced localStorage state with SSR support
+ * Handles hydration, cross-tab synchronization, and type safety
+ */
+
 import { useCallback, useEffect, useState } from "react";
 
 import { debug } from "@/lib/debug";
 
+/**
+ * Custom hook for persisting state to localStorage with SSR support
+ * @param key - The localStorage key to use
+ * @param initialValue - Default value before hydration
+ * @returns Tuple of [value, setter, isHydrated]
+ * @example
+ * const [theme, setTheme, isReady] = useLocalStorage('theme', 'light');
+ */
 export function useLocalStorage<T>(
   key: string,
   initialValue: T

@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Hook for searching and filtering delegates from the cache
+ * Provides delegate list with filtering, pagination, and live refresh
+ */
+
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -18,6 +23,7 @@ import type {
 } from "@/types/delegate";
 import ERC20Votes_ABI from "@data/ERC20Votes_ABI.json";
 
+/** Options for configuring delegate search */
 export interface UseDelegateSearchOptions {
   enabled: boolean;
   customRpcUrl?: string;
@@ -25,20 +31,33 @@ export interface UseDelegateSearchOptions {
   addressFilter?: string;
 }
 
+/** Return type for useDelegateSearch hook */
 export interface UseDelegateSearchResult {
+  /** Filtered list of delegates */
   delegates: DelegateInfo[];
+  /** Total voting power of all delegates */
   totalVotingPower: string;
+  /** Total ARB token supply */
   totalSupply: string;
+  /** Error if loading failed */
   error: Error | null;
+  /** Whether initial load is in progress */
   isLoading: boolean;
+  /** Cache statistics */
   cacheStats?: DelegateCacheStats;
+  /** Block number of cache snapshot */
   snapshotBlock: number;
+  /** Function to refresh voting power for visible delegates */
   refreshVisibleDelegates: (addresses: string[]) => Promise<void>;
+  /** Whether visible delegates are being refreshed */
   isRefreshingVisible: boolean;
 }
 
 /**
  * Filter delegates by minimum voting power and/or address search term
+ * @param delegates - Array of delegates to filter
+ * @param options - Filter options
+ * @returns Filtered delegate array
  */
 export function filterDelegates(
   delegates: DelegateInfo[],
@@ -64,6 +83,11 @@ export function filterDelegates(
   return filtered;
 }
 
+/**
+ * Hook for searching delegates with filtering and live updates
+ * @param options - Search options including filters and RPC URL
+ * @returns Delegate list, statistics, and refresh functions
+ */
 export function useDelegateSearch({
   enabled,
   customRpcUrl,

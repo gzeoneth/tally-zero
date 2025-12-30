@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Hook for looking up delegate information by address
+ * Fetches voting power, delegation status, and cache rank from ARB token
+ */
+
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
@@ -12,35 +17,57 @@ import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
 import { getErrorMessage } from "@/lib/error-utils";
 import { createRpcProvider } from "@/lib/rpc-utils";
 
-// Minimal ABI for ERC20Votes with OpenZeppelin standard methods
+/** Minimal ABI for ERC20Votes with OpenZeppelin standard methods */
 const ERC20_VOTES_ABI = [
   "function getVotes(address account) view returns (uint256)",
   "function delegates(address account) view returns (address)",
 ];
 
+/** Result from delegate lookup containing voting and delegation info */
 export interface DelegateLookupResult {
+  /** Checksummed delegate address */
   address: string;
+  /** Current voting power in wei */
   votingPower: string;
+  /** Address this delegate has delegated to */
   delegatedTo: string;
+  /** Whether the delegate votes for themselves */
   isSelfDelegated: boolean;
+  /** Optional label from known delegates list */
   label?: string;
+  /** Rank in the delegate cache if present */
   cacheRank?: number;
+  /** Cached voting power for comparison */
   cacheVotingPower?: string;
 }
 
+/** Options for configuring delegate lookup */
 export interface UseDelegateLookupOptions {
+  /** Address to look up */
   address: string;
+  /** Whether lookup is enabled */
   enabled?: boolean;
+  /** Custom RPC URL to use */
   customRpcUrl?: string;
 }
 
+/** Return type for useDelegateLookup hook */
 export interface UseDelegateLookupReturn {
+  /** Lookup result or null */
   result: DelegateLookupResult | null;
+  /** Whether lookup is in progress */
   isLoading: boolean;
+  /** Error message if lookup failed */
   error: string | null;
+  /** Function to manually refetch */
   refetch: () => void;
 }
 
+/**
+ * Hook for looking up delegate voting power and delegation status
+ * @param options - Lookup options including address and RPC URL
+ * @returns Delegate info, loading state, error, and refetch function
+ */
 export function useDelegateLookup({
   address,
   enabled = true,

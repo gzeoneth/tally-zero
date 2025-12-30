@@ -1,11 +1,14 @@
 "use client";
 
+/**
+ * Hook for managing URL hash state and deep linking
+ * Supports proposal and timelock deep links with bidirectional sync
+ */
+
 import { isValidTxHash } from "@/lib/address-utils";
 import { useCallback, useEffect, useState } from "react";
 
-/**
- * URL state types for deep linking support
- */
+/** URL state types for deep linking support */
 export type UrlStateType = "proposal" | "timelock" | null;
 
 export interface UrlState {

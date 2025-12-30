@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Hook for monitoring RPC endpoint health
+ * Provides health checking, status tracking, and summary statistics
+ */
+
 import { useCallback, useEffect, useState } from "react";
 
 import { debug } from "@/lib/debug";
@@ -10,6 +15,7 @@ import {
   type RpcHealthResult,
 } from "@/lib/rpc-health";
 
+/** Options for configuring RPC health monitoring */
 export interface UseRpcHealthOptions {
   customUrls?: {
     arb1?: string;
@@ -24,19 +30,30 @@ export interface UseRpcHealthOptions {
   autoCheck?: boolean;
 }
 
+/** Return type for useRpcHealth hook */
 export interface UseRpcHealthResult {
+  /** Health check results for each RPC endpoint */
   results: RpcHealthResult[];
+  /** Whether health check is in progress */
   isChecking: boolean;
+  /** Timestamp of last completed health check */
   lastCheckedAt: Date | null;
+  /** Summary statistics of RPC health */
   summary: {
     allHealthy: boolean;
     requiredHealthy: boolean;
     healthyCount: number;
     totalCount: number;
   } | null;
+  /** Function to manually trigger health check */
   checkHealth: () => Promise<void>;
 }
 
+/**
+ * Hook for monitoring RPC endpoint health status
+ * @param options - Configuration options for health monitoring
+ * @returns Health check results, status, and control functions
+ */
 export function useRpcHealth({
   customUrls,
   chunkSizes,
