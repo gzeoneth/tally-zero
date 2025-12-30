@@ -1,24 +1,21 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { z } from "zod";
 
-import VoteModel from "@/components/container/VoteModel";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/HoverCard";
-import { ResponsiveModal, useIsDesktop } from "@/components/ui/ResponsiveModal";
 import { proposalSchema } from "@/config/schema";
-import { useProposalModalHandler } from "@/hooks/use-proposal-modal";
+import { useDeepLink } from "@/context/DeepLinkContext";
 import { useProposalStages } from "@/hooks/use-proposal-stages";
 import {
   formatStageName,
   getEffectiveDisplayState,
   getStateStyle,
 } from "@/lib/lifecycle-utils";
-import { findStateByValue } from "@/lib/state-utils";
 import { cn } from "@/lib/utils";
 import {
   CheckCircledIcon,
@@ -31,8 +28,12 @@ interface LifecycleCellProps {
   proposal: z.infer<typeof proposalSchema>;
 }
 
+/**
+ * LifecycleCell displays the proposal lifecycle status and opens
+ * the stages tab via DeepLinkHandler when clicked.
+ */
 export function LifecycleCell({ proposal }: LifecycleCellProps) {
-  const isDesktop = useIsDesktop();
+  const { openProposal } = useDeepLink();
   const proposalStages = useProposalStages({
     proposalId: proposal.id,
     creationTxHash: proposal.creationTxHash || "",
@@ -55,10 +56,11 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
   const { queuePosition, currentStageIndex, stages, isBackgroundRefreshing } =
     proposalStages;
 
-  const stateValue = findStateByValue(proposal.state);
-  const handleOpenChange = useProposalModalHandler(proposal.id, "stages");
+  const handleClick = useCallback(() => {
+    openProposal(proposal.id, "stages");
+  }, [proposal.id, openProposal]);
 
-  if (!proposal.creationTxHash || !stateValue) {
+  if (!proposal.creationTxHash) {
     return <span className="text-xs text-muted-foreground">-</span>;
   }
 
@@ -79,21 +81,12 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
   }
 
   return (
-    <ResponsiveModal
-      trigger={
-        <button className="text-left hover:opacity-80 transition-opacity">
-          {content}
-        </button>
-      }
-      onOpenChange={handleOpenChange}
+    <button
+      onClick={handleClick}
+      className="text-left hover:opacity-80 transition-opacity"
     >
-      <VoteModel
-        proposal={proposal}
-        stateValue={stateValue}
-        isDesktop={isDesktop}
-        defaultTab="stages"
-      />
-    </ResponsiveModal>
+      {content}
+    </button>
   );
 }
 
