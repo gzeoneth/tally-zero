@@ -24,7 +24,7 @@ export interface UrlState {
  * - #timelock/<txHash>
  * - #timelock/<txHash>/<opIndex>
  */
-function parseUrlHash(hash: string): UrlState {
+export function parseUrlHash(hash: string): UrlState {
   if (!hash || hash === "#") {
     return { type: null, id: null };
   }
@@ -58,7 +58,7 @@ function parseUrlHash(hash: string): UrlState {
 /**
  * Builds a URL hash from state
  */
-function buildUrlHash(state: UrlState): string {
+export function buildUrlHash(state: UrlState): string {
   if (!state.type || !state.id) {
     return "";
   }
