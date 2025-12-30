@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 
+import { SettingsToggle } from "./SettingsToggle";
+
 interface GeneralTabProps {
   theme: string | undefined;
   setTheme: (theme: string) => void;
@@ -61,23 +63,12 @@ export function GeneralTab({
         </p>
       </div>
 
-      <div className="glass-subtle rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md">
-        <div className="space-y-0.5">
-          <Label>Nerd Mode</Label>
-          <p className="text-xs text-muted-foreground">
-            Show technical details and debug info
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant={nerdMode ? "default" : "outline"}
-          size="sm"
-          onClick={toggleNerdMode}
-          className="transition-all duration-200"
-        >
-          {nerdMode ? "On" : "Off"}
-        </Button>
-      </div>
+      <SettingsToggle
+        label="Nerd Mode"
+        description="Show technical details and debug info"
+        enabled={nerdMode}
+        onToggle={toggleNerdMode}
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { CacheManagementSection } from "./CacheManagementSection";
 import { DebugInfoSection } from "./DebugInfoSection";
 import { DebugLoggingToggle } from "./DebugLoggingToggle";
 import { formatTtl } from "./settings-utils";
+import { SettingsToggle } from "./SettingsToggle";
 import { TenderlyConfigSection } from "./TenderlyConfigSection";
 import type { StoredSettings } from "./types";
 
@@ -122,23 +123,12 @@ export function AdvancedTab({
       </div>
 
       {/* Skip Preload Cache */}
-      <div className="glass-subtle rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md">
-        <div className="space-y-0.5">
-          <Label>Skip Preload Cache</Label>
-          <p className="text-xs text-muted-foreground">
-            Bypass bundled proposal cache and fetch fresh data
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant={skipPreloadCache ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSkipPreloadCache(!skipPreloadCache)}
-          className="transition-all duration-200"
-        >
-          {skipPreloadCache ? "On" : "Off"}
-        </Button>
-      </div>
+      <SettingsToggle
+        label="Skip Preload Cache"
+        description="Bypass bundled proposal cache and fetch fresh data"
+        enabled={skipPreloadCache}
+        onToggle={() => setSkipPreloadCache(!skipPreloadCache)}
+      />
 
       {/* Tenderly Configuration */}
       <TenderlyConfigSection
