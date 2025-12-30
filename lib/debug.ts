@@ -27,8 +27,14 @@ import { STORAGE_KEYS } from "@/config/storage-keys";
 // Environment Detection
 // ============================================================================
 
-const IS_BROWSER =
+/**
+ * Check if code is running in a browser environment
+ * Use this instead of repeating `typeof window === "undefined"` checks
+ */
+export const isBrowser =
   typeof window !== "undefined" && typeof localStorage !== "undefined";
+
+const IS_BROWSER = isBrowser;
 
 // ============================================================================
 // Browser Integration
@@ -113,11 +119,27 @@ function createWrappedLogger(namespace: string): DebugLogger {
  * Enable via:
  * - Node.js: DEBUG=tally:* yarn cache:build
  * - Browser: Settings → Nerd Mode → Debug Logging
+ *
+ * Available namespaces:
+ * - tally:stage-tracker - Proposal lifecycle stage tracking
+ * - tally:rpc - RPC calls and provider operations
+ * - tally:cache - General caching operations
+ * - tally:proposals - Proposal cache loading and merging
+ * - tally:delegates - Delegate cache operations
+ * - tally:search - Governor search operations
+ * - tally:storage - LocalStorage operations
+ * - tally:lifecycle - Lifecycle utilities
+ * - tally:calldata - Calldata decoding
+ * - tally:app - General application logs
  */
 export const debug = {
   stageTracker: createWrappedLogger("tally:stage-tracker"),
   rpc: createWrappedLogger("tally:rpc"),
   cache: createWrappedLogger("tally:cache"),
+  proposals: createWrappedLogger("tally:proposals"),
+  delegates: createWrappedLogger("tally:delegates"),
+  search: createWrappedLogger("tally:search"),
+  storage: createWrappedLogger("tally:storage"),
   lifecycle: createWrappedLogger("tally:lifecycle"),
   calldata: createWrappedLogger("tally:calldata"),
   app: createWrappedLogger("tally:app"),

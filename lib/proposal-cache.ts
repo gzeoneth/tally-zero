@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal } from "@/types/proposal";
 import type { ProposalStage } from "@/types/proposal-stage";
+import { debug, isBrowser } from "./debug";
 import { formatCacheAge } from "./format-utils";
 import type { TimelockOperationInfo } from "./stage-tracker/timelock-operation-tracker";
 import { seedStagesFromProposal } from "./stages-cache";
@@ -98,11 +99,12 @@ let timelockStagesSeeded = false;
 
 export async function loadProposalCache(): Promise<ProposalCache | null> {
   if (getSkipPreloadCacheSetting()) {
-    console.debug("[proposal-cache] Skipping preload cache (setting enabled)");
+    debug.proposals("skipping preload cache (setting enabled)");
     return null;
   }
 
   if (cacheValidated) {
+    debug.proposals("returning validated cache (already loaded)");
     if (validatedCacheData && !stagesSeeded) {
       seedAllStagesFromCache(validatedCacheData);
       stagesSeeded = true;
@@ -117,32 +119,38 @@ export async function loadProposalCache(): Promise<ProposalCache | null> {
   cacheValidated = true;
 
   if (!staticCacheData) {
-    console.debug(
-      "[proposal-cache] Cache file not found - run 'yarn cache:build' to generate"
+    debug.proposals(
+      "cache file not found - run 'yarn cache:build' to generate"
     );
     return null;
   }
 
   // Validate cache version
   if (staticCacheData.version !== CURRENT_CACHE_VERSION) {
-    console.warn(
-      `[proposal-cache] Cache version mismatch: expected ${CURRENT_CACHE_VERSION}, got ${staticCacheData.version}`
+    debug.proposals(
+      "cache version mismatch: expected %d, got %d",
+      CURRENT_CACHE_VERSION,
+      staticCacheData.version
     );
     return null;
   }
 
   // Validate that proposals exist
   if (!staticCacheData.proposals || !Array.isArray(staticCacheData.proposals)) {
-    console.warn(
-      "[proposal-cache] Invalid cache format: missing proposals array"
-    );
+    debug.proposals("invalid cache format: missing proposals array");
     return null;
   }
 
   validatedCacheData = staticCacheData;
 
-  console.debug(
-    `[proposal-cache] Loaded ${validatedCacheData.proposals.length} proposals from cache (block ${validatedCacheData.snapshotBlock})`
+  const activeCount = validatedCacheData.proposals.filter(
+    (p) => p.state === "Active" || p.state === "Pending"
+  ).length;
+  debug.proposals(
+    "loaded %d proposals from cache (block %d, %d active/pending)",
+    validatedCacheData.proposals.length,
+    validatedCacheData.snapshotBlock,
+    activeCount
   );
 
   // Seed localStorage with preloaded stages
@@ -236,10 +244,10 @@ export function getCacheStats(cache: ProposalCache): {
 }
 
 export function seedAllStagesFromCache(cache: ProposalCache): number {
-  if (typeof window === "undefined") return 0;
+  if (!isBrowser) return 0;
 
   if (getSkipPreloadCacheSetting()) {
-    console.debug("[proposal-cache] Skipping stages seeding (setting enabled)");
+    debug.proposals("skipping stages seeding (setting enabled)");
     return 0;
   }
 
@@ -251,9 +259,7 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
   }
 
   if (seededCount > 0) {
-    console.debug(
-      `[proposal-cache] Seeded ${seededCount} proposals with preloaded stages`
-    );
+    debug.proposals("seeded %d proposals with preloaded stages", seededCount);
   }
 
   return seededCount;
@@ -266,21 +272,24 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
  * localStorage with stages 4-10 for each operation.
  */
 export function seedTimelockOperationsFromCache(): number {
-  if (typeof window === "undefined") return 0;
+  if (!isBrowser) return 0;
 
   if (getSkipPreloadCacheSetting()) {
-    console.debug(
-      "[proposal-cache] Skipping timelock seeding (setting enabled)"
-    );
+    debug.proposals("skipping timelock seeding (setting enabled)");
     return 0;
   }
 
   if (!staticTimelockCacheData) {
+    debug.proposals("no timelock cache data available");
     return 0;
   }
 
   if (staticTimelockCacheData.version !== CURRENT_CACHE_VERSION) {
-    console.debug("[proposal-cache] Timelock cache version mismatch, skipping");
+    debug.proposals(
+      "timelock cache version mismatch: expected %d, got %d",
+      CURRENT_CACHE_VERSION,
+      staticTimelockCacheData.version
+    );
     return 0;
   }
 
@@ -317,8 +326,9 @@ export function seedTimelockOperationsFromCache(): number {
   }
 
   if (seededCount > 0) {
-    console.debug(
-      `[proposal-cache] Seeded ${seededCount} timelock operations with preloaded stages`
+    debug.proposals(
+      "seeded %d timelock operations with preloaded stages",
+      seededCount
     );
   }
 

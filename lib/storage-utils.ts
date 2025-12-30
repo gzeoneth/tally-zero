@@ -1,24 +1,31 @@
 import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
 
+import { debug } from "./debug";
+
+// Runtime check for browser environment (can't use isBrowser constant due to test mocking)
+const inBrowser = () =>
+  typeof window !== "undefined" && typeof localStorage !== "undefined";
+
 export function getStoredValue<T>(
   key: string,
   defaultValue: T,
   deserialize?: (value: string) => T
 ): T {
-  if (typeof window === "undefined") return defaultValue;
+  if (!inBrowser()) return defaultValue;
 
   try {
     const stored = localStorage.getItem(key);
     if (stored === null) return defaultValue;
 
     return deserialize ? deserialize(stored) : JSON.parse(stored);
-  } catch {
+  } catch (err) {
+    debug.storage("failed to parse stored value for %s: %O", key, err);
     return defaultValue;
   }
 }
 
 export function getStoredString(key: string, defaultValue: string): string {
-  if (typeof window === "undefined") return defaultValue;
+  if (!inBrowser()) return defaultValue;
 
   const stored = localStorage.getItem(key);
   return stored ?? defaultValue;
@@ -26,7 +33,7 @@ export function getStoredString(key: string, defaultValue: string): string {
 
 // Handles values stored via useLocalStorage which uses JSON.stringify
 export function getStoredJsonString(key: string, defaultValue: string): string {
-  if (typeof window === "undefined") return defaultValue;
+  if (!inBrowser()) return defaultValue;
 
   try {
     const stored = localStorage.getItem(key);
@@ -34,13 +41,14 @@ export function getStoredJsonString(key: string, defaultValue: string): string {
 
     const parsed = JSON.parse(stored);
     return parsed || defaultValue;
-  } catch {
+  } catch (err) {
+    debug.storage("failed to parse JSON string for %s: %O", key, err);
     return defaultValue;
   }
 }
 
 export function getStoredNumber(key: string, defaultValue: number): number {
-  if (typeof window === "undefined") return defaultValue;
+  if (!inBrowser()) return defaultValue;
 
   try {
     const stored = localStorage.getItem(key);
@@ -48,7 +56,8 @@ export function getStoredNumber(key: string, defaultValue: number): number {
 
     const parsed = JSON.parse(stored);
     return typeof parsed === "number" && !isNaN(parsed) ? parsed : defaultValue;
-  } catch {
+  } catch (err) {
+    debug.storage("failed to parse number for %s: %O", key, err);
     return defaultValue;
   }
 }
@@ -58,32 +67,33 @@ export function setStoredValue<T>(
   value: T,
   serialize?: (value: T) => string
 ): void {
-  if (typeof window === "undefined") return;
+  if (!inBrowser()) return;
 
   try {
     const serialized = serialize ? serialize(value) : JSON.stringify(value);
     localStorage.setItem(key, serialized);
-  } catch {
-    // localStorage full or unavailable
+  } catch (err) {
+    debug.storage("failed to store value for %s: %O", key, err);
   }
 }
 
 export function removeStoredValue(key: string): void {
-  if (typeof window === "undefined") return;
+  if (!inBrowser()) return;
 
   try {
     localStorage.removeItem(key);
-  } catch {
-    // localStorage unavailable
+  } catch (err) {
+    debug.storage("failed to remove value for %s: %O", key, err);
   }
 }
 
 export function hasStoredValue(key: string): boolean {
-  if (typeof window === "undefined") return false;
+  if (!inBrowser()) return false;
 
   try {
     return localStorage.getItem(key) !== null;
-  } catch {
+  } catch (err) {
+    debug.storage("failed to check value for %s: %O", key, err);
     return false;
   }
 }

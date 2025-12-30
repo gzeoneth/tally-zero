@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { debug } from "@/lib/debug";
 import {
   calculateSearchRanges,
   parseProposals,
@@ -70,8 +71,11 @@ export function useMultiGovernorSearch({
           cacheUsed: true,
           rangeInfo: `Cache loaded: blocks ${loaded.startBlock.toLocaleString()}-${loaded.snapshotBlock.toLocaleString()}`,
         });
-        console.debug(
-          `[useMultiGovernorSearch] Cache loaded: ${loaded.proposals.length} proposals (blocks ${loaded.startBlock}-${loaded.snapshotBlock})`
+        debug.search(
+          "cache loaded: %d proposals (blocks %d-%d)",
+          loaded.proposals.length,
+          loaded.startBlock,
+          loaded.snapshotBlock
         );
       }
     });
@@ -114,7 +118,7 @@ export function useMultiGovernorSearch({
           skipCache
         );
 
-        console.debug(`[useMultiGovernorSearch] ${searchPlan.rangeInfo}`);
+        debug.search("search plan: %s", searchPlan.rangeInfo);
 
         let rpcProposals: ParsedProposal[] = [];
         let cachedProposals: ParsedProposal[] = [];
@@ -169,9 +173,7 @@ export function useMultiGovernorSearch({
 
         if (searchPlan.useCache && cache) {
           cachedProposals = cache.proposals;
-          console.debug(
-            `[useMultiGovernorSearch] Using ${cachedProposals.length} cached proposals`
-          );
+          debug.search("using %d cached proposals", cachedProposals.length);
         }
 
         // Refresh state for pending/active cached proposals
@@ -181,8 +183,9 @@ export function useMultiGovernorSearch({
         );
 
         if (proposalsToRefresh.length > 0) {
-          console.debug(
-            `[useMultiGovernorSearch] Refreshing ${proposalsToRefresh.length} pending/active proposals`
+          debug.search(
+            "refreshing %d pending/active proposals",
+            proposalsToRefresh.length
           );
           const refreshed = await refreshProposalStates(
             provider,

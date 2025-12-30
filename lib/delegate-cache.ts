@@ -5,6 +5,7 @@ import type {
   DelegateInfo,
 } from "@/types/delegate";
 import delegateLabelsData from "@data/delegate-labels.json";
+import { debug } from "./debug";
 import { formatCacheAge } from "./format-utils";
 import { getStoredValue } from "./storage-utils";
 
@@ -52,43 +53,58 @@ let cacheValidated = false;
 
 export async function loadDelegateCache(): Promise<DelegateCache | null> {
   if (getSkipDelegateCacheSetting()) {
-    console.debug("[delegate-cache] Skipping preload cache (setting enabled)");
+    debug.delegates("skipping preload cache (setting enabled)");
     return null;
   }
 
   if (cacheValidated) {
+    debug.delegates("returning validated cache (already loaded)");
     return validatedCacheData;
   }
 
   cacheValidated = true;
 
   if (!staticCacheData) {
-    console.debug(
-      "[delegate-cache] Cache file not found - run cache build to generate"
-    );
+    debug.delegates("cache file not found - run cache build to generate");
     return null;
   }
 
   // Validate cache version
   if (staticCacheData.version !== CURRENT_DELEGATE_CACHE_VERSION) {
-    console.warn(
-      `[delegate-cache] Cache version mismatch: expected ${CURRENT_DELEGATE_CACHE_VERSION}, got ${staticCacheData.version}`
+    debug.delegates(
+      "cache version mismatch: expected %d, got %d",
+      CURRENT_DELEGATE_CACHE_VERSION,
+      staticCacheData.version
     );
     return null;
   }
 
   // Validate that delegates exist
   if (!staticCacheData.delegates || !Array.isArray(staticCacheData.delegates)) {
-    console.warn(
-      "[delegate-cache] Invalid cache format: missing delegates array"
-    );
+    debug.delegates("invalid cache format: missing delegates array");
     return null;
   }
 
   validatedCacheData = staticCacheData;
 
-  console.debug(
-    `[delegate-cache] Loaded ${validatedCacheData.delegates.length} delegates from cache (block ${validatedCacheData.snapshotBlock})`
+  // Calculate some useful stats
+  const totalPower = BigInt(validatedCacheData.totalVotingPower);
+  const topDelegatePower = BigInt(
+    validatedCacheData.delegates[0]?.votingPower ?? "0"
+  );
+  const top10Power = validatedCacheData.delegates
+    .slice(0, 10)
+    .reduce((sum, d) => sum + BigInt(d.votingPower), BigInt(0));
+
+  debug.delegates(
+    "loaded %d delegates from cache (block %d)",
+    validatedCacheData.delegates.length,
+    validatedCacheData.snapshotBlock
+  );
+  debug.delegates(
+    "top delegate: %s%% of total, top 10: %s%% of total",
+    ((topDelegatePower * BigInt(10000)) / totalPower / BigInt(100)).toString(),
+    ((top10Power * BigInt(10000)) / totalPower / BigInt(100)).toString()
   );
 
   return validatedCacheData;
