@@ -37,7 +37,10 @@ export interface UseDelegateSearchResult {
   isRefreshingVisible: boolean;
 }
 
-function filterDelegates(
+/**
+ * Filter delegates by minimum voting power and/or address search term
+ */
+export function filterDelegates(
   delegates: DelegateInfo[],
   options: {
     minVotingPower?: string;
