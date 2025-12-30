@@ -1,3 +1,8 @@
+/**
+ * Stage metadata definitions for proposal lifecycle tracking
+ * Provides human-readable titles, descriptions, and durations for each stage
+ */
+
 import {
   L1_TIMELOCK,
   L2_CORE_TIMELOCK,
@@ -5,6 +10,7 @@ import {
 } from "@/config/arbitrum-governance";
 import type { StageType } from "@/types/proposal-stage";
 
+/** Metadata describing a proposal lifecycle stage */
 export interface StageMetadata {
   type: StageType;
   title: string;
@@ -116,8 +122,9 @@ function getEstimatedDuration(
 
 /**
  * Get stage metadata with estimated duration based on governor type
- * @param type - The stage type
- * @param governorType - Optional governor type to determine L2 timelock duration
+ * @param type - The stage type to look up
+ * @param governorType - Governor type to determine L2 timelock duration
+ * @returns Stage metadata with duration, or undefined if type not found
  */
 export function getStageMetadata(
   type: StageType,
@@ -130,6 +137,11 @@ export function getStageMetadata(
   return estimatedDuration ? { ...base, estimatedDuration } : { ...base };
 }
 
+/**
+ * Get all stage metadata for a governor type
+ * @param governorType - Governor type to determine durations (default: "core")
+ * @returns Array of all stage metadata with appropriate durations
+ */
 export function getAllStageMetadata(
   governorType: "core" | "treasury" = "core"
 ): StageMetadata[] {

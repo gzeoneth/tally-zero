@@ -1,3 +1,8 @@
+/**
+ * Log search utilities for stage tracking
+ * Provides chunked log searching with rate limiting and early exit support
+ */
+
 import { debug } from "@/lib/debug";
 import { delay } from "@/lib/delay-utils";
 import { queryWithRetry } from "@/lib/rpc-utils";
