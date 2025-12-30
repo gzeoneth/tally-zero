@@ -1,6 +1,7 @@
 import { L1_SECONDS_PER_BLOCK } from "@/config/arbitrum-governance";
 import {
   createGoogleCalendarUrl,
+  MS_PER_DAY,
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
 import { getTxExplorerUrl, type ChainId } from "@/lib/explorer-utils";
@@ -145,7 +146,7 @@ export function calculateEstimatedCompletionTimes(
       const votingEndMinMs = now + blocksUntilEnd * L1_SECONDS_PER_BLOCK * 1000;
       // Only add extension time if extension is still possible (not extended and quorum not reached)
       const votingEndMaxMs = extensionPossible
-        ? votingEndMinMs + VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000
+        ? votingEndMinMs + VOTING_EXTENSION_DAYS * MS_PER_DAY
         : votingEndMinMs;
 
       votingTimeRange = {
@@ -180,13 +181,13 @@ export function calculateEstimatedCompletionTimes(
     } else {
       // Fallback to duration-based calculation
       const durationRange = parseEstimatedDurationRange(meta.estimatedDuration);
-      cumulativeMinMs += durationRange.min * 24 * 60 * 60 * 1000;
-      cumulativeMaxMs += durationRange.max * 24 * 60 * 60 * 1000;
+      cumulativeMinMs += durationRange.min * MS_PER_DAY;
+      cumulativeMaxMs += durationRange.max * MS_PER_DAY;
 
       // Voting can have a 2-day extension, which affects all subsequent stages
       // Only add if extension is still possible
       if (meta.type === "VOTING_ACTIVE" && extensionPossible) {
-        cumulativeMaxMs += VOTING_EXTENSION_DAYS * 24 * 60 * 60 * 1000;
+        cumulativeMaxMs += VOTING_EXTENSION_DAYS * MS_PER_DAY;
       }
 
       estimatedTimes.set(meta.type, {
