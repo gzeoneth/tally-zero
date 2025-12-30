@@ -14,8 +14,8 @@ import { proposalSchema } from "@/config/schema";
 import { useProposalModalHandler } from "@/hooks/use-proposal-modal";
 import { useProposalStages } from "@/hooks/use-proposal-stages";
 import {
-  formatCurrentState,
   formatStageName,
+  getEffectiveDisplayState,
   getStateStyle,
 } from "@/lib/lifecycle-utils";
 import { findStateByValue } from "@/lib/state-utils";
@@ -70,6 +70,7 @@ export function LifecycleCell({ proposal }: LifecycleCellProps) {
       currentStageIndex={currentStageIndex}
       stages={stages}
       isBackgroundRefreshing={isBackgroundRefreshing}
+      governorAddress={proposal.contractAddress}
     />
   );
 
@@ -103,6 +104,7 @@ interface LifecycleContentProps {
   currentStageIndex: number;
   stages: Array<{ type: string; status: string }>;
   isBackgroundRefreshing: boolean;
+  governorAddress: string;
 }
 
 const LifecycleContent = memo(function LifecycleContent({
@@ -112,6 +114,7 @@ const LifecycleContent = memo(function LifecycleContent({
   currentStageIndex,
   stages,
   isBackgroundRefreshing,
+  governorAddress,
 }: LifecycleContentProps) {
   if (status === "queued") {
     return (
@@ -188,8 +191,16 @@ const LifecycleContent = memo(function LifecycleContent({
   }
 
   if (status === "complete") {
-    const stateDisplay = formatCurrentState(currentState);
-    const { icon, color } = getStateStyle(currentState);
+    // Get effective display state - shows "Stage x/y" for Core proposals still in L1 round-trip
+    const { display: stateDisplay, isInProgress } = getEffectiveDisplayState(
+      currentState,
+      stages as Parameters<typeof getEffectiveDisplayState>[1],
+      governorAddress
+    );
+
+    // Use different styling for in-progress Core proposals
+    const effectiveState = isInProgress ? "pending" : currentState;
+    const { icon, color } = getStateStyle(effectiveState);
     const StateIcon = iconMap[icon];
 
     return (
@@ -213,6 +224,11 @@ const LifecycleContent = memo(function LifecycleContent({
         </HoverCardTrigger>
         <HoverCardContent className="glass w-auto">
           <p className="text-sm">Lifecycle tracked: {stages.length} stages</p>
+          {isInProgress && (
+            <p className="text-xs text-yellow-600 dark:text-yellow-400">
+              L1 execution in progress
+            </p>
+          )}
           {isBackgroundRefreshing ? (
             <p className="text-xs text-blue-500">Refreshing in background...</p>
           ) : (
