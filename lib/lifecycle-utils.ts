@@ -1,6 +1,16 @@
+/**
+ * Utilities for proposal lifecycle management and state display
+ * Handles stage tracking, state formatting, and progress calculation
+ */
+
 import { isCoreGovernor } from "@/config/governors";
 import type { ProposalStage } from "@/types/proposal-stage";
 
+/**
+ * Format a stage name from UPPER_SNAKE_CASE to Title Case
+ * @param stageName - The stage name in UPPER_SNAKE_CASE (e.g., "VOTING_ACTIVE")
+ * @returns Formatted stage name (e.g., "Voting Active")
+ */
 export function formatStageName(stageName: string): string {
   return stageName
     .replace(/_/g, " ")
@@ -19,6 +29,8 @@ export function getTotalStages(governorAddress: string): number {
 
 /**
  * Determine the current active stage (1-indexed) from the stages array
+ * @param stages - Array of proposal stages
+ * @returns The 1-indexed stage number of the last active stage, or 0 if empty
  */
 export function getCurrentStageNumber(stages: ProposalStage[]): number {
   if (!stages || stages.length === 0) return 0;
@@ -34,6 +46,9 @@ export function getCurrentStageNumber(stages: ProposalStage[]): number {
 
 /**
  * Check if a proposal has truly completed all stages
+ * @param stages - Array of proposal stages to check
+ * @param governorAddress - The governor contract address
+ * @returns True if the proposal has completed all expected stages
  */
 export function isProposalFullyExecuted(
   stages: ProposalStage[],
@@ -51,6 +66,10 @@ export function isProposalFullyExecuted(
  * Get the effective display state for a proposal
  * For Core Governor proposals that show "Executed" but haven't completed L1 stages,
  * returns "Stage x/y" instead
+ * @param governorState - The state from the governor contract
+ * @param stages - Array of proposal stages
+ * @param governorAddress - The governor contract address
+ * @returns Object with display string and whether the proposal is in progress
  */
 export function getEffectiveDisplayState(
   governorState: string | null,
@@ -81,6 +100,12 @@ export function getEffectiveDisplayState(
   };
 }
 
+/**
+ * Format a proposal state to display-friendly text
+ * Maps internal state names to user-facing labels
+ * @param state - The internal state name (lowercase)
+ * @returns User-friendly state label
+ */
 export function formatCurrentState(state: string | null): string {
   if (!state) return "Unknown";
 
@@ -99,6 +124,7 @@ export function formatCurrentState(state: string | null): string {
   return stateMap[normalized] || state;
 }
 
+/** CSS classes for state-dependent text colors */
 export type StateStyleColor =
   | "text-green-600 dark:text-green-400"
   | "text-blue-600 dark:text-blue-400"
@@ -106,8 +132,14 @@ export type StateStyleColor =
   | "text-red-600 dark:text-red-400"
   | "text-muted-foreground";
 
+/** Icon names for state-dependent display */
 export type StateStyleIcon = "check" | "reload" | "clock" | "cross";
 
+/**
+ * Get visual styling (icon and color) for a proposal state
+ * @param state - The proposal state
+ * @returns Object with icon name and CSS color classes
+ */
 export function getStateStyle(state: string | null): {
   icon: StateStyleIcon;
   color: StateStyleColor;
