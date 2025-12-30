@@ -4,6 +4,7 @@ import {
   isFailedState,
 } from "@/config/arbitrum-governance";
 import GovernorABI from "@/data/L2ArbitrumGovernor_ABI.json";
+import { debugLog } from "@/lib/delay-utils";
 import type { ProposalStage, StageStatus } from "@/types/proposal-stage";
 import { ethers } from "ethers";
 import { searchLogsInChunks } from "../log-search";
@@ -42,6 +43,28 @@ export async function trackVotingStage(
     const proposalIdBN = ethers.BigNumber.from(ctx.proposalId);
     const currentBlock = await ctx.l2Provider.getBlockNumber();
 
+    // Optimization: For proposals that have finished voting, narrow the search range
+    // VotingExtended events only happen during voting, so we can limit search to
+    // the proposal's voting period plus a small buffer for extension
+    let searchEndBlock = currentBlock;
+    const votingFinished =
+      state !== ProposalState.PENDING && state !== ProposalState.ACTIVE;
+
+    if (votingFinished) {
+      // Voting on Arbitrum lasts ~14-16 days, which is ~5-6M L2 blocks at 250ms/block
+      // Add a generous buffer for vote extensions (which can add up to 2 days)
+      // Maximum voting period including extensions: ~18 days = ~6.2M L2 blocks
+      const maxVotingPeriodBlocks = 6_500_000;
+      const creationBlock = ctx.creationReceipt!.blockNumber;
+      searchEndBlock = Math.min(
+        creationBlock + maxVotingPeriodBlocks,
+        currentBlock
+      );
+      debugLog(
+        `[trackVotingStage] Optimized search range: voting finished, searching from ${creationBlock} to ${searchEndBlock} (creation + max voting period)`
+      );
+    }
+
     try {
       const extendedLogs = await searchLogsInChunks(
         ctx.l2Provider,
@@ -53,7 +76,7 @@ export async function trackVotingStage(
           ],
         },
         ctx.creationReceipt!.blockNumber,
-        currentBlock,
+        searchEndBlock,
         ctx.chunkingConfig.l2ChunkSize,
         ctx.chunkingConfig.delayBetweenChunks,
         (chunkLogs) => (chunkLogs.length > 0 ? chunkLogs[0] : null)

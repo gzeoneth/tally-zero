@@ -92,7 +92,7 @@ export const DELAYED_INBOX = {
 export const DEFAULT_FORM_VALUES = {
   daysToSearch: 120,
   blockRange: 10000000, // arb1.arbitrum.io/rpc can handle 10M block ranges
-  l1BlockRange: 1000, // public L1 RPCs have stricter limits
+  l1BlockRange: 1000, // private L1 RPCs can handle larger ranges
 } as const;
 
 /**
