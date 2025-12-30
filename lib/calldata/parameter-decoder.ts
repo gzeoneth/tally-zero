@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 
+import { debug } from "@/lib/debug";
 import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 import { truncateMiddle } from "@/lib/text-utils";
 
@@ -138,7 +139,7 @@ export function decodeParameters(
       } as DecodedParameterWithRaw;
     });
   } catch (error) {
-    console.warn("Failed to decode parameters:", error);
+    debug.calldata("failed to decode parameters: %O", error);
     return null;
   }
 }

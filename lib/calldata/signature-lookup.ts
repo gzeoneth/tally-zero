@@ -1,5 +1,6 @@
 import localSignatures from "@data/function-signatures.json";
 
+import { debug } from "@/lib/debug";
 import { getStoredValue, setStoredValue } from "@/lib/storage-utils";
 
 const FOURBYTE_API = "https://www.4byte.directory/api/v1/signatures/";
@@ -74,7 +75,7 @@ export async function lookup4byteDirectory(
 
     return signature;
   } catch (error) {
-    console.warn("4byte.directory lookup failed:", error);
+    debug.calldata("4byte.directory lookup failed: %O", error);
     return null;
   }
 }

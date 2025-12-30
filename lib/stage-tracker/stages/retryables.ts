@@ -3,6 +3,7 @@ import {
   DELAYED_INBOX,
 } from "@/config/arbitrum-governance";
 import { addressesEqual } from "@/lib/address-utils";
+import { debug } from "@/lib/debug";
 import type { ProposalStage } from "@/types/proposal-stage";
 import {
   ParentToChildMessageStatus,
@@ -124,7 +125,7 @@ export async function trackRetryables(
           });
         }
       } catch (e) {
-        console.debug("[trackRetryables] Failed to get creation receipt:", e);
+        debug.stageTracker("failed to get creation receipt: %O", e);
         creationDetails.push({
           index: globalIndex,
           targetChain: chain.name,
@@ -175,7 +176,7 @@ export async function trackRetryables(
           });
         }
       } catch (e) {
-        console.debug("[trackRetryables] Failed to get redemption status:", e);
+        debug.stageTracker("failed to get redemption status: %O", e);
         allRedeemed = false;
         redemptionDetails.push({
           index: globalIndex,

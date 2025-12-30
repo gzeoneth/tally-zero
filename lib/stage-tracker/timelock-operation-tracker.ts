@@ -14,6 +14,7 @@ import {
 } from "@/config/arbitrum-governance";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import { addressesEqual } from "@/lib/address-utils";
+import { debug } from "@/lib/debug";
 import { queryWithRetry } from "@/lib/rpc-utils";
 import type { ChunkingConfig, ProposalStage } from "@/types/proposal-stage";
 import { ArbitrumProvider } from "@arbitrum/sdk";
@@ -90,7 +91,7 @@ export async function parseTimelockTransaction(
         timelockAddress: log.address,
       });
     } catch (e) {
-      console.debug("[parseTimelockTransaction] Failed to parse log:", e);
+      debug.stageTracker("failed to parse timelock log: %O", e);
     }
   }
 

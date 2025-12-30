@@ -5,6 +5,7 @@ import {
   isPendingOrActiveState,
 } from "@/config/arbitrum-governance";
 import GovernorABI from "@/data/L2ArbitrumGovernor_ABI.json";
+import { debug } from "@/lib/debug";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { ethers } from "ethers";
 import { searchLogsInChunks } from "../log-search";
@@ -89,7 +90,7 @@ export async function trackProposalQueued(
       };
     }
   } catch (e) {
-    console.debug("[trackProposalQueued] Failed to check proposal state:", e);
+    debug.stageTracker("failed to check proposal state: %O", e);
   }
 
   return { type: "PROPOSAL_QUEUED", status: "NOT_STARTED", transactions: [] };

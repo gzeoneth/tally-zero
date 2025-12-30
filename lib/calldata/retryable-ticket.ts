@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 
+import { debug } from "@/lib/debug";
 import type { RetryableTicketData } from "./types";
 
 // Retryable ticket magic address - bytes are ABI encoded tuple, not calldata
@@ -48,7 +49,7 @@ export function decodeRetryableTicket(
       chain,
     };
   } catch (error) {
-    console.warn("Failed to decode retryable ticket:", error);
+    debug.calldata("failed to decode retryable ticket: %O", error);
     return null;
   }
 }

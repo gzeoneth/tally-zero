@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 
 import { findByAddress } from "@/lib/address-utils";
+import { debug } from "@/lib/debug";
 import { batchQueryWithRateLimit } from "@/lib/rpc-utils";
 import type { ParsedProposal, Proposal } from "@/types/proposal";
 import {
@@ -70,8 +71,10 @@ export async function searchGovernor(
         onProgress(Math.min((processedBlocks / totalBlocks) * 100, 100));
         return events;
       } catch (error) {
-        console.warn(
-          `[searchGovernor] Query failed for block range ${queryFromBlock}-${queryToBlock}:`,
+        debug.search(
+          "query failed for block range %d-%d: %O",
+          queryFromBlock,
+          queryToBlock,
           error
         );
         return [];
@@ -200,7 +203,7 @@ export async function parseProposals(
           : undefined,
       } as ParsedProposal;
     } catch (e) {
-      console.debug("[parseProposals] Failed to parse proposal:", e);
+      debug.search("failed to parse proposal: %O", e);
       return null;
     }
   });
