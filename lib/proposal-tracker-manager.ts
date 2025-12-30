@@ -3,6 +3,7 @@
  * Ensures only one tracking session exists per proposal.
  */
 
+import { MS_PER_MINUTE } from "@/lib/date-utils";
 import { debug } from "@/lib/debug";
 import type {
   ProposalStage,
@@ -321,7 +322,7 @@ class ProposalTrackerManager {
    * @param maxAgeMs - Maximum age in milliseconds (default: 30 minutes)
    * @returns Number of sessions cleaned up
    */
-  cleanupStaleSessions(maxAgeMs: number = 30 * 60 * 1000): number {
+  cleanupStaleSessions(maxAgeMs: number = 30 * MS_PER_MINUTE): number {
     const now = Date.now();
     let cleanedCount = 0;
 

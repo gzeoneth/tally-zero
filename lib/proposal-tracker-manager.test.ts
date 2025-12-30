@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MS_PER_HOUR, MS_PER_MINUTE } from "./date-utils";
 import { delay } from "./delay-utils";
 
 // We need to create a fresh instance for each test, so we'll test the class directly
@@ -483,9 +484,9 @@ describe("proposal-tracker-manager", () => {
 
       const session = trackerManager.createSession("proposal-1", "0x1234");
       session.status = "complete";
-      session.lastUpdatedAt = Date.now() - 60 * 60 * 1000; // 1 hour ago
+      session.lastUpdatedAt = Date.now() - MS_PER_HOUR; // 1 hour ago
 
-      const cleaned = trackerManager.cleanupStaleSessions(30 * 60 * 1000);
+      const cleaned = trackerManager.cleanupStaleSessions(30 * MS_PER_MINUTE);
 
       expect(cleaned).toBe(1);
       expect(trackerManager.getSession("proposal-1", "0x1234")).toBeUndefined();
@@ -496,9 +497,9 @@ describe("proposal-tracker-manager", () => {
 
       const session = trackerManager.createSession("proposal-1", "0x1234");
       session.status = "error";
-      session.lastUpdatedAt = Date.now() - 60 * 60 * 1000;
+      session.lastUpdatedAt = Date.now() - MS_PER_HOUR;
 
-      const cleaned = trackerManager.cleanupStaleSessions(30 * 60 * 1000);
+      const cleaned = trackerManager.cleanupStaleSessions(30 * MS_PER_MINUTE);
 
       expect(cleaned).toBe(1);
     });
@@ -509,9 +510,9 @@ describe("proposal-tracker-manager", () => {
       trackerManager.subscribe("proposal-1", "0x1234", vi.fn());
       const session = trackerManager.getSession("proposal-1", "0x1234");
       session!.status = "complete";
-      session!.lastUpdatedAt = Date.now() - 60 * 60 * 1000;
+      session!.lastUpdatedAt = Date.now() - MS_PER_HOUR;
 
-      const cleaned = trackerManager.cleanupStaleSessions(30 * 60 * 1000);
+      const cleaned = trackerManager.cleanupStaleSessions(30 * MS_PER_MINUTE);
 
       expect(cleaned).toBe(0);
       expect(trackerManager.getSession("proposal-1", "0x1234")).toBeDefined();
@@ -524,7 +525,7 @@ describe("proposal-tracker-manager", () => {
       session.status = "complete";
       // lastUpdatedAt is recent (just created)
 
-      const cleaned = trackerManager.cleanupStaleSessions(30 * 60 * 1000);
+      const cleaned = trackerManager.cleanupStaleSessions(30 * MS_PER_MINUTE);
 
       expect(cleaned).toBe(0);
     });
@@ -534,13 +535,13 @@ describe("proposal-tracker-manager", () => {
 
       const session1 = trackerManager.createSession("proposal-1", "0x1234");
       session1.status = "loading";
-      session1.lastUpdatedAt = Date.now() - 60 * 60 * 1000;
+      session1.lastUpdatedAt = Date.now() - MS_PER_HOUR;
 
       const session2 = trackerManager.createSession("proposal-2", "0x1234");
       session2.status = "idle";
-      session2.lastUpdatedAt = Date.now() - 60 * 60 * 1000;
+      session2.lastUpdatedAt = Date.now() - MS_PER_HOUR;
 
-      const cleaned = trackerManager.cleanupStaleSessions(30 * 60 * 1000);
+      const cleaned = trackerManager.cleanupStaleSessions(30 * MS_PER_MINUTE);
 
       expect(cleaned).toBe(0);
     });
