@@ -1,8 +1,11 @@
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal } from "@/types/proposal";
+import type { ProposalStage } from "@/types/proposal-stage";
 import { formatCacheAge } from "./format-utils";
+import type { TimelockOperationInfo } from "./stage-tracker/timelock-operation-tracker";
 import { seedStagesFromProposal } from "./stages-cache";
 import { getStoredValue } from "./storage-utils";
+import { seedTimelockFromCache } from "./unified-cache";
 
 // Re-export stages cache functions for convenience
 export {
@@ -10,6 +13,27 @@ export {
   hasPreloadedStages,
   seedStagesFromProposal,
 } from "./stages-cache";
+
+/**
+ * Timelock operation entry from the prebuilt cache
+ */
+interface TimelockOperationEntry {
+  txHash: string;
+  operationId: string;
+  timelockAddress: string;
+  queueBlockNumber: number;
+  stages: ProposalStage[];
+  trackedAt: string;
+}
+
+/**
+ * Prebuilt timelock operations cache structure
+ */
+interface TimelockOperationsCache {
+  version: number;
+  generatedAt: string;
+  operations: TimelockOperationEntry[];
+}
 
 function getSkipPreloadCacheSetting(): boolean {
   return (
@@ -59,9 +83,18 @@ try {
   staticCacheData = null;
 }
 
+let staticTimelockCacheData: TimelockOperationsCache | null = null;
+try {
+  staticTimelockCacheData =
+    require("@data/timelock-operations-cache.json") as TimelockOperationsCache;
+} catch {
+  staticTimelockCacheData = null;
+}
+
 let validatedCacheData: ProposalCache | null = null;
 let cacheValidated = false;
 let stagesSeeded = false;
+let timelockStagesSeeded = false;
 
 export async function loadProposalCache(): Promise<ProposalCache | null> {
   if (getSkipPreloadCacheSetting()) {
@@ -73,6 +106,10 @@ export async function loadProposalCache(): Promise<ProposalCache | null> {
     if (validatedCacheData && !stagesSeeded) {
       seedAllStagesFromCache(validatedCacheData);
       stagesSeeded = true;
+    }
+    if (!timelockStagesSeeded) {
+      seedTimelockOperationsFromCache();
+      timelockStagesSeeded = true;
     }
     return validatedCacheData;
   }
@@ -112,6 +149,10 @@ export async function loadProposalCache(): Promise<ProposalCache | null> {
   seedAllStagesFromCache(validatedCacheData);
   stagesSeeded = true;
 
+  // Seed timelock operations from prebuilt cache
+  seedTimelockOperationsFromCache();
+  timelockStagesSeeded = true;
+
   return validatedCacheData;
 }
 
@@ -119,6 +160,7 @@ export function clearCacheData(): void {
   validatedCacheData = null;
   cacheValidated = false;
   stagesSeeded = false;
+  timelockStagesSeeded = false;
 }
 
 export async function getCacheSnapshotBlock(): Promise<number> {
@@ -211,6 +253,72 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
   if (seededCount > 0) {
     console.debug(
       `[proposal-cache] Seeded ${seededCount} proposals with preloaded stages`
+    );
+  }
+
+  return seededCount;
+}
+
+/**
+ * Seed timelock operations cache from prebuilt cache
+ *
+ * This loads the prebuilt timelock-operations-cache.json and seeds
+ * localStorage with stages 4-10 for each operation.
+ */
+export function seedTimelockOperationsFromCache(): number {
+  if (typeof window === "undefined") return 0;
+
+  if (getSkipPreloadCacheSetting()) {
+    console.debug(
+      "[proposal-cache] Skipping timelock seeding (setting enabled)"
+    );
+    return 0;
+  }
+
+  if (!staticTimelockCacheData) {
+    return 0;
+  }
+
+  if (staticTimelockCacheData.version !== CURRENT_CACHE_VERSION) {
+    console.debug("[proposal-cache] Timelock cache version mismatch, skipping");
+    return 0;
+  }
+
+  let seededCount = 0;
+  for (const operation of staticTimelockCacheData.operations) {
+    // Create a minimal TimelockTrackingResult for seeding
+    const result = {
+      operationInfo: {
+        operationId: operation.operationId,
+        target: "",
+        value: "0",
+        data: "0x",
+        predecessor:
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+        delay: "0",
+        txHash: operation.txHash,
+        blockNumber: operation.queueBlockNumber,
+        timestamp: 0,
+        timelockAddress: operation.timelockAddress,
+      } as TimelockOperationInfo,
+      stages: operation.stages,
+    };
+
+    if (
+      seedTimelockFromCache(
+        operation.txHash,
+        operation.operationId,
+        result,
+        operation.trackedAt
+      )
+    ) {
+      seededCount++;
+    }
+  }
+
+  if (seededCount > 0) {
+    console.debug(
+      `[proposal-cache] Seeded ${seededCount} timelock operations with preloaded stages`
     );
   }
 

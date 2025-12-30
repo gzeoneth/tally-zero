@@ -116,6 +116,28 @@ interface ProposalCache {
   };
 }
 
+/**
+ * Timelock operation entry for the prebuilt cache
+ */
+interface TimelockOperationEntry {
+  txHash: string;
+  operationId: string;
+  timelockAddress: string;
+  queueBlockNumber: number;
+  stages: ProposalStage[];
+  trackedAt: string;
+}
+
+/**
+ * Prebuilt timelock operations cache
+ * Stores stages 4-10 for completed proposals
+ */
+interface TimelockOperationsCache {
+  version: number;
+  generatedAt: string;
+  operations: TimelockOperationEntry[];
+}
+
 async function fetchProposalsFromGovernor(
   provider: ethers.providers.JsonRpcProvider,
   governor: (typeof GOVERNORS)[number],
@@ -456,6 +478,81 @@ function getResumeStageIndex(stages: ProposalStage[]): number {
 }
 
 /**
+ * Stage types that belong to proposal cache (stages 1-3)
+ */
+const PROPOSAL_STAGE_TYPES = [
+  "PROPOSAL_CREATED",
+  "VOTING_ACTIVE",
+  "PROPOSAL_QUEUED",
+];
+
+/**
+ * Split stages into proposal stages (1-3) and timelock stages (4-10)
+ */
+function splitStages(stages: ProposalStage[]): {
+  proposalStages: ProposalStage[];
+  timelockStages: ProposalStage[];
+} {
+  const proposalStages = stages.filter((s) =>
+    PROPOSAL_STAGE_TYPES.includes(s.type)
+  );
+  const timelockStages = stages.filter(
+    (s) => !PROPOSAL_STAGE_TYPES.includes(s.type)
+  );
+  return { proposalStages, timelockStages };
+}
+
+/**
+ * Extract timelock operations from proposals with timelockLinks
+ */
+function extractTimelockOperations(
+  proposals: ParsedProposal[]
+): TimelockOperationEntry[] {
+  const operations: TimelockOperationEntry[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const proposal of proposals) {
+    if (!proposal.timelockLink || !proposal.stages) continue;
+
+    const { txHash, operationId, timelockAddress, queueBlockNumber } =
+      proposal.timelockLink;
+    const key = `${txHash.toLowerCase()}-${operationId.toLowerCase()}`;
+
+    // Skip duplicates
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+
+    const { timelockStages } = splitStages(proposal.stages);
+    if (timelockStages.length === 0) continue;
+
+    operations.push({
+      txHash,
+      operationId,
+      timelockAddress,
+      queueBlockNumber,
+      stages: timelockStages,
+      trackedAt: proposal.stagesTrackedAt || new Date().toISOString(),
+    });
+  }
+
+  return operations;
+}
+
+/**
+ * Prepare proposal for cache by keeping only stages 1-3
+ */
+function prepareProposalForCache(proposal: ParsedProposal): ParsedProposal {
+  if (!proposal.stages) return proposal;
+
+  const { proposalStages } = splitStages(proposal.stages);
+
+  return {
+    ...proposal,
+    stages: proposalStages.length > 0 ? proposalStages : undefined,
+  };
+}
+
+/**
  * Refresh state for pending/active proposals
  */
 async function refreshProposalStates(
@@ -680,32 +777,58 @@ async function main() {
     };
   }
 
-  // Create cache object
+  // Extract timelock operations (stages 4-10) before stripping from proposals
+  const timelockOperations = extractTimelockOperations(allProposals);
+
+  // Prepare proposals for cache (keep only stages 1-3)
+  const proposalsForCache = allProposals.map(prepareProposalForCache);
+
+  // Create proposal cache object (stages 1-3 only)
   const cache: ProposalCache = {
     version: 1,
     generatedAt: new Date().toISOString(),
     snapshotBlock: currentBlock,
     startBlock: existingCache?.startBlock ?? startBlock,
     chainId: ARBITRUM_CHAIN_ID,
-    proposals: allProposals,
+    proposals: proposalsForCache,
     governorStats,
   };
 
-  // Write to file
+  // Create timelock operations cache object (stages 4-10)
+  const timelockCache: TimelockOperationsCache = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    operations: timelockOperations,
+  };
+
+  // Write proposal cache
+  const timelockOutputPath = path.join(
+    __dirname,
+    "..",
+    "data",
+    "timelock-operations-cache.json"
+  );
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify(cache, null, 2));
+
+  // Write timelock operations cache
+  fs.writeFileSync(timelockOutputPath, JSON.stringify(timelockCache, null, 2));
 
   console.log("\n========================================");
   console.log("  Cache Build Complete!");
   console.log("========================================");
-  console.log(`Output: ${outputPath}`);
+  console.log(`Proposal cache: ${outputPath}`);
+  console.log(`Timelock cache: ${timelockOutputPath}`);
   console.log(`Total proposals: ${allProposals.length}`);
   console.log(`  - Existing (finalized): ${finalizedExisting.length}`);
   console.log(`  - Refreshed (pending/active): ${refreshedProposals.length}`);
   console.log(`  - New: ${uniqueNewProposals.length}`);
   console.log(`Snapshot block: ${currentBlock.toLocaleString()}`);
   console.log(
-    `File size: ${(fs.statSync(outputPath).size / 1024).toFixed(2)} KB`
+    `Proposal cache size: ${(fs.statSync(outputPath).size / 1024).toFixed(2)} KB`
+  );
+  console.log(
+    `Timelock cache size: ${(fs.statSync(timelockOutputPath).size / 1024).toFixed(2)} KB`
   );
   console.log("");
 
@@ -726,10 +849,15 @@ async function main() {
   const proposalsAtFinalStage = allProposals.filter(
     (p) => p.stages && hasReachedFinalStage(p.stages, p.contractAddress)
   );
+  const proposalsWithTimelockLink = allProposals.filter((p) => p.timelockLink);
   console.log("");
   console.log("Stage tracking:");
   console.log(`  Proposals with stages: ${proposalsWithStages.length}`);
   console.log(`  Proposals at final stage: ${proposalsAtFinalStage.length}`);
+  console.log(
+    `  Proposals with timelockLink: ${proposalsWithTimelockLink.length}`
+  );
+  console.log(`  Timelock operations cached: ${timelockOperations.length}`);
 }
 
 main().catch((error) => {
