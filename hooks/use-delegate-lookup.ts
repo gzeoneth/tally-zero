@@ -7,6 +7,7 @@ import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { addressesEqual, isValidAddress } from "@/lib/address-utils";
+import { debug } from "@/lib/debug";
 import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
 import { getErrorMessage } from "@/lib/error-utils";
 
@@ -99,7 +100,7 @@ export function useDelegateLookup({
           }
         }
       } catch (cacheErr) {
-        console.warn("Failed to check delegate cache:", cacheErr);
+        debug.delegates("failed to check delegate cache: %O", cacheErr);
       }
 
       setResult({
@@ -112,7 +113,7 @@ export function useDelegateLookup({
         cacheVotingPower,
       });
     } catch (err) {
-      console.error("[useDelegateLookup] Error:", err);
+      debug.delegates("lookup error: %O", err);
       setError(getErrorMessage(err, "fetch delegate info"));
       setResult(null);
     } finally {

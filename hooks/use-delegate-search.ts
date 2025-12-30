@@ -7,6 +7,7 @@ import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { addressesEqual } from "@/lib/address-utils";
+import { debug } from "@/lib/debug";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
 import type {
   DelegateCache,
@@ -100,15 +101,17 @@ export function useDelegateSearch({
           setTotalSupply(loaded.totalSupply);
           setSnapshotBlock(loaded.snapshotBlock);
           setCacheStats(getDelegateCacheStats(loaded));
-          console.debug(
-            `[useDelegateSearch] Cache loaded: ${loaded.delegates.length} delegates (block ${loaded.snapshotBlock})`
+          debug.delegates(
+            "cache loaded: %d delegates (block %d)",
+            loaded.delegates.length,
+            loaded.snapshotBlock
           );
         }
         setIsLoading(false);
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error("[useDelegateSearch] Failed to load cache:", err);
+        debug.delegates("failed to load cache: %O", err);
         setError(err instanceof Error ? err : new Error(String(err)));
         setIsLoading(false);
       });
@@ -157,7 +160,11 @@ export function useDelegateSearch({
             refreshedAddresses.current.add(address.toLowerCase());
             return { address, votingPower: votes.toString() };
           } catch (err) {
-            console.warn(`Failed to refresh voting power for ${address}:`, err);
+            debug.delegates(
+              "failed to refresh voting power for %s: %O",
+              address,
+              err
+            );
             return null;
           }
         });
@@ -195,10 +202,7 @@ export function useDelegateSearch({
           setTotalVotingPower(newTotalVotingPower);
         }
       } catch (err) {
-        console.error(
-          "[useDelegateSearch] Error refreshing visible delegates:",
-          err
-        );
+        debug.delegates("error refreshing visible delegates: %O", err);
       } finally {
         setIsRefreshingVisible(false);
       }
