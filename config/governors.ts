@@ -1,8 +1,15 @@
+/**
+ * Governor configuration for Arbitrum DAO governance
+ * Defines Core and Treasury governors with their respective timelocks
+ */
+
 import { addressesEqual, findByAddress } from "@/lib/address-utils";
 import type { StageType } from "@/types/proposal-stage";
 
+/** Governor type identifier */
 export type GovernorType = "core" | "treasury";
 
+/** Configuration for a governor contract */
 export interface GovernorConfig {
   address: string;
   type: GovernorType;
@@ -52,24 +59,49 @@ export const GOVERNORS: Record<GovernorType, GovernorConfig> = {
 
 export const GOVERNOR_LIST: GovernorConfig[] = Object.values(GOVERNORS);
 
+/**
+ * Get governor configuration by contract address
+ * @param address - The governor contract address to look up
+ * @returns The governor configuration if found, undefined otherwise
+ */
 export function getGovernorByAddress(
   address: string
 ): GovernorConfig | undefined {
   return findByAddress(GOVERNOR_LIST, address);
 }
 
+/**
+ * Check if an address is the Core Governor contract
+ * @param address - The address to check
+ * @returns True if the address matches the Core Governor
+ */
 export function isCoreGovernor(address: string): boolean {
   return addressesEqual(address, CORE_GOVERNOR_CONFIG.address);
 }
 
+/**
+ * Check if an address is the Treasury Governor contract
+ * @param address - The address to check
+ * @returns True if the address matches the Treasury Governor
+ */
 export function isTreasuryGovernor(address: string): boolean {
   return addressesEqual(address, TREASURY_GOVERNOR_CONFIG.address);
 }
 
+/**
+ * Check if an address is any Arbitrum DAO governor (Core or Treasury)
+ * @param address - The address to check
+ * @returns True if the address matches either governor
+ */
 export function isArbitrumGovernor(address: string): boolean {
   return isCoreGovernor(address) || isTreasuryGovernor(address);
 }
 
+/**
+ * Get the final lifecycle stage for a governor's proposals
+ * @param governorAddress - The governor contract address
+ * @returns The final stage type, or undefined if governor not found
+ */
 export function getFinalStageForGovernor(
   governorAddress: string
 ): StageType | undefined {
@@ -77,6 +109,11 @@ export function getFinalStageForGovernor(
   return config?.finalStage;
 }
 
+/**
+ * Get the type of governor for a given address
+ * @param address - The governor contract address
+ * @returns The governor type ("core" or "treasury"), or undefined if not found
+ */
 export function getGovernorType(address: string): GovernorType | undefined {
   const config = getGovernorByAddress(address);
   return config?.type;

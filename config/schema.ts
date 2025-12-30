@@ -1,10 +1,15 @@
+/**
+ * Zod validation schemas for forms and data validation
+ * Provides runtime validation for user inputs and proposal data
+ */
+
 import { ETH_ADDRESS_REGEX } from "@/lib/address-utils";
 import { isValidRpcUrl } from "@lib/utils";
 import * as z from "zod";
 
 import { DEFAULT_FORM_VALUES } from "./arbitrum-governance";
 
-// RPC URL validation schema
+/** Schema for validating optional RPC URLs */
 const rpcUrlSchema = z
   .string()
   .optional()
@@ -19,6 +24,7 @@ const rpcUrlSchema = z
   )
   .or(z.literal(""));
 
+/** Schema for the main search/settings form */
 export const formSchema = z.object({
   address: z.string().regex(ETH_ADDRESS_REGEX, "Invalid Ethereum address"),
   networkId: z.string(),
@@ -42,12 +48,14 @@ export const formSchema = z.object({
   autoRun: z.boolean().optional().default(false),
 });
 
+/** Schema for vote submission form */
 export const voteSchema = z.object({
   vote: z.string().refine((data) => ["0", "1", "2"].includes(data), {
     message: "Please select a valid vote option",
   }),
 });
 
+/** Schema for validating proposal data structure */
 export const proposalSchema = z.object({
   id: z.string(),
   proposer: z.string(),
