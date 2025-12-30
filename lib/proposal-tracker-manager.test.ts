@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { delay } from "./delay-utils";
+
 // We need to create a fresh instance for each test, so we'll test the class directly
 // by re-importing or creating instances
 describe("proposal-tracker-manager", () => {
@@ -88,7 +90,7 @@ describe("proposal-tracker-manager", () => {
       const originalTimestamp = session.lastUpdatedAt;
 
       // Wait a tiny bit to ensure timestamp difference
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await delay(5);
 
       trackerManager.updateSession("proposal-1", "0x1234", {
         status: "complete",
