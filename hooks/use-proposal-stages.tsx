@@ -31,6 +31,55 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
 
+// Shared L1 block cache to avoid redundant RPC calls across hook instances
+let sharedL1Block: { block: number; timestamp: number } | null = null;
+let pendingL1BlockPromise: Promise<number | null> | null = null;
+
+/**
+ * Fetch L1 block with deduplication - multiple callers share the same result
+ * within a short time window
+ */
+async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
+  // Return cached value if fresh (within 30 seconds)
+  if (sharedL1Block && Date.now() - sharedL1Block.timestamp < 30000) {
+    return sharedL1Block.block;
+  }
+
+  // If a fetch is already in progress, wait for it
+  if (pendingL1BlockPromise) {
+    return pendingL1BlockPromise;
+  }
+
+  // Start a new fetch
+  pendingL1BlockPromise = (async () => {
+    try {
+      const response = await fetch(rpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "eth_blockNumber",
+          params: [],
+          id: 1,
+        }),
+      });
+      const data = await response.json();
+      if (data.result) {
+        const block = parseInt(data.result, 16);
+        sharedL1Block = { block, timestamp: Date.now() };
+        return block;
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      pendingL1BlockPromise = null;
+    }
+  })();
+
+  return pendingL1BlockPromise;
+}
+
 interface UseProposalStagesOptions {
   proposalId: string;
   creationTxHash: string;
@@ -278,36 +327,22 @@ export function useProposalStages({
     };
   }, []);
 
-  // Fetch current L1 block for timing calculations
+  // Fetch current L1 block for timing calculations (uses shared cache)
   useEffect(() => {
     if (!enabled || !rpcHydrated) return;
 
-    const fetchL1Block = async () => {
-      try {
-        const response = await fetch(effectiveL1RpcUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "eth_blockNumber",
-            params: [],
-            id: 1,
-          }),
-        });
-        const data = await response.json();
-        if (data.result && isMounted.current) {
-          setCurrentL1Block(parseInt(data.result, 16));
-        }
-      } catch {
-        // Silently fail - timing will use fallback
+    const updateL1Block = async () => {
+      const block = await fetchSharedL1Block(effectiveL1RpcUrl);
+      if (block !== null && isMounted.current) {
+        setCurrentL1Block(block);
       }
     };
 
-    // Fetch immediately
-    fetchL1Block();
+    // Fetch immediately (may use cached value)
+    updateL1Block();
 
     // Refresh periodically
-    const interval = setInterval(fetchL1Block, L1_BLOCK_REFRESH_INTERVAL_MS);
+    const interval = setInterval(updateL1Block, L1_BLOCK_REFRESH_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [enabled, rpcHydrated, effectiveL1RpcUrl]);
