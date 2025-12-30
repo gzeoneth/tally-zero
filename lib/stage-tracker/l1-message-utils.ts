@@ -6,6 +6,7 @@
  */
 
 import { addressesEqual } from "@/lib/address-utils";
+import { debugLog } from "@/lib/delay-utils";
 import type { ChunkingConfig } from "@/types/proposal-stage";
 import { getArbitrumNetwork } from "@arbitrum/sdk";
 import { BigNumber, ethers } from "ethers";
@@ -80,16 +81,29 @@ export async function findL1ExecutionTransaction(
   fromBlock: number,
   toBlock: number
 ): Promise<{ hash: string; blockNumber: number } | null> {
+  debugLog(
+    `[findL1ExecutionTransaction] Starting search from block ${fromBlock} to ${toBlock}`
+  );
+
   // Get the message position from the L2ToL1Tx event in the receipt
   const messagePosition = getMessagePositionFromReceipt(receipt);
   if (!messagePosition) {
-    console.debug("[findL1ExecutionTransaction] No L2ToL1Tx event found");
+    debugLog("[findL1ExecutionTransaction] No L2ToL1Tx event found");
     return null;
   }
+  debugLog(
+    `[findL1ExecutionTransaction] Message position: ${messagePosition.toString()}`
+  );
 
   // Get the Arbitrum network info to find the Outbox address
+  debugLog("[findL1ExecutionTransaction] Getting Arbitrum network info...");
+  const networkStartTime = Date.now();
   const network = await getArbitrumNetwork(ctx.l2Provider);
+  debugLog(
+    `[findL1ExecutionTransaction] Got network info in ${Date.now() - networkStartTime}ms`
+  );
   const outboxAddress = network.ethBridge.outbox;
+  debugLog(`[findL1ExecutionTransaction] Outbox address: ${outboxAddress}`);
   const outboxInterface = new ethers.utils.Interface(OUTBOX_ABI);
 
   // Search for OutBoxTransactionExecuted events where 'to' is the L1 Timelock
@@ -99,6 +113,10 @@ export async function findL1ExecutionTransaction(
   );
   const toTopic = ethers.utils.hexZeroPad(ctx.l1TimelockAddress, 32);
 
+  debugLog(
+    `[findL1ExecutionTransaction] Searching for OutBoxTransactionExecuted events...`
+  );
+  const searchStartTime = Date.now();
   const logs = await searchLogsInChunks(
     ctx.l1Provider,
     {
@@ -125,13 +143,21 @@ export async function findL1ExecutionTransaction(
     }
   );
 
+  debugLog(
+    `[findL1ExecutionTransaction] Search completed in ${Date.now() - searchStartTime}ms, found ${logs.length} logs`
+  );
+
   // Early exit callback returns the matching log directly
   if (logs.length > 0) {
+    debugLog(
+      `[findL1ExecutionTransaction] Found matching L1 tx: ${logs[0].transactionHash.slice(0, 20)}...`
+    );
     return {
       hash: logs[0].transactionHash,
       blockNumber: logs[0].blockNumber,
     };
   }
 
+  debugLog(`[findL1ExecutionTransaction] No matching L1 execution found`);
   return null;
 }

@@ -20,6 +20,7 @@ import {
   isCoreGovernor as isCoreGov,
   isTreasuryGovernor as isTreasuryGov,
 } from "@/config/governors";
+import { debugLog } from "@/lib/delay-utils";
 import type {
   ChunkingConfig,
   ProposalStage,
@@ -114,9 +115,17 @@ export async function trackProposalStages(
     startFromStageIndex,
   } = options;
 
+  debugLog(`[stage-tracker-core] trackProposalStages called`);
+  debugLog(`  proposalId: ${proposalId.slice(0, 20)}...`);
+  debugLog(`  creationTxHash: ${creationTxHash}`);
+  debugLog(`  governorAddress: ${governorAddress}`);
+  debugLog(`  existingStages: ${existingStages?.length ?? 0}`);
+  debugLog(`  startFromStageIndex: ${startFromStageIndex ?? "undefined"}`);
+
   // Validate governor address
   const governorConfig = getGovernorByAddress(governorAddress);
   if (!governorConfig) {
+    debugLog(`[stage-tracker-core] Unknown governor address`);
     return {
       stages: [],
       error: `Unknown governor address: ${governorAddress}`,
@@ -124,6 +133,7 @@ export async function trackProposalStages(
   }
 
   try {
+    debugLog(`[stage-tracker-core] Creating tracker...`);
     const tracker = createTracker(
       governorAddress,
       l2RpcUrl,
@@ -131,6 +141,7 @@ export async function trackProposalStages(
       chunkingConfig
     );
 
+    debugLog(`[stage-tracker-core] Calling tracker.trackProposal...`);
     const result = await tracker.trackProposal(
       proposalId,
       creationTxHash,
@@ -139,12 +150,19 @@ export async function trackProposalStages(
       startFromStageIndex
     );
 
+    debugLog(`[stage-tracker-core] tracker.trackProposal completed`);
+    debugLog(`  stages: ${result.stages.length}`);
+    debugLog(`  currentState: ${result.currentState ?? "undefined"}`);
+
     return {
       stages: result.stages,
       currentState: result.currentState,
       timelockLink: result.timelockLink,
     };
   } catch (error) {
+    debugLog(
+      `[stage-tracker-core] Error: ${error instanceof Error ? error.message : String(error)}`
+    );
     return {
       stages: existingStages || [],
       error: error instanceof Error ? error.message : String(error),
