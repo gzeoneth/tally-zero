@@ -10,6 +10,7 @@ import type {
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
 
+/** Status of a proposal tracking session */
 export type TrackingStatus =
   | "idle"
   | "queued"
@@ -17,31 +18,57 @@ export type TrackingStatus =
   | "complete"
   | "error";
 
+/** A proposal tracking session with its current state */
 export interface TrackingSession {
+  /** The proposal ID being tracked */
   proposalId: string;
+  /** The governor contract address */
   governorAddress: string;
+  /** Current status of the tracking session */
   status: TrackingStatus;
+  /** Array of stages tracked so far */
   stages: ProposalStage[];
+  /** Current stage index (-1 if not started) */
   currentStageIndex: number;
+  /** Final tracking result when complete */
   result: ProposalTrackingResult | null;
+  /** Error message if tracking failed */
   error: string | null;
+  /** Stage index to refresh from (for incremental refresh) */
   refreshingFromIndex: number | null;
+  /** Callbacks to notify on state changes */
   subscribers: Set<(session: TrackingSession) => void>;
+  /** Controller for canceling tracking */
   abortController: AbortController | null;
+  /** Position in queue (null if not queued) */
   queuePosition: number | null;
+  /** Timestamp of last update */
   lastUpdatedAt: number;
+  /** Whether a background refresh is in progress */
   isBackgroundRefreshing: boolean;
 }
 
+/** Item waiting in the tracking queue */
 export interface QueuedItem {
+  /** Session key for lookup */
   key: SessionKey;
+  /** The proposal ID */
   proposalId: string;
+  /** The governor contract address */
   governorAddress: string;
+  /** Function to call when ready to start tracking */
   startTracking: () => void;
 }
 
 type SessionKey = string;
 
+/**
+ * Generate a session key from proposal and governor
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
+ * @returns Unique session key string
+ */
 function getSessionKey(
   proposalId: string,
   governorAddress: string
@@ -49,10 +76,19 @@ function getSessionKey(
   return `${governorAddress.toLowerCase()}-${proposalId}`;
 }
 
+/** Maximum number of concurrent tracking sessions */
 const MAX_CONCURRENT_TRACKING = 2;
 
+/**
+ * Manages proposal tracking sessions with queuing and concurrency control
+ *
+ * Ensures only one tracking session exists per proposal and limits
+ * concurrent tracking to avoid overwhelming RPC endpoints.
+ */
 class ProposalTrackerManager {
+  /** Maximum number of sessions before forced cleanup */
   private static readonly MAX_SESSIONS = 100;
+  /** Threshold to trigger cleanup of stale sessions */
   private static readonly CLEANUP_THRESHOLD = 50;
 
   private sessions: Map<SessionKey, TrackingSession> = new Map();
@@ -341,23 +377,35 @@ class ProposalTrackerManager {
   }
 }
 
-// Vote update event type
+/** Vote update event with current vote counts */
 export interface VoteUpdate {
+  /** The proposal ID */
   proposalId: string;
+  /** The governor contract address */
   governorAddress: string;
+  /** Current "for" votes in wei */
   forVotes: string;
+  /** Current "against" votes in wei */
   againstVotes: string;
+  /** Current "abstain" votes in wei */
   abstainVotes: string;
 }
 
+/** Callback type for vote update subscriptions */
 export type VoteUpdateCallback = (update: VoteUpdate) => void;
 
-// Singleton instance
+/** Singleton instance of the tracker manager */
 export const trackerManager = new ProposalTrackerManager();
 
-// Vote update subscribers (separate from tracking sessions)
+/** Vote update subscribers (separate from tracking sessions) */
 const voteUpdateSubscribers = new Set<VoteUpdateCallback>();
 
+/**
+ * Subscribe to vote update events
+ *
+ * @param callback - Function to call when votes are updated
+ * @returns Unsubscribe function
+ */
 export function subscribeToVoteUpdates(
   callback: VoteUpdateCallback
 ): () => void {
@@ -367,6 +415,11 @@ export function subscribeToVoteUpdates(
   };
 }
 
+/**
+ * Emit a vote update to all subscribers
+ *
+ * @param update - The vote update event to emit
+ */
 export function emitVoteUpdate(update: VoteUpdate): void {
   voteUpdateSubscribers.forEach((callback) => {
     try {
