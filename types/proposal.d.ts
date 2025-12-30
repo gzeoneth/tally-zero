@@ -4,20 +4,16 @@ import type { Address } from "@/types/search";
 
 export type ProposalStateName = FinalizedState | PendingState;
 
-/**
- * Raw proposal data extracted from ProposalCreated events.
- * Values are stored as strings for serialization compatibility.
- */
 export type Proposal = {
   id: string;
   contractAddress: Address;
   proposer: string;
   targets: string[];
-  values: string[];
+  values: ethers.BigNumber[];
   signatures: string[];
   calldatas: string[];
-  startBlock: string;
-  endBlock: string;
+  startBlock: ethers.BigNumber;
+  endBlock: ethers.BigNumber;
   description: string;
   state: number;
   creationTxHash?: string;
