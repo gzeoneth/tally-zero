@@ -21,6 +21,7 @@ import {
   isTreasuryGovernor as isTreasuryGov,
 } from "@/config/governors";
 import { debug } from "@/lib/debug";
+import { getErrorMessage } from "@/lib/error-utils";
 import type {
   ChunkingConfig,
   ProposalStage,
@@ -162,12 +163,11 @@ export async function trackProposalStages(
       timelockLink: result.timelockLink,
     };
   } catch (error) {
-    debug.stageTracker(
-      `[stage-tracker-core] Error: ${error instanceof Error ? error.message : String(error)}`
-    );
+    const errorMsg = getErrorMessage(error);
+    debug.stageTracker(`[stage-tracker-core] Error: ${errorMsg}`);
     return {
       stages: existingStages || [],
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMsg,
     };
   }
 }
