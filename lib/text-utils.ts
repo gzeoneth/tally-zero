@@ -1,5 +1,7 @@
 /**
  * Strips HTML tags and markdown syntax from text
+ * @param text - The text to strip HTML and markdown from
+ * @returns Plain text with HTML tags and markdown syntax removed
  */
 export function stripMarkdownAndHtml(text: string): string {
   // Remove HTML tags first
@@ -10,6 +12,9 @@ export function stripMarkdownAndHtml(text: string): string {
 
 /**
  * Truncates text to a maximum length with ellipsis
+ * @param text - The text to truncate
+ * @param maxLength - Maximum length before truncation (default: 100)
+ * @returns Original text or truncated text with "..." appended
  */
 export function truncateText(text: string, maxLength = 100): string {
   return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
