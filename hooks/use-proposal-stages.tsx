@@ -17,12 +17,13 @@ import {
   getAllStageMetadata,
   type StageProgressCallback,
 } from "@/lib/stage-tracker";
-import {
-  clearCachedStages,
-  loadCachedStages,
-  saveCachedStages,
-} from "@/lib/stages-cache";
+import { clearCachedStages, saveCachedStages } from "@/lib/stages-cache";
 import { getStoredCacheTtlMs } from "@/lib/storage-utils";
+import {
+  clearCachedTimelockResult,
+  loadUnifiedStages,
+  needsRefresh,
+} from "@/lib/unified-cache";
 import type {
   ProposalStage,
   ProposalTrackingResult,
@@ -220,12 +221,22 @@ export function useProposalStages({
     (stageIndex: number) => {
       if (!proposalId || !governorAddress) return;
 
+      // Clear proposal cache
       clearCachedStages(proposalId, governorAddress);
+
+      // Also clear timelock cache if we have a timelockLink
+      const session = trackerManager.getSession(proposalId, governorAddress);
+      const existingResult = session?.result;
+      if (existingResult?.timelockLink) {
+        clearCachedTimelockResult(
+          existingResult.timelockLink.txHash,
+          existingResult.timelockLink.operationId
+        );
+      }
 
       // Abort any existing tracking
       trackerManager.abortTracking(proposalId, governorAddress);
 
-      const session = trackerManager.getSession(proposalId, governorAddress);
       const existingStages = session?.stages ?? [];
 
       if (stageIndex === 0) {
@@ -355,25 +366,35 @@ export function useProposalStages({
         return;
       }
 
-      // Check for cached result
+      // Check for cached result using unified cache
       const cacheTtlMs = getStoredCacheTtlMs();
-      const {
-        result: cached,
-        isExpired,
-        isComplete: allStagesCompleted,
-      } = loadCachedStages(proposalId, governorAddress, cacheTtlMs);
+      const unifiedResult = loadUnifiedStages(
+        proposalId,
+        governorAddress,
+        cacheTtlMs
+      );
 
-      if (cached) {
+      if (unifiedResult.stages.length > 0) {
+        // Construct a ProposalTrackingResult from unified cache
+        const cachedResult: ProposalTrackingResult = {
+          proposalId,
+          creationTxHash,
+          governorAddress,
+          stages: unifiedResult.stages,
+          timelockLink: unifiedResult.timelockLink,
+          currentState: unifiedResult.proposalResult?.currentState,
+        };
+
         // Always load the cached data first
         trackerManager.updateSession(proposalId, governorAddress, {
-          stages: cached.stages,
-          currentStageIndex: cached.stages.length - 1,
-          result: cached,
+          stages: unifiedResult.stages,
+          currentStageIndex: unifiedResult.stages.length - 1,
+          result: cachedResult,
           status: "complete",
         });
 
-        // If cache is expired and not all stages are completed, do a background refresh
-        if (isExpired && !allStagesCompleted) {
+        // If any cache is expired and not all stages are completed, do a background refresh
+        if (needsRefresh(unifiedResult)) {
           triggerBackgroundRefresh();
         }
         return;
@@ -413,13 +434,14 @@ export function useProposalStages({
       if (session.isBackgroundRefreshing) return;
 
       const cacheTtlMs = getStoredCacheTtlMs();
-      const { isExpired, isComplete: allStagesCompleted } = loadCachedStages(
+      const unifiedResult = loadUnifiedStages(
         proposalId,
         governorAddress,
         cacheTtlMs
       );
 
-      if (isExpired && !allStagesCompleted) {
+      // Check if any cache needs refresh
+      if (needsRefresh(unifiedResult)) {
         triggerBackgroundRefresh();
       }
     };

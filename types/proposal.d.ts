@@ -1,5 +1,5 @@
 import type { FinalizedState, PendingState } from "@/types/proposal-cache";
-import type { ProposalStage } from "@/types/proposal-stage";
+import type { ProposalStage, TimelockLink } from "@/types/proposal-stage";
 import type { Address } from "@/types/search";
 
 export type ProposalStateName = FinalizedState | PendingState;
@@ -44,6 +44,7 @@ export type ParsedProposal = {
   creationTxHash?: string;
   stages?: ProposalStage[];
   stagesTrackedAt?: string;
+  timelockLink?: TimelockLink;
 };
 
 export type UseTotalProposalsReturn = {

@@ -413,11 +413,12 @@ async function trackStagesForProposals(
         completed++;
       }
 
-      // Update proposal with tracked stages
+      // Update proposal with tracked stages and timelockLink
       const updatedProposal: ParsedProposal = {
         ...proposal,
         stages: result.stages.length > 0 ? result.stages : proposal.stages,
         stagesTrackedAt: new Date().toISOString(),
+        timelockLink: result.timelockLink ?? proposal.timelockLink,
       };
       proposalMap.set(proposal.id, updatedProposal);
 

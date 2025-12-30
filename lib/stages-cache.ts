@@ -7,7 +7,10 @@ import {
 import type {
   ProposalStage,
   ProposalTrackingResult,
+  TimelockLink,
 } from "@/types/proposal-stage";
+import type { TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
+import { seedTimelockFromCache } from "./unified-cache";
 
 // Time after proposal creation to stop tracking (60 days)
 export const MAX_TRACKING_AGE_MS = 60 * 24 * 60 * 60 * 1000;
@@ -239,6 +242,10 @@ export function clearCachedStages(
  * Seed localStorage with stages from a preloaded proposal
  *
  * Used by proposal-cache.ts to populate localStorage from the static cache.
+ * This function now handles the split caching architecture:
+ * - Proposal cache: stages 1-3 + timelockLink
+ * - Timelock cache: stages 4-10 (if timelockLink is present)
+ *
  * Only seeds if the proposal has more stages than what's currently cached.
  *
  * @returns true if stages were seeded, false if skipped
@@ -250,25 +257,44 @@ export function seedStagesFromProposal(proposal: {
   stages?: ProposalStage[];
   state: string;
   stagesTrackedAt?: string;
+  timelockLink?: TimelockLink;
 }): boolean {
   if (typeof window === "undefined") return false;
   if (!proposal.stages || proposal.stages.length === 0) return false;
   if (!proposal.creationTxHash) return false;
 
   const key = getCacheKey(proposal.id, proposal.contractAddress);
+  let seeded = false;
 
   try {
+    // Split stages: 1-3 go to proposal cache, 4-10 go to timelock cache
+    const proposalStages = proposal.stages.filter((s) =>
+      ["PROPOSAL_CREATED", "VOTING_ACTIVE", "PROPOSAL_QUEUED"].includes(s.type)
+    );
+
+    const timelockStages = proposal.stages.filter(
+      (s) =>
+        !["PROPOSAL_CREATED", "VOTING_ACTIVE", "PROPOSAL_QUEUED"].includes(
+          s.type
+        )
+    );
+
     // Check if we already have cached stages with same or more data
     const existing = localStorage.getItem(key);
     if (existing) {
       const parsed: CachedStagesResult = JSON.parse(existing);
       if (parsed.version === CACHE_VERSION && parsed.result.stages) {
-        if (parsed.result.stages.length >= proposal.stages.length) {
-          return false;
+        // Compare the total stages (proposal + timelock stages)
+        if (parsed.result.stages.length >= proposalStages.length) {
+          // Still need to check if we should seed timelock cache
+          if (!proposal.timelockLink || timelockStages.length === 0) {
+            return false;
+          }
         }
       }
     }
 
+    // Seed proposal cache with stages 1-3 + timelockLink
     const cachedResult: CachedStagesResult = {
       version: CACHE_VERSION,
       timestamp: proposal.stagesTrackedAt
@@ -278,13 +304,46 @@ export function seedStagesFromProposal(proposal: {
         proposalId: proposal.id,
         creationTxHash: proposal.creationTxHash,
         governorAddress: proposal.contractAddress,
-        stages: proposal.stages,
+        stages: proposalStages,
         currentState: proposal.state,
+        timelockLink: proposal.timelockLink,
       },
     };
 
     localStorage.setItem(key, JSON.stringify(cachedResult));
-    return true;
+    seeded = true;
+
+    // If there's a timelockLink and timelock stages, seed the timelock cache
+    if (proposal.timelockLink && timelockStages.length > 0) {
+      const queueStage = proposal.stages.find(
+        (s) => s.type === "PROPOSAL_QUEUED"
+      );
+      const timelockResult: TimelockTrackingResult = {
+        operationInfo: {
+          operationId: proposal.timelockLink.operationId,
+          target: "",
+          value: "0",
+          data: "0x",
+          predecessor:
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+          delay: "0",
+          txHash: proposal.timelockLink.txHash,
+          blockNumber: proposal.timelockLink.queueBlockNumber,
+          timestamp: queueStage?.transactions[0]?.timestamp || 0,
+          timelockAddress: proposal.timelockLink.timelockAddress,
+        },
+        stages: timelockStages,
+      };
+
+      seedTimelockFromCache(
+        proposal.timelockLink.txHash,
+        proposal.timelockLink.operationId,
+        timelockResult,
+        proposal.stagesTrackedAt
+      );
+    }
+
+    return seeded;
   } catch (error) {
     console.debug(
       `[stages-cache] Failed to seed stages for ${proposal.id}:`,

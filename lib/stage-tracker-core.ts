@@ -20,7 +20,11 @@ import {
   isCoreGovernor as isCoreGov,
   isTreasuryGovernor as isTreasuryGov,
 } from "@/config/governors";
-import type { ChunkingConfig, ProposalStage } from "@/types/proposal-stage";
+import type {
+  ChunkingConfig,
+  ProposalStage,
+  TimelockLink,
+} from "@/types/proposal-stage";
 import { ArbitrumProvider } from "@arbitrum/sdk";
 import { ethers } from "ethers";
 import {
@@ -46,6 +50,7 @@ export interface TrackStagesOptions {
 export interface TrackStagesResult {
   stages: ProposalStage[];
   currentState?: string;
+  timelockLink?: TimelockLink;
   error?: string;
 }
 
@@ -137,6 +142,7 @@ export async function trackProposalStages(
     return {
       stages: result.stages,
       currentState: result.currentState,
+      timelockLink: result.timelockLink,
     };
   } catch (error) {
     return {

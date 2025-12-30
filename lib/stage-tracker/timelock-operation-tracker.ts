@@ -16,18 +16,12 @@ import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import { addressesEqual } from "@/lib/address-utils";
 import { queryWithRetry } from "@/lib/rpc-utils";
 import type { ChunkingConfig, ProposalStage } from "@/types/proposal-stage";
-import {
-  ArbitrumProvider,
-  ChildToParentMessageStatus,
-  ChildTransactionReceipt,
-} from "@arbitrum/sdk";
+import { ArbitrumProvider } from "@arbitrum/sdk";
 import { ethers } from "ethers";
-import { trackL1TimelockStages } from "./l1-timelock-shared";
-import { searchLogsInChunks } from "./log-search";
 import {
-  checkTimelockOperationState,
-  createTimelockContract,
-} from "./timelock-utils";
+  trackPostL2TimelockStages,
+  type PostL2TimelockContext,
+} from "./post-l2-timelock-tracker";
 import type { StageProgressCallback } from "./types";
 
 export interface TimelockOperationInfo {
@@ -47,16 +41,6 @@ export interface TimelockTrackingResult {
   operationInfo: TimelockOperationInfo;
   stages: ProposalStage[];
   error?: string;
-}
-
-interface TimelockTrackingContext {
-  l2Provider: ethers.providers.Provider;
-  l1Provider: ethers.providers.Provider;
-  baseL2Provider: ethers.providers.Provider;
-  timelockInterface: ethers.utils.Interface;
-  chunkingConfig: ChunkingConfig;
-  operationInfo: TimelockOperationInfo;
-  l2TimelockTxHash?: string;
 }
 
 /**
@@ -133,15 +117,6 @@ export class TimelockOperationTracker {
   ): Promise<TimelockTrackingResult> {
     const stages: ProposalStage[] = [];
 
-    const ctx: TimelockTrackingContext = {
-      l2Provider: this.l2Provider,
-      l1Provider: this.l1Provider,
-      baseL2Provider: this.baseL2Provider,
-      timelockInterface: this.timelockInterface,
-      chunkingConfig: this.chunkingConfig,
-      operationInfo,
-    };
-
     const addStage = (stage: ProposalStage, isLast: boolean = false) => {
       stages.push(stage);
       if (onProgress) {
@@ -150,359 +125,54 @@ export class TimelockOperationTracker {
     };
 
     // Stage 1: CallScheduled (already happened - this is our starting point)
-    const scheduledStage = await this.trackCallScheduled(ctx);
-    addStage(scheduledStage);
-
-    // Stage 2: L2 Timelock Executed
-    const l2ExecutedStage = await this.trackL2Execution(ctx);
-    addStage(l2ExecutedStage);
-
-    if (l2ExecutedStage.status !== "COMPLETED") {
-      return { operationInfo, stages };
-    }
-
-    ctx.l2TimelockTxHash = l2ExecutedStage.transactions[0]?.hash;
-
-    // Stage 3: L2→L1 Message Sent
-    const l2ToL1Stages = await this.trackL2ToL1Message(ctx);
-    for (const stage of l2ToL1Stages) {
-      addStage(stage);
-    }
-
-    const confirmedStage = l2ToL1Stages.find(
-      (s) => s.type === "L2_TO_L1_MESSAGE_CONFIRMED"
-    );
-    if (!confirmedStage || confirmedStage.status !== "COMPLETED") {
-      return { operationInfo, stages };
-    }
-
-    // Stage 4: L1 Timelock stages
-    const l1Stages = await this.trackL1Timelock(ctx);
-    for (const stage of l1Stages) {
-      addStage(stage);
-    }
-
-    const l1ExecutedStage = l1Stages.find(
-      (s) => s.type === "L1_TIMELOCK_EXECUTED"
-    );
-    if (!l1ExecutedStage || l1ExecutedStage.status !== "COMPLETED") {
-      return { operationInfo, stages };
-    }
-
-    // Stage 5: Retryables
-    const retryableStages = await this.trackRetryables(
-      ctx,
-      l1ExecutedStage.transactions[0]?.hash
-    );
-    for (let i = 0; i < retryableStages.length; i++) {
-      addStage(retryableStages[i], i === retryableStages.length - 1);
-    }
-
-    return { operationInfo, stages };
-  }
-
-  private async trackCallScheduled(
-    ctx: TimelockTrackingContext
-  ): Promise<ProposalStage> {
-    return {
+    const scheduledStage: ProposalStage = {
       type: "PROPOSAL_QUEUED", // Reuse existing stage type for UI compatibility
       status: "COMPLETED",
       transactions: [
         {
-          hash: ctx.operationInfo.txHash,
-          blockNumber: ctx.operationInfo.blockNumber,
-          timestamp: ctx.operationInfo.timestamp,
+          hash: operationInfo.txHash,
+          blockNumber: operationInfo.blockNumber,
+          timestamp: operationInfo.timestamp,
           chain: "L2",
         },
       ],
       data: {
-        operationId: ctx.operationInfo.operationId,
-        delay: ctx.operationInfo.delay,
-        target: ctx.operationInfo.target,
+        operationId: operationInfo.operationId,
+        delay: operationInfo.delay,
+        target: operationInfo.target,
         isTimelockOperation: true, // Flag to indicate this is a raw timelock op
       },
     };
-  }
+    addStage(scheduledStage);
 
-  /**
-   * Track L2 timelock execution with optimization.
-   *
-   * First checks isOperationDone to determine if log search is needed:
-   * - If not done → skip expensive log search, return pending/ready state
-   * - If done → search logs to get transaction details
-   */
-  private async trackL2Execution(
-    ctx: TimelockTrackingContext
-  ): Promise<ProposalStage> {
-    // Fast path: Check operation state first to avoid expensive log search
-    const timelockContract = createTimelockContract(
-      ctx.operationInfo.timelockAddress,
-      ctx.l2Provider
-    );
-    const state = await checkTimelockOperationState(
-      timelockContract,
-      ctx.operationInfo.operationId
-    );
-
-    // If operation is not done, skip log search and return current state
-    if (!state.isDone) {
-      return {
-        type: "L2_TIMELOCK_EXECUTED",
-        status: state.status,
-        transactions: [],
-        data: {
-          operationId: ctx.operationInfo.operationId,
-          ...(state.message && { message: state.message }),
-          ...(state.eta && { eta: state.eta }),
-          ...(state.isReady && { isReady: true }),
-        },
-      };
-    }
-
-    // Operation is done - search for the execution transaction to get details
-    const currentBlock = await ctx.l2Provider.getBlockNumber();
-    const executedTopic = ctx.timelockInterface.getEventTopic("CallExecuted");
-
-    const logs = await searchLogsInChunks(
-      ctx.l2Provider,
-      {
-        address: ctx.operationInfo.timelockAddress,
-        topics: [executedTopic, ctx.operationInfo.operationId],
-      },
-      ctx.operationInfo.blockNumber,
-      currentBlock,
-      ctx.chunkingConfig.l2ChunkSize,
-      ctx.chunkingConfig.delayBetweenChunks,
-      (chunkLogs) => (chunkLogs.length > 0 ? chunkLogs[0] : null)
-    );
-
-    if (logs.length > 0) {
-      const log = logs[0];
-      const block = await ctx.l2Provider.getBlock(log.blockNumber);
-      return {
-        type: "L2_TIMELOCK_EXECUTED",
-        status: "COMPLETED",
-        transactions: [
-          {
-            hash: log.transactionHash,
-            blockNumber: log.blockNumber,
-            timestamp: block.timestamp,
-            chain: "L2",
-          },
-        ],
-        data: { operationId: ctx.operationInfo.operationId },
-      };
-    }
-
-    // Fallback: operation done but couldn't find log (shouldn't happen)
-    return {
-      type: "L2_TIMELOCK_EXECUTED",
-      status: "COMPLETED",
-      transactions: [],
-      data: {
-        operationId: ctx.operationInfo.operationId,
-        note: "Execution confirmed but transaction not found",
-      },
-    };
-  }
-
-  private async trackL2ToL1Message(
-    ctx: TimelockTrackingContext
-  ): Promise<ProposalStage[]> {
-    const stages: ProposalStage[] = [];
-
-    if (!ctx.l2TimelockTxHash) {
-      return [
-        {
-          type: "L2_TO_L1_MESSAGE_SENT",
-          status: "NOT_STARTED",
-          transactions: [],
-        },
-      ];
-    }
-
-    const receipt = await ctx.l2Provider.getTransactionReceipt(
-      ctx.l2TimelockTxHash
-    );
-    if (!receipt) {
-      return [
-        {
-          type: "L2_TO_L1_MESSAGE_SENT",
-          status: "NOT_STARTED",
-          transactions: [],
-        },
-      ];
-    }
-
-    const childReceipt = new ChildTransactionReceipt(receipt);
-    const messages = await childReceipt.getChildToParentMessages(
-      ctx.l1Provider
-    );
-
-    if (messages.length === 0) {
-      // No L2→L1 messages means this operation doesn't cross to L1
-      // This is the end of the lifecycle for treasury-style operations
-      return [];
-    }
-
-    const block = await ctx.l2Provider.getBlock(receipt.blockNumber);
-    stages.push({
-      type: "L2_TO_L1_MESSAGE_SENT",
-      status: "COMPLETED",
-      transactions: [
-        {
-          hash: receipt.transactionHash,
-          blockNumber: receipt.blockNumber,
-          timestamp: block.timestamp,
-          chain: "L2",
-        },
-      ],
-      data: { messageCount: messages.length },
-    });
-
-    // Check message status
-    const messageStatuses: Array<{ status: string }> = [];
-    let overallStatus: "PENDING" | "COMPLETED" = "PENDING";
-    let statusNote = "Waiting for challenge period (~7 days)";
-    let firstExecutableBlock: number | null = null;
-
-    for (const message of messages) {
-      const status = await message.status(ctx.baseL2Provider);
-      const statusName = ChildToParentMessageStatus[status];
-      messageStatuses.push({ status: statusName });
-
-      if (status === ChildToParentMessageStatus.EXECUTED) {
-        overallStatus = "COMPLETED";
-        statusNote = "Message executed on L1";
-      } else if (
-        status === ChildToParentMessageStatus.CONFIRMED &&
-        overallStatus !== "COMPLETED"
-      ) {
-        statusNote = "Message confirmed, ready for L1 execution";
-      }
-
-      if (firstExecutableBlock === null) {
-        const executableBlock = await message.getFirstExecutableBlock(
-          ctx.baseL2Provider
-        );
-        if (executableBlock) {
-          firstExecutableBlock = executableBlock.toNumber();
-        }
-      }
-    }
-
-    stages.push({
-      type: "L2_TO_L1_MESSAGE_CONFIRMED",
-      status: overallStatus,
-      transactions: [],
-      data: {
-        totalMessages: messages.length,
-        messageStatuses,
-        note: statusNote,
-        firstExecutableBlock,
-      },
-    });
-
-    return stages;
-  }
-
-  /**
-   * Track L1 timelock stages using the shared utility.
-   *
-   * Uses trackL1TimelockStages which:
-   * 1. Finds the OutBoxTransactionExecuted event to get the L1 transaction
-   * 2. Parses CallScheduled from that transaction to get the operation ID
-   * 3. Uses the operation ID to find the corresponding CallExecuted event
-   *
-   * This ensures we track the correct L1 transaction even when multiple
-   * proposals are being processed around the same time.
-   */
-  private async trackL1Timelock(
-    ctx: TimelockTrackingContext
-  ): Promise<ProposalStage[]> {
-    if (!ctx.l2TimelockTxHash) {
-      return [
-        {
-          type: "L1_TIMELOCK_QUEUED",
-          status: "NOT_STARTED",
-          transactions: [],
-        },
-      ];
-    }
-
-    // Check if there are L2→L1 messages first (treasury operations don't have them)
-    const receipt = await ctx.l2Provider.getTransactionReceipt(
-      ctx.l2TimelockTxHash
-    );
-    if (!receipt) {
-      return [
-        {
-          type: "L1_TIMELOCK_QUEUED",
-          status: "FAILED",
-          transactions: [],
-          data: { error: "No L2 receipt" },
-        },
-      ];
-    }
-
-    const childReceipt = new ChildTransactionReceipt(receipt);
-    const messages = await childReceipt.getChildToParentMessages(
-      ctx.l1Provider
-    );
-
-    if (messages.length === 0) {
-      // No L2→L1 messages means this operation doesn't cross to L1
-      return [];
-    }
-
-    // Use the shared utility for L1 timelock tracking
-    const result = await trackL1TimelockStages({
-      l2Provider: ctx.l2Provider,
-      l1Provider: ctx.l1Provider,
-      baseL2Provider: ctx.baseL2Provider,
-      l2TimelockTxHash: ctx.l2TimelockTxHash,
+    // Stages 4-10: Use shared tracker
+    const postL2Context: PostL2TimelockContext = {
+      l2Provider: this.l2Provider,
+      l1Provider: this.l1Provider,
+      baseL2Provider: this.baseL2Provider,
+      chunkingConfig: this.chunkingConfig,
+      l2TimelockAddress: operationInfo.timelockAddress,
       l1TimelockAddress: L1_TIMELOCK.address,
-      chunkingConfig: ctx.chunkingConfig,
-    });
-
-    return result.stages;
-  }
-
-  private async trackRetryables(
-    ctx: TimelockTrackingContext,
-    l1TxHash?: string
-  ): Promise<ProposalStage[]> {
-    if (!l1TxHash) {
-      return [];
-    }
-
-    // Import retryable tracking logic from existing module
-    const { trackRetryables: trackRetryablesFromL1 } = await import(
-      "./stages/retryables"
-    );
-
-    // Build a minimal context for retryable tracking
-    const retryableCtx = {
-      l2Provider: ctx.l2Provider,
-      l1Provider: ctx.l1Provider,
-      baseL2Provider: ctx.baseL2Provider,
-      l1ExecutionTxHash: l1TxHash,
-      chunkingConfig: ctx.chunkingConfig,
-      governorAddress: "",
-      l2TimelockAddress: ctx.operationInfo.timelockAddress,
-      l1TimelockAddress: L1_TIMELOCK.address,
-      governorInterface: ctx.timelockInterface,
-      timelockInterface: ctx.timelockInterface,
-      proposalId: ctx.operationInfo.operationId,
-      creationTxHash: ctx.operationInfo.txHash,
+      operationId: operationInfo.operationId,
+      queueBlockNumber: operationInfo.blockNumber,
     };
 
-    try {
-      return await trackRetryablesFromL1(retryableCtx);
-    } catch (e) {
-      console.debug("[trackRetryables] Failed to track retryables:", e);
-      return [];
+    // Use shared tracker for stages 4-10 (always assume Core Governor path for direct timelock ops)
+    const postL2Result = await trackPostL2TimelockStages(
+      postL2Context,
+      (stage, index, isLast) => {
+        addStage(stage, isLast);
+      },
+      true // Core Governor (full L1 roundtrip path)
+    );
+
+    // If no additional stages were added by the shared tracker but we have
+    // a completed scheduled stage, that's the result
+    if (postL2Result.stages.length === 0 && stages.length === 1) {
+      return { operationInfo, stages };
     }
+
+    return { operationInfo, stages };
   }
 }
 

@@ -63,6 +63,24 @@ export interface ProposalStage {
 }
 
 /**
+ * Link from proposal cache to timelock operation cache
+ *
+ * When a proposal is queued in the L2 timelock, we extract the timelock
+ * operation info and store it as a link. Stages 4-10 are then stored in
+ * the timelock cache and resolved at read time.
+ */
+export interface TimelockLink {
+  /** The L2 queue transaction hash (contains CallScheduled/ProposalQueued) */
+  txHash: string;
+  /** The operation ID (keccak256 of proposal parameters) */
+  operationId: string;
+  /** The L2 timelock address */
+  timelockAddress: string;
+  /** Block number where the operation was queued */
+  queueBlockNumber: number;
+}
+
+/**
  * Complete proposal tracking result
  */
 export interface ProposalTrackingResult {
@@ -72,6 +90,8 @@ export interface ProposalTrackingResult {
   stages: ProposalStage[];
   /** Current overall proposal state from governor contract */
   currentState?: string;
+  /** Link to timelock cache for stages 4-10 (present after PROPOSAL_QUEUED completes) */
+  timelockLink?: TimelockLink;
 }
 
 /**

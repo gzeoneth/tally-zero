@@ -2,24 +2,27 @@ import {
   DEFAULT_CHUNKING_CONFIG,
   PROPOSAL_STATE_NAMES,
 } from "@/config/arbitrum-governance";
+import { isCoreGovernor } from "@/config/governors";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import GovernorABI from "@/data/L2ArbitrumGovernor_ABI.json";
 import { queryWithRetry } from "@/lib/rpc-utils";
+import { saveCachedTimelockResult } from "@/lib/unified-cache";
 import type {
   ChunkingConfig,
   ProposalStage,
   ProposalTrackingResult,
+  TimelockLink,
 } from "@/types/proposal-stage";
 import { ethers } from "ethers";
 import { getL1BlockNumberFromReceipt } from "./log-search";
 import {
+  trackPostL2TimelockStages,
+  type PostL2TimelockContext,
+} from "./post-l2-timelock-tracker";
+import {
   getProposalData,
-  trackL1Timelock,
-  trackL2TimelockExecution,
-  trackL2ToL1Message,
   trackProposalCreated,
   trackProposalQueued,
-  trackRetryables,
   trackVotingStage,
 } from "./stages";
 import type { StageProgressCallback, TrackingContext } from "./types";
@@ -160,91 +163,113 @@ export class IncrementalStageTracker {
       };
     }
 
+    // Ensure we have proposal data for operationId computation
     if (!ctx.proposalData) {
       ctx.proposalData = await getProposalData(ctx);
     }
 
-    let l2TimelockStage: ProposalStage;
-    if (startIndex <= 3) {
-      l2TimelockStage = await trackL2TimelockExecution(
-        ctx,
-        queuedStage.transactions[0]?.blockNumber ||
-          ctx.creationReceipt.blockNumber
+    // Compute operationId for the timelock operation
+    const operationId = ethers.utils.keccak256(
+      ethers.utils.defaultAbiCoder.encode(
+        ["address[]", "uint256[]", "bytes[]", "bytes32", "bytes32"],
+        [
+          ctx.proposalData.targets,
+          ctx.proposalData.values,
+          ctx.proposalData.calldatas,
+          ethers.constants.HashZero,
+          ethers.utils.id(ctx.proposalData.description),
+        ]
+      )
+    );
+
+    // Create timelockLink for cache referencing
+    const queueTxHash = queuedStage.transactions[0]?.hash;
+    const queueBlockNumber =
+      queuedStage.transactions[0]?.blockNumber ||
+      ctx.creationReceipt!.blockNumber;
+
+    const timelockLink: TimelockLink = {
+      txHash: queueTxHash || creationTxHash,
+      operationId,
+      timelockAddress: this.l2TimelockAddress,
+      queueBlockNumber,
+    };
+
+    // Track stages 4-10 using the shared tracker
+    const isCore = isCoreGovernor(this.governorAddress);
+
+    // Restore context from existing stages if resuming
+    let existingL2TxHash: string | undefined;
+    let existingL1TxHash: string | undefined;
+
+    if (existingStages && startIndex > 3) {
+      const l2TimelockStage = existingStages.find(
+        (s) => s.type === "L2_TIMELOCK_EXECUTED"
       );
-      addStage(l2TimelockStage);
-    } else {
-      l2TimelockStage = stages.find((s) => s.type === "L2_TIMELOCK_EXECUTED")!;
-    }
-
-    if (!l2TimelockStage || l2TimelockStage.status !== "COMPLETED") {
-      return {
-        proposalId,
-        creationTxHash,
-        governorAddress: this.governorAddress,
-        stages,
-        currentState,
-      };
-    }
-
-    ctx.l2TimelockTxHash = l2TimelockStage.transactions[0]?.hash;
-
-    let l2ToL1ConfirmedStage: ProposalStage | undefined;
-    if (startIndex <= 5) {
-      const l2ToL1Result = await trackL2ToL1Message(ctx);
-      for (const stage of l2ToL1Result.stages) {
-        if (startIndex <= stages.length) {
-          addStage(stage);
-        }
+      if (l2TimelockStage?.transactions[0]?.hash) {
+        existingL2TxHash = l2TimelockStage.transactions[0].hash;
       }
-      l2ToL1ConfirmedStage = l2ToL1Result.stages.find(
-        (s) => s.type === "L2_TO_L1_MESSAGE_CONFIRMED"
-      );
-    } else {
-      l2ToL1ConfirmedStage = stages.find(
-        (s) => s.type === "L2_TO_L1_MESSAGE_CONFIRMED"
-      );
-    }
 
-    if (!l2ToL1ConfirmedStage || l2ToL1ConfirmedStage.status !== "COMPLETED") {
-      return {
-        proposalId,
-        creationTxHash,
-        governorAddress: this.governorAddress,
-        stages,
-        currentState,
-      };
-    }
-
-    let l1ExecutedStage: ProposalStage | undefined;
-    if (startIndex <= 7) {
-      const l1TimelockStages = await trackL1Timelock(ctx);
-      for (const stage of l1TimelockStages) {
-        if (startIndex <= stages.length) {
-          addStage(stage);
-        }
-      }
-      l1ExecutedStage = l1TimelockStages.find(
+      const l1ExecutedStage = existingStages.find(
         (s) => s.type === "L1_TIMELOCK_EXECUTED"
       );
-    } else {
-      l1ExecutedStage = stages.find((s) => s.type === "L1_TIMELOCK_EXECUTED");
+      if (l1ExecutedStage?.transactions[0]?.hash) {
+        existingL1TxHash = l1ExecutedStage.transactions[0].hash;
+      }
     }
 
-    if (!l1ExecutedStage || l1ExecutedStage.status !== "COMPLETED") {
-      return {
-        proposalId,
-        creationTxHash,
-        governorAddress: this.governorAddress,
-        stages,
-        currentState,
-      };
+    const postL2Context: PostL2TimelockContext = {
+      l2Provider: this.l2Provider,
+      l1Provider: this.l1Provider,
+      baseL2Provider: this.baseL2Provider,
+      chunkingConfig: this.chunkingConfig,
+      l2TimelockAddress: this.l2TimelockAddress,
+      l1TimelockAddress: this.l1TimelockAddress,
+      operationId,
+      queueBlockNumber,
+      l2TimelockTxHash: existingL2TxHash,
+      l1ExecutionTxHash: existingL1TxHash,
+    };
+
+    // Use shared tracker for stages 4-10
+    const postL2Result = await trackPostL2TimelockStages(
+      postL2Context,
+      (stage, index, isLast) => {
+        // Only add stages that haven't been added yet
+        if (startIndex <= 3 + index) {
+          addStage(stage, isLast);
+        }
+      },
+      isCore
+    );
+
+    // If resuming from later stages, add existing stages first
+    if (existingStages && startIndex > 3) {
+      for (let i = 3; i < startIndex && i < existingStages.length; i++) {
+        const existing = existingStages[i];
+        if (!stages.find((s) => s.type === existing.type)) {
+          stages.push(existing);
+        }
+      }
     }
 
-    ctx.l1ExecutionTxHash = l1ExecutedStage.transactions[0]?.hash;
-
-    const retryableStages = await trackRetryables(ctx);
-    for (let i = 0; i < retryableStages.length; i++) {
-      addStage(retryableStages[i], i === retryableStages.length - 1);
+    // Save timelock stages to timelock cache for cross-referencing
+    if (postL2Result.stages.length > 0) {
+      saveCachedTimelockResult(timelockLink.txHash, operationId, {
+        operationInfo: {
+          operationId,
+          target: ctx.proposalData.targets[0] || "",
+          value: ctx.proposalData.values[0]?.toString() || "0",
+          data: ctx.proposalData.calldatas[0] || "0x",
+          predecessor: ethers.constants.HashZero,
+          delay: "0",
+          txHash: timelockLink.txHash,
+          blockNumber: queueBlockNumber,
+          timestamp: queuedStage.transactions[0]?.timestamp || 0,
+          timelockAddress: this.l2TimelockAddress,
+        },
+        stages: postL2Result.stages,
+      });
     }
 
     return {
@@ -253,6 +278,7 @@ export class IncrementalStageTracker {
       governorAddress: this.governorAddress,
       stages,
       currentState,
+      timelockLink,
     };
   }
 
