@@ -12,6 +12,23 @@ import { ProposalState } from "@config/initial-state";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 /**
+ * Creates a contract instance getter with caching.
+ * Reuses contract instances for the same address to reduce memory and setup overhead.
+ */
+function createContractCache(provider: ethers.providers.Provider) {
+  const contracts = new Map<string, ethers.Contract>();
+  return (address: string): ethers.Contract => {
+    if (!contracts.has(address)) {
+      contracts.set(
+        address,
+        new ethers.Contract(address, OZGovernor_ABI, provider)
+      );
+    }
+    return contracts.get(address)!;
+  };
+}
+
+/**
  * Search a single governor contract for proposals
  */
 export async function searchGovernor(
@@ -142,17 +159,7 @@ export async function parseProposals(
 ): Promise<ParsedProposal[]> {
   if (proposals.length === 0) return [];
 
-  // Create contract instances (cached by address)
-  const contracts = new Map<string, ethers.Contract>();
-  const getContract = (address: string) => {
-    if (!contracts.has(address)) {
-      contracts.set(
-        address,
-        new ethers.Contract(address, OZGovernor_ABI, provider)
-      );
-    }
-    return contracts.get(address)!;
-  };
+  const getContract = createContractCache(provider);
 
   // Build batched queries for all proposals
   const queries = proposals.map((proposal) => async () => {
@@ -213,17 +220,7 @@ export async function refreshProposalStates(
 ): Promise<ParsedProposal[]> {
   if (proposals.length === 0) return [];
 
-  // Create contract instances (cached by address)
-  const contracts = new Map<string, ethers.Contract>();
-  const getContract = (address: string) => {
-    if (!contracts.has(address)) {
-      contracts.set(
-        address,
-        new ethers.Contract(address, OZGovernor_ABI, provider)
-      );
-    }
-    return contracts.get(address)!;
-  };
+  const getContract = createContractCache(provider);
 
   // Build batched queries for all proposals
   const queries = proposals.map((proposal) => async () => {
