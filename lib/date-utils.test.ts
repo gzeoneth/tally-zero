@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  MS_PER_DAY,
+  MS_PER_HOUR,
+  MS_PER_MINUTE,
+  MS_PER_SECOND,
+  SECONDS_PER_DAY,
+  SECONDS_PER_HOUR,
+  SECONDS_PER_MINUTE,
   createGoogleCalendarUrl,
   formatDateForGoogleCalendar,
   formatDateRange,
@@ -20,6 +27,55 @@ describe("date-utils", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  describe("time constants", () => {
+    describe("millisecond constants", () => {
+      it("MS_PER_SECOND equals 1000", () => {
+        expect(MS_PER_SECOND).toBe(1000);
+      });
+
+      it("MS_PER_MINUTE equals 60000", () => {
+        expect(MS_PER_MINUTE).toBe(60 * 1000);
+        expect(MS_PER_MINUTE).toBe(60000);
+      });
+
+      it("MS_PER_HOUR equals 3600000", () => {
+        expect(MS_PER_HOUR).toBe(60 * 60 * 1000);
+        expect(MS_PER_HOUR).toBe(3600000);
+      });
+
+      it("MS_PER_DAY equals 86400000", () => {
+        expect(MS_PER_DAY).toBe(24 * 60 * 60 * 1000);
+        expect(MS_PER_DAY).toBe(86400000);
+      });
+    });
+
+    describe("seconds constants", () => {
+      it("SECONDS_PER_MINUTE equals 60", () => {
+        expect(SECONDS_PER_MINUTE).toBe(60);
+      });
+
+      it("SECONDS_PER_HOUR equals 3600", () => {
+        expect(SECONDS_PER_HOUR).toBe(60 * 60);
+        expect(SECONDS_PER_HOUR).toBe(3600);
+      });
+
+      it("SECONDS_PER_DAY equals 86400", () => {
+        expect(SECONDS_PER_DAY).toBe(24 * 60 * 60);
+        expect(SECONDS_PER_DAY).toBe(86400);
+      });
+    });
+
+    describe("constant relationships", () => {
+      it("MS_PER_DAY equals SECONDS_PER_DAY * MS_PER_SECOND", () => {
+        expect(MS_PER_DAY).toBe(SECONDS_PER_DAY * MS_PER_SECOND);
+      });
+
+      it("MS_PER_HOUR equals SECONDS_PER_HOUR * MS_PER_SECOND", () => {
+        expect(MS_PER_HOUR).toBe(SECONDS_PER_HOUR * MS_PER_SECOND);
+      });
+    });
   });
 
   describe("formatRelativeTimestamp", () => {

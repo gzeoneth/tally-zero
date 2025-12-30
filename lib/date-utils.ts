@@ -11,6 +11,13 @@ export const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 /** Milliseconds in one day */
 export const MS_PER_DAY = 24 * MS_PER_HOUR;
 
+/** Seconds in one minute */
+export const SECONDS_PER_MINUTE = 60;
+/** Seconds in one hour */
+export const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
+/** Seconds in one day */
+export const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
+
 /**
  * Format a timestamp to a relative time string
  *

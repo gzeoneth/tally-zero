@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { useTimelockOperation } from "@/hooks/use-timelock-operation";
-import { type EstimatedTimeRange } from "@/lib/date-utils";
+import {
+  SECONDS_PER_DAY,
+  SECONDS_PER_HOUR,
+  type EstimatedTimeRange,
+} from "@/lib/date-utils";
 import { shortenAddress } from "@/lib/format-utils";
 import { getAllStageMetadata } from "@/lib/stage-tracker";
 import type { TimelockOperationInfo } from "@/lib/stage-tracker/timelock-operation-tracker";
@@ -630,8 +634,8 @@ function StagesList({
 }
 
 function formatDelay(seconds: number): string {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
+  const days = Math.floor(seconds / SECONDS_PER_DAY);
+  const hours = Math.floor((seconds % SECONDS_PER_DAY) / SECONDS_PER_HOUR);
 
   if (days > 0) {
     return `${days} day${days > 1 ? "s" : ""}${hours > 0 ? `, ${hours} hr${hours > 1 ? "s" : ""}` : ""}`;

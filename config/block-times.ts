@@ -1,3 +1,5 @@
+import { SECONDS_PER_DAY } from "@/lib/date-utils";
+
 // Block times in seconds per block
 export const BLOCK_TIMES: Record<number, number> = {
   1: 12, // Ethereum
@@ -14,7 +16,7 @@ export function getBlockTime(chainId: number): number {
 }
 
 export function getBlocksPerDay(chainId: number): number {
-  return Math.floor(86400 / getBlockTime(chainId));
+  return Math.floor(SECONDS_PER_DAY / getBlockTime(chainId));
 }
 
 export function timeToBlocks(seconds: number, chainId: number): number {
