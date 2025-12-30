@@ -8,7 +8,7 @@ import { type EstimatedTimeRange } from "@/lib/date-utils";
 import { shortenAddress } from "@/lib/format-utils";
 import { getAllStageMetadata } from "@/lib/stage-tracker";
 import type { TimelockOperationInfo } from "@/lib/stage-tracker/timelock-operation-tracker";
-import { formatAddress } from "@/lib/utils";
+import { truncateMiddle } from "@/lib/text-utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import {
   ExternalLinkIcon,
@@ -283,7 +283,7 @@ function OperationSelector({ operations, onSelect }: OperationSelectorProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Operation {idx + 1}</span>
             <span className="text-xs text-muted-foreground font-mono">
-              {formatAddress(op.operationId)}
+              {truncateMiddle(op.operationId, 6, 4)}
             </span>
           </div>
           <div className="text-xs text-muted-foreground mt-1">
@@ -376,7 +376,7 @@ function OperationHeader({
         <div>
           <span className="text-muted-foreground">Operation ID:</span>
           <p className="font-mono truncate" title={operation.operationId}>
-            {formatAddress(operation.operationId)}
+            {truncateMiddle(operation.operationId, 6, 4)}
           </p>
         </div>
         <div>

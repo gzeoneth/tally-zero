@@ -12,6 +12,7 @@ import {
   getTopDelegates,
   loadDelegateCache,
 } from "@/lib/delegate-cache";
+import { toError } from "@/lib/error-utils";
 import type { DelegateInfo } from "@/types/delegate";
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
 
@@ -115,7 +116,7 @@ export function useTopDelegatesNotVoted({
       setAllTopDelegatesVoted(notVoted.length === 0 && offset >= BATCH_SIZE);
     } catch (err) {
       debug.delegates("top delegates not voted error: %O", err);
-      setError(err instanceof Error ? err : new Error(String(err)));
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }

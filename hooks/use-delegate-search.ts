@@ -9,6 +9,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { addressesEqual } from "@/lib/address-utils";
 import { debug } from "@/lib/debug";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
+import { toError } from "@/lib/error-utils";
 import type {
   DelegateCache,
   DelegateCacheStats,
@@ -112,7 +113,7 @@ export function useDelegateSearch({
       .catch((err) => {
         if (cancelled) return;
         debug.delegates("failed to load cache: %O", err);
-        setError(err instanceof Error ? err : new Error(String(err)));
+        setError(toError(err));
         setIsLoading(false);
       });
 
