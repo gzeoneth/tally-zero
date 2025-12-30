@@ -29,6 +29,51 @@ function createContractCache(provider: ethers.providers.Provider) {
   };
 }
 
+interface ProposalStateData {
+  state: number;
+  votes: {
+    forVotes: string;
+    againstVotes: string;
+    abstainVotes: string;
+  };
+  quorum?: string;
+}
+
+/**
+ * Fetches proposal state, votes, and quorum from the governor contract.
+ * Consolidates the common pattern used across multiple functions.
+ */
+async function fetchProposalStateAndVotes(
+  contract: ethers.Contract,
+  proposalId: string,
+  startBlock: string
+): Promise<ProposalStateData> {
+  const [proposalState, votes] = await Promise.all([
+    contract.state(proposalId),
+    contract.proposalVotes(proposalId),
+  ]);
+
+  let quorum: string | undefined;
+  if (proposalState !== 0) {
+    try {
+      const quorumBN = await contract.quorum(startBlock);
+      quorum = quorumBN.toString();
+    } catch {
+      // Quorum fetch can fail for some states
+    }
+  }
+
+  return {
+    state: proposalState,
+    votes: {
+      forVotes: votes.forVotes.toString(),
+      againstVotes: votes.againstVotes.toString(),
+      abstainVotes: votes.abstainVotes.toString(),
+    },
+    quorum,
+  };
+}
+
 /**
  * Search a single governor contract for proposals
  */
@@ -168,19 +213,11 @@ export async function parseProposals(
   const queries = proposals.map((proposal) => async () => {
     const contract = getContract(proposal.contractAddress);
     try {
-      const [proposalState, votes] = await Promise.all([
-        contract.state(proposal.id),
-        contract.proposalVotes(proposal.id),
-      ]);
-
-      let quorum;
-      if (proposalState !== 0) {
-        try {
-          quorum = await contract.quorum(proposal.startBlock);
-        } catch {
-          // Quorum fetch can fail for some states
-        }
-      }
+      const stateData = await fetchProposalStateAndVotes(
+        contract,
+        proposal.id,
+        proposal.startBlock
+      );
 
       const governor = findByAddress(
         ARBITRUM_GOVERNORS,
@@ -190,17 +227,13 @@ export async function parseProposals(
       return {
         ...proposal,
         networkId: String(ARBITRUM_CHAIN_ID),
-        state: (ProposalState[proposalState] as string)?.toLowerCase(),
+        state: (ProposalState[stateData.state] as string)?.toLowerCase(),
         governorName: governor?.name || "Unknown",
         creationTxHash: proposal.creationTxHash,
-        votes: votes
-          ? {
-              againstVotes: votes.againstVotes.toString(),
-              forVotes: votes.forVotes.toString(),
-              abstainVotes: votes.abstainVotes.toString(),
-              quorum: quorum?.toString(),
-            }
-          : undefined,
+        votes: {
+          ...stateData.votes,
+          quorum: stateData.quorum,
+        },
       } as ParsedProposal;
     } catch (e) {
       debug.search("failed to parse proposal: %O", e);
@@ -229,31 +262,20 @@ export async function refreshProposalStates(
   const queries = proposals.map((proposal) => async () => {
     const contract = getContract(proposal.contractAddress);
     try {
-      const [proposalState, votes] = await Promise.all([
-        contract.state(proposal.id),
-        contract.proposalVotes(proposal.id),
-      ]);
-
-      let quorum: string | undefined;
-      if (proposalState !== 0) {
-        try {
-          const quorumBN = await contract.quorum(proposal.startBlock);
-          quorum = quorumBN.toString();
-        } catch {
-          // Quorum fetch can fail
-        }
-      }
+      const stateData = await fetchProposalStateAndVotes(
+        contract,
+        proposal.id,
+        proposal.startBlock
+      );
 
       return {
         ...proposal,
         state: (
-          ProposalState[proposalState] as string
+          ProposalState[stateData.state] as string
         )?.toLowerCase() as ParsedProposal["state"],
         votes: {
-          forVotes: votes.forVotes.toString(),
-          againstVotes: votes.againstVotes.toString(),
-          abstainVotes: votes.abstainVotes.toString(),
-          quorum,
+          ...stateData.votes,
+          quorum: stateData.quorum,
         },
       };
     } catch {
