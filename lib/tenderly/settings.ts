@@ -13,6 +13,8 @@ import type { TenderlySettings } from "./types";
 
 /**
  * Get current Tenderly configuration from localStorage
+ *
+ * @returns The current Tenderly settings (org, project, accessToken)
  */
 export function getTenderlySettings(): TenderlySettings {
   const org = getStoredJsonString(
@@ -31,6 +33,8 @@ export function getTenderlySettings(): TenderlySettings {
 
 /**
  * Check if Tenderly is fully configured with custom org/project and access token
+ *
+ * @returns True if custom org, project, and access token are all set
  */
 export function isTenderlyConfigured(): boolean {
   const { org, project, accessToken } = getTenderlySettings();
@@ -43,6 +47,9 @@ export function isTenderlyConfigured(): boolean {
 
 /**
  * Get the Tenderly dashboard link for a simulation
+ *
+ * @param simulationId - The simulation ID from Tenderly
+ * @returns The full URL to view the simulation in Tenderly dashboard
  */
 export function getSimulationLink(simulationId: string): string {
   const { org, project } = getTenderlySettings();
