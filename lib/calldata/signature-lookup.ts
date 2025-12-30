@@ -1,10 +1,11 @@
 import localSignatures from "@data/function-signatures.json";
 
+import { STORAGE_PREFIX } from "@/config/storage-keys";
 import { debug } from "@/lib/debug";
 import { getStoredValue, setStoredValue } from "@/lib/storage-utils";
 
 const FOURBYTE_API = "https://www.4byte.directory/api/v1/signatures/";
-const CACHE_KEY_PREFIX = "tally-zero-4byte-";
+const CACHE_KEY_PREFIX = `${STORAGE_PREFIX}-4byte-`;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // In-memory cache for session

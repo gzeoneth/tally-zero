@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "@/config/storage-keys";
+import { STORAGE_KEYS, STORAGE_PREFIX } from "@/config/storage-keys";
 
 // Get all TallyZero storage keys
 export const ALL_STORAGE_KEYS = Object.values(STORAGE_KEYS).filter(
@@ -29,7 +29,7 @@ export function getTotalStorageUsage(): string {
   let total = 0;
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith("tally-zero")) {
+    if (key && key.startsWith(STORAGE_PREFIX)) {
       const value = localStorage.getItem(key);
       if (value) total += key.length + value.length;
     }

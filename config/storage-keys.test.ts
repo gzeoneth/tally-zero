@@ -7,14 +7,21 @@ import {
   DEFAULT_TENDERLY_ORG,
   DEFAULT_TENDERLY_PROJECT,
   STORAGE_KEYS,
+  STORAGE_PREFIX,
 } from "./storage-keys";
 
 describe("storage-keys config", () => {
+  describe("STORAGE_PREFIX", () => {
+    it("has the correct value", () => {
+      expect(STORAGE_PREFIX).toBe("tally-zero");
+    });
+  });
+
   describe("STORAGE_KEYS", () => {
     it("has correct prefix for all keys", () => {
       const keys = Object.values(STORAGE_KEYS);
       keys.forEach((key) => {
-        expect(key).toMatch(/^tally-zero-/);
+        expect(key).toMatch(new RegExp(`^${STORAGE_PREFIX}-`));
       });
     });
 

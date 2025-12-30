@@ -1,3 +1,6 @@
+/** Common prefix for all TallyZero localStorage keys */
+export const STORAGE_PREFIX = "tally-zero";
+
 export const STORAGE_KEYS = {
   L1_RPC: "tally-zero-l1-rpc",
   L2_RPC: "tally-zero-l2-rpc",
