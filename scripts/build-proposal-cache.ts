@@ -34,6 +34,7 @@ dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 import { ethers } from "ethers";
 import * as fs from "fs";
 
+import { PROPOSAL_STATE_NAMES } from "../config/arbitrum-governance";
 import { addressesEqual, findByAddress } from "../lib/address-utils";
 import { delay } from "../lib/delay-utils";
 import { fetchProposalStateAndVotes } from "../lib/governor-search";
@@ -77,17 +78,10 @@ const GOVERNORS = [
   },
 ];
 
-// Proposal state names (matches ProposalStateName type)
-const PROPOSAL_STATE_NAMES: Record<number, ParsedProposal["state"]> = {
-  0: "Pending",
-  1: "Active",
-  2: "Canceled",
-  3: "Defeated",
-  4: "Succeeded",
-  5: "Queued",
-  6: "Expired",
-  7: "Executed",
-};
+// Re-type imported PROPOSAL_STATE_NAMES for use with ParsedProposal["state"]
+const getStateName = (stateNum: number): ParsedProposal["state"] =>
+  (PROPOSAL_STATE_NAMES[stateNum as keyof typeof PROPOSAL_STATE_NAMES] ??
+    "Pending") as ParsedProposal["state"];
 
 // Minimal ABI for Governor contract
 const GOVERNOR_ABI = [
@@ -278,7 +272,7 @@ async function parseProposals(
         ...proposal,
         contractAddress: proposal.contractAddress as Address,
         networkId: String(ARBITRUM_CHAIN_ID),
-        state: PROPOSAL_STATE_NAMES[stateData.state] ?? "pending",
+        state: getStateName(stateData.state),
         governorName: governor?.name || "Unknown",
         votes: {
           ...stateData.votes,
@@ -603,7 +597,7 @@ async function refreshProposalStates(
 
       refreshed.push({
         ...proposal,
-        state: PROPOSAL_STATE_NAMES[stateData.state] ?? "pending",
+        state: getStateName(stateData.state),
         votes: {
           ...stateData.votes,
           quorum: stateData.quorum,
