@@ -1,4 +1,5 @@
 import { STORAGE_KEYS, STORAGE_PREFIX } from "@/config/storage-keys";
+import { SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from "@/lib/date-utils";
 
 // Get all TallyZero storage keys
 export const ALL_STORAGE_KEYS = Object.values(STORAGE_KEYS).filter(
@@ -95,11 +96,17 @@ export function importSettings(settings: Record<string, unknown>): void {
  * Format TTL value to human-readable string
  */
 export function formatTtl(ttlSeconds: number): string {
-  if (ttlSeconds >= 3600) {
-    return `${Math.floor(ttlSeconds / 3600)}h ${Math.floor((ttlSeconds % 3600) / 60)}m`;
+  if (ttlSeconds >= SECONDS_PER_HOUR) {
+    const hours = Math.floor(ttlSeconds / SECONDS_PER_HOUR);
+    const minutes = Math.floor(
+      (ttlSeconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE
+    );
+    return `${hours}h ${minutes}m`;
   }
-  if (ttlSeconds >= 60) {
-    return `${Math.floor(ttlSeconds / 60)}m ${ttlSeconds % 60}s`;
+  if (ttlSeconds >= SECONDS_PER_MINUTE) {
+    const minutes = Math.floor(ttlSeconds / SECONDS_PER_MINUTE);
+    const seconds = ttlSeconds % SECONDS_PER_MINUTE;
+    return `${minutes}m ${seconds}s`;
   }
   return `${ttlSeconds}s`;
 }
