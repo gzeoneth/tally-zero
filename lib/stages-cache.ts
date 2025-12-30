@@ -9,6 +9,7 @@ import type {
   ProposalTrackingResult,
   TimelockLink,
 } from "@/types/proposal-stage";
+import { debug, isBrowser } from "./debug";
 import type { TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
 import { seedTimelockFromCache } from "./unified-cache";
 
@@ -153,7 +154,7 @@ export function loadCachedStages(
   governorAddress: string,
   ttlMs: number = DEFAULT_CACHE_TTL_MS
 ): CacheLoadResult {
-  if (typeof window === "undefined") {
+  if (!isBrowser) {
     return { result: null, isExpired: false, isComplete: false };
   }
 
@@ -183,11 +184,8 @@ export function loadCachedStages(
       isExpired,
       isComplete,
     };
-  } catch (error) {
-    console.debug(
-      `[stages-cache] Failed to load cached stages for ${proposalId}:`,
-      error
-    );
+  } catch (err) {
+    debug.cache("failed to load cached stages for %s: %O", proposalId, err);
     return { result: null, isExpired: false, isComplete: false };
   }
 }
@@ -200,7 +198,7 @@ export function saveCachedStages(
   governorAddress: string,
   result: ProposalTrackingResult
 ): void {
-  if (typeof window === "undefined") return;
+  if (!isBrowser) return;
 
   try {
     const key = getCacheKey(proposalId, governorAddress);
@@ -210,11 +208,8 @@ export function saveCachedStages(
       result,
     };
     localStorage.setItem(key, JSON.stringify(cached));
-  } catch (error) {
-    console.warn(
-      `[stages-cache] Failed to save stages for ${proposalId}:`,
-      error
-    );
+  } catch (err) {
+    debug.cache("failed to save stages for %s: %O", proposalId, err);
   }
 }
 
@@ -225,16 +220,13 @@ export function clearCachedStages(
   proposalId: string,
   governorAddress: string
 ): void {
-  if (typeof window === "undefined") return;
+  if (!isBrowser) return;
 
   try {
     const key = getCacheKey(proposalId, governorAddress);
     localStorage.removeItem(key);
-  } catch (error) {
-    console.debug(
-      `[stages-cache] Failed to clear stages for ${proposalId}:`,
-      error
-    );
+  } catch (err) {
+    debug.cache("failed to clear stages for %s: %O", proposalId, err);
   }
 }
 
@@ -259,7 +251,7 @@ export function seedStagesFromProposal(proposal: {
   stagesTrackedAt?: string;
   timelockLink?: TimelockLink;
 }): boolean {
-  if (typeof window === "undefined") return false;
+  if (!isBrowser) return false;
   if (!proposal.stages || proposal.stages.length === 0) return false;
   if (!proposal.creationTxHash) return false;
 
@@ -344,11 +336,8 @@ export function seedStagesFromProposal(proposal: {
     }
 
     return seeded;
-  } catch (error) {
-    console.debug(
-      `[stages-cache] Failed to seed stages for ${proposal.id}:`,
-      error
-    );
+  } catch (err) {
+    debug.cache("failed to seed stages for %s: %O", proposal.id, err);
     return false;
   }
 }
@@ -360,7 +349,7 @@ export function hasPreloadedStages(
   proposalId: string,
   governorAddress: string
 ): boolean {
-  if (typeof window === "undefined") return false;
+  if (!isBrowser) return false;
 
   const key = getCacheKey(proposalId, governorAddress);
   try {
@@ -373,11 +362,8 @@ export function hasPreloadedStages(
       parsed.result.stages &&
       parsed.result.stages.length > 0
     );
-  } catch (error) {
-    console.debug(
-      `[stages-cache] Failed to check preloaded stages for ${proposalId}:`,
-      error
-    );
+  } catch (err) {
+    debug.cache("failed to check preloaded stages for %s: %O", proposalId, err);
     return false;
   }
 }
@@ -389,7 +375,7 @@ export function getPreloadedStages(
   proposalId: string,
   governorAddress: string
 ): ProposalTrackingResult | null {
-  if (typeof window === "undefined") return null;
+  if (!isBrowser) return null;
 
   const key = getCacheKey(proposalId, governorAddress);
   try {
@@ -400,11 +386,8 @@ export function getPreloadedStages(
     if (parsed.version !== CACHE_VERSION) return null;
 
     return parsed.result;
-  } catch (error) {
-    console.debug(
-      `[stages-cache] Failed to get preloaded stages for ${proposalId}:`,
-      error
-    );
+  } catch (err) {
+    debug.cache("failed to get preloaded stages for %s: %O", proposalId, err);
     return null;
   }
 }

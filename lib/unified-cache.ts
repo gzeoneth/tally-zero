@@ -23,6 +23,7 @@ import type {
   ProposalTrackingResult,
   TimelockLink,
 } from "@/types/proposal-stage";
+import { debug, isBrowser } from "./debug";
 import { type TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
 import {
   getCacheKey,
@@ -80,7 +81,7 @@ export function loadCachedTimelockResult(
   operationId: string,
   ttlMs: number = DEFAULT_CACHE_TTL_MS
 ): { result: TimelockTrackingResult | null; isExpired: boolean } {
-  if (typeof window === "undefined") {
+  if (!isBrowser) {
     return { result: null, isExpired: false };
   }
 
@@ -98,7 +99,8 @@ export function loadCachedTimelockResult(
 
     const isExpired = Date.now() - parsed.timestamp > ttlMs;
     return { result: parsed.result, isExpired };
-  } catch {
+  } catch (err) {
+    debug.cache("failed to load timelock cache for %s: %O", txHash, err);
     return { result: null, isExpired: false };
   }
 }
@@ -111,7 +113,7 @@ export function saveCachedTimelockResult(
   operationId: string,
   result: TimelockTrackingResult
 ): void {
-  if (typeof window === "undefined") return;
+  if (!isBrowser) return;
 
   try {
     const key = getTimelockCacheKey(txHash, operationId);
@@ -121,8 +123,8 @@ export function saveCachedTimelockResult(
       result,
     };
     localStorage.setItem(key, JSON.stringify(cached));
-  } catch {
-    // Storage full or unavailable
+  } catch (err) {
+    debug.cache("failed to save timelock cache for %s: %O", txHash, err);
   }
 }
 
@@ -133,13 +135,13 @@ export function clearCachedTimelockResult(
   txHash: string,
   operationId: string
 ): void {
-  if (typeof window === "undefined") return;
+  if (!isBrowser) return;
 
   try {
     const key = getTimelockCacheKey(txHash, operationId);
     localStorage.removeItem(key);
-  } catch {
-    // Storage unavailable
+  } catch (err) {
+    debug.cache("failed to clear timelock cache for %s: %O", txHash, err);
   }
 }
 
@@ -161,7 +163,7 @@ export function loadUnifiedStages(
   governorAddress: string,
   ttlMs: number = DEFAULT_CACHE_TTL_MS
 ): UnifiedCacheResult {
-  if (typeof window === "undefined") {
+  if (!isBrowser) {
     return {
       stages: [],
       proposalCacheExpired: false,
@@ -187,8 +189,8 @@ export function loadUnifiedStages(
         proposalCacheExpired = Date.now() - parsed.timestamp > ttlMs;
       }
     }
-  } catch {
-    // Cache read failed
+  } catch (err) {
+    debug.cache("failed to load unified stages for %s: %O", proposalId, err);
   }
 
   // No proposal cache - return empty result
@@ -320,7 +322,7 @@ export function seedTimelockFromCache(
   result: TimelockTrackingResult,
   trackedAt?: string
 ): boolean {
-  if (typeof window === "undefined") return false;
+  if (!isBrowser) return false;
 
   const key = getTimelockCacheKey(txHash, operationId);
 
@@ -345,7 +347,8 @@ export function seedTimelockFromCache(
 
     localStorage.setItem(key, JSON.stringify(cached));
     return true;
-  } catch {
+  } catch (err) {
+    debug.cache("failed to seed timelock cache for %s: %O", txHash, err);
     return false;
   }
 }
@@ -354,7 +357,7 @@ export function seedTimelockFromCache(
  * Check if timelock cache exists and is valid
  */
 export function hasTimelockCache(txHash: string, operationId: string): boolean {
-  if (typeof window === "undefined") return false;
+  if (!isBrowser) return false;
 
   try {
     const key = getTimelockCacheKey(txHash, operationId);
@@ -363,7 +366,8 @@ export function hasTimelockCache(txHash: string, operationId: string): boolean {
 
     const parsed: CachedTimelockResult = JSON.parse(cached);
     return parsed.version === CACHE_VERSION && parsed.result.stages.length > 0;
-  } catch {
+  } catch (err) {
+    debug.cache("failed to check timelock cache for %s: %O", txHash, err);
     return false;
   }
 }
