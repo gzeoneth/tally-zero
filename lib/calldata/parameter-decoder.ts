@@ -1,3 +1,8 @@
+/**
+ * Parameter decoding and formatting utilities
+ * Handles ABI parameter parsing, decoding, and display formatting
+ */
+
 import { ethers } from "ethers";
 
 import { debug } from "@/lib/debug";
@@ -8,7 +13,10 @@ import { getAddressLabel, getChainLabel } from "./address-utils";
 import type { ChainContext, DecodedParameterWithRaw } from "./types";
 
 /**
- * Parse complex parameter types from signature
+ * Parse complex parameter types from a function signature
+ * Handles nested types like tuples and arrays
+ * @param typesStr - The parameter types string (e.g., "address,uint256,bytes[]")
+ * @returns Array of individual type strings
  */
 export function parseParamTypes(typesStr: string): string[] {
   if (!typesStr.trim()) return [];
@@ -35,6 +43,8 @@ export function parseParamTypes(typesStr: string): string[] {
 
 /**
  * Check if a value looks like calldata (for nested decoding)
+ * @param value - The hex string to check
+ * @returns True if the value appears to be valid calldata with a 4-byte selector
  */
 export function isLikelyCalldata(value: string): boolean {
   if (!value.startsWith("0x")) return false;
@@ -44,7 +54,11 @@ export function isLikelyCalldata(value: string): boolean {
 }
 
 /**
- * Format decoded value for display
+ * Format a decoded value for display
+ * Handles BigNumbers, ETH values, addresses, and arrays
+ * @param value - The decoded value to format
+ * @param type - The Solidity type of the value
+ * @returns Human-readable string representation
  */
 export function formatDecodedValue(value: unknown, type: string): string {
   if (value === null || value === undefined) return "null";
@@ -86,7 +100,11 @@ export function formatDecodedValue(value: unknown, type: string): string {
 }
 
 /**
- * Decode parameters using ethers.js AbiCoder
+ * Decode parameters from calldata using ethers.js AbiCoder
+ * @param calldata - The hex-encoded calldata string
+ * @param signature - The function signature (e.g., "transfer(address,uint256)")
+ * @param chainContext - Chain context for address resolution (default: "arb1")
+ * @returns Array of decoded parameters with metadata, or null if decoding fails
  */
 export function decodeParameters(
   calldata: string,
