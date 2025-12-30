@@ -327,6 +327,10 @@ function TimelockOperationTrackerModal({
   onOperationIndexChange?: (opIndex: number | undefined) => void;
   isDesktop: boolean;
 }) {
+  const handleClose = useCallback(() => {
+    onOpenChange(false);
+  }, [onOpenChange]);
+
   if (isDesktop) {
     return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -335,6 +339,7 @@ function TimelockOperationTrackerModal({
             txHash={txHash}
             initialOpIndex={opIndex}
             onOperationIndexChange={onOperationIndexChange}
+            onClose={handleClose}
           />
         </DialogContent>
       </Dialog>
@@ -348,6 +353,7 @@ function TimelockOperationTrackerModal({
           txHash={txHash}
           initialOpIndex={opIndex}
           onOperationIndexChange={onOperationIndexChange}
+          onClose={handleClose}
         />
       </DrawerContent>
     </Drawer>

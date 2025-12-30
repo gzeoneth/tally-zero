@@ -27,6 +27,8 @@ interface TimelockOperationContentProps {
   initialOpIndex?: number;
   /** Callback when an operation is selected (for URL updates) */
   onOperationIndexChange?: (opIndex: number | undefined) => void;
+  /** Callback to close the modal */
+  onClose?: () => void;
 }
 
 /**
@@ -37,6 +39,7 @@ export function TimelockOperationContent({
   txHash,
   initialOpIndex,
   onOperationIndexChange,
+  onClose,
 }: TimelockOperationContentProps) {
   const {
     operations,
@@ -169,12 +172,39 @@ export function TimelockOperationContent({
   if (operations.length > 1 && !selectedOperation) {
     return (
       <div className="space-y-4 p-4">
-        <div className="text-center">
-          <h3 className="text-lg font-semibold">Multiple Operations Found</h3>
-          <p className="text-sm text-muted-foreground">
-            Transaction contains {operations.length} operations. Select one to
-            track:
-          </p>
+        <div className="flex items-center justify-between">
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-7 px-2"
+            >
+              <svg
+                className="h-4 w-4 mr-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Back
+            </Button>
+          )}
+          <div className="flex-1 text-center">
+            <h3 className="text-lg font-semibold">Multiple Operations Found</h3>
+            <p className="text-sm text-muted-foreground">
+              Transaction contains {operations.length} operations. Select one to
+              track:
+            </p>
+          </div>
+          {/* Spacer for symmetry when back button exists */}
+          {onClose && <div className="w-16" />}
         </div>
         <OperationSelector
           operations={operations}
