@@ -1,16 +1,26 @@
+/**
+ * RPC utilities for Ethereum provider management and query handling
+ * Provides provider caching, retry logic, and batch query support with rate limiting
+ */
+
 import { debug } from "@/lib/debug";
 import { delay } from "@/lib/delay-utils";
 import { toError } from "@/lib/error-utils";
 import { ethers } from "ethers";
 
+/** Default maximum block range for RPC queries */
 export const DEFAULT_MAX_BLOCK_RANGE = 10_000_000;
+
+/** Cache for RPC providers, keyed by URL */
+const providerCache = new Map<string, ethers.providers.JsonRpcProvider>();
 
 /**
  * Creates and initializes an RPC provider with ready state validation.
  * Caches providers by URL to avoid creating multiple instances.
+ * Validates connection by fetching the current block number.
+ * @param rpcUrl - The JSON-RPC endpoint URL
+ * @returns An initialized and connected JSON-RPC provider
  */
-const providerCache = new Map<string, ethers.providers.JsonRpcProvider>();
-
 export async function createRpcProvider(
   rpcUrl: string
 ): Promise<ethers.providers.JsonRpcProvider> {
@@ -38,8 +48,9 @@ export async function createRpcProvider(
 }
 
 /**
- * Clears a specific provider from the cache.
- * Useful when switching RPCs or handling errors.
+ * Clears providers from the cache.
+ * Useful when switching RPCs or handling connection errors.
+ * @param rpcUrl - Optional URL to clear. If omitted, clears entire cache.
  */
 export function clearProviderCache(rpcUrl?: string): void {
   if (rpcUrl) {
@@ -49,22 +60,37 @@ export function clearProviderCache(rpcUrl?: string): void {
   }
 }
 
+/** Configuration options for query retry behavior */
 export interface RetryOptions {
+  /** Maximum number of retry attempts (default: 3) */
   maxRetries?: number;
+  /** Initial delay in ms before first retry (default: 1000) */
   initialDelay?: number;
+  /** Maximum delay in ms between retries (default: 16000) */
   maxDelay?: number;
+  /** Multiplier for exponential backoff (default: 2) */
   backoffFactor?: number;
+  /** Delay in ms between sequential queries (default: 2000) */
   rateLimitDelay?: number;
 }
 
+/** Default retry options for RPC queries */
 const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   maxRetries: 3,
   initialDelay: 1000,
   maxDelay: 16000,
   backoffFactor: 2,
-  rateLimitDelay: 2000, // delay between sequential queries
+  rateLimitDelay: 2000,
 };
 
+/**
+ * Execute an async query with exponential backoff retry logic.
+ * Handles rate limit errors (429) and implements automatic retry with increasing delays.
+ * @param queryFn - The async function to execute
+ * @param options - Retry configuration options
+ * @returns The result of the query function
+ * @throws The last error if all retries are exhausted
+ */
 export async function queryWithRetry<T>(
   queryFn: () => Promise<T>,
   options: RetryOptions = DEFAULT_RETRY_OPTIONS
@@ -106,6 +132,15 @@ export async function queryWithRetry<T>(
   throw lastError;
 }
 
+/**
+ * Execute multiple queries in batches with rate limiting.
+ * Prevents overwhelming RPC endpoints by processing queries in chunks
+ * with delays between batches.
+ * @param queries - Array of async query functions to execute
+ * @param batchSize - Number of concurrent queries per batch (default: 5)
+ * @param delayBetweenBatches - Delay in ms between batches (default: 1000)
+ * @returns Array of results in the same order as input queries
+ */
 export async function batchQueryWithRateLimit<T>(
   queries: (() => Promise<T>)[],
   batchSize: number = 5,
