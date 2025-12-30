@@ -1,3 +1,5 @@
+import { MS_PER_HOUR, MS_PER_MINUTE } from "@/lib/date-utils";
+
 /** Common prefix for all TallyZero localStorage keys */
 export const STORAGE_PREFIX = "tally-zero";
 
@@ -25,12 +27,12 @@ export const DEFAULT_TENDERLY_ORG = "ORG";
 export const DEFAULT_TENDERLY_PROJECT = "PROJECT";
 
 export const CACHE_VERSION = 1;
-export const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
+export const DEFAULT_CACHE_TTL_MS = MS_PER_HOUR;
 
 // Timing constants for UI and polling
 export const COPY_SUCCESS_TIMEOUT_MS = 2000;
-export const CACHE_TTL_CHECK_INTERVAL_MS = 30000;
-export const L1_BLOCK_REFRESH_INTERVAL_MS = 60000;
+export const CACHE_TTL_CHECK_INTERVAL_MS = 30 * 1000;
+export const L1_BLOCK_REFRESH_INTERVAL_MS = MS_PER_MINUTE;
 
 // Cache TTL options in seconds
 export const CACHE_TTL_OPTIONS = [

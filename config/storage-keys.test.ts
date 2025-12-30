@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { MS_PER_HOUR } from "@/lib/date-utils";
+
 import {
   CACHE_TTL_OPTIONS,
   CACHE_VERSION,
@@ -109,7 +111,7 @@ describe("storage-keys config", () => {
 
   describe("DEFAULT_CACHE_TTL_MS", () => {
     it("equals 1 hour in milliseconds", () => {
-      expect(DEFAULT_CACHE_TTL_MS).toBe(60 * 60 * 1000);
+      expect(DEFAULT_CACHE_TTL_MS).toBe(MS_PER_HOUR);
       expect(DEFAULT_CACHE_TTL_MS).toBe(3600000);
     });
   });
