@@ -2,6 +2,15 @@
  * Date and time formatting utilities for the TallyZero application
  */
 
+/** Milliseconds in one second */
+export const MS_PER_SECOND = 1000;
+/** Milliseconds in one minute */
+export const MS_PER_MINUTE = 60 * MS_PER_SECOND;
+/** Milliseconds in one hour */
+export const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+/** Milliseconds in one day */
+export const MS_PER_DAY = 24 * MS_PER_HOUR;
+
 /**
  * Format a timestamp to a relative time string
  *
@@ -14,10 +23,10 @@
  */
 export function formatRelativeTimestamp(timestamp?: number): string {
   if (!timestamp) return "";
-  const date = new Date(timestamp * 1000);
+  const date = new Date(timestamp * MS_PER_SECOND);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = Math.floor(diffMs / MS_PER_DAY);
 
   if (diffDays === 0) {
     return "Today";
@@ -47,7 +56,7 @@ export function formatEtaTimestamp(eta?: string): string {
   if (!eta) return "";
   const timestamp = parseInt(eta, 10);
   if (isNaN(timestamp)) return "";
-  const date = new Date(timestamp * 1000);
+  const date = new Date(timestamp * MS_PER_SECOND);
   return date.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
@@ -69,7 +78,7 @@ export function formatEtaTimestamp(eta?: string): string {
 export function formatDateShort(date: Date): string {
   const now = new Date();
   const diffMs = date.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = Math.ceil(diffMs / MS_PER_DAY);
 
   // If in the past
   if (diffDays < 0) {
@@ -159,8 +168,8 @@ export function formatEstimatedCompletion(range: EstimatedTimeRange): string {
   const now = new Date();
   const minDiffMs = range.minDate.getTime() - now.getTime();
   const maxDiffMs = range.maxDate.getTime() - now.getTime();
-  const minDiffDays = Math.ceil(minDiffMs / (1000 * 60 * 60 * 24));
-  const maxDiffDays = Math.ceil(maxDiffMs / (1000 * 60 * 60 * 24));
+  const minDiffDays = Math.ceil(minDiffMs / MS_PER_DAY);
+  const maxDiffDays = Math.ceil(maxDiffMs / MS_PER_DAY);
 
   // If both dates are in the past
   if (maxDiffDays <= 0) {
@@ -244,7 +253,7 @@ export function createGoogleCalendarUrl(
   startDate: Date,
   details: string
 ): string {
-  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  const endDate = new Date(startDate.getTime() + MS_PER_HOUR);
   const encodedTitle = encodeURIComponent(title);
   const encodedDetails = encodeURIComponent(details);
   const dates = `${formatDateForGoogleCalendar(startDate)}/${formatDateForGoogleCalendar(endDate)}`;

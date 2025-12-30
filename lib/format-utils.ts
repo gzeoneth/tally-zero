@@ -1,5 +1,7 @@
 import { BigNumber } from "ethers";
 
+import { MS_PER_HOUR } from "./date-utils";
+
 /**
  * Format voting power from wei (18 decimals) to human-readable format with K/M/B suffixes
  *
@@ -124,7 +126,7 @@ export function formatCacheAge(generatedAt: string | Date): string {
   const generatedDate =
     typeof generatedAt === "string" ? new Date(generatedAt) : generatedAt;
   const ageMs = Date.now() - generatedDate.getTime();
-  const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+  const ageHours = Math.floor(ageMs / MS_PER_HOUR);
   const ageDays = Math.floor(ageHours / 24);
 
   if (ageDays > 0) {
