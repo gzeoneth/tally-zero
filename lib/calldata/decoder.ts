@@ -1,3 +1,8 @@
+/**
+ * Calldata decoder with recursive nested decoding support
+ * Decodes governance proposal calldata including retryable tickets and nested calls
+ */
+
 import { ethers } from "ethers";
 
 import { getAddressExplorerUrl } from "@/lib/explorer-utils";
@@ -20,10 +25,12 @@ import type {
   DecodedParameterWithRaw,
 } from "./types";
 
+/** Maximum recursion depth for nested calldata decoding */
 const MAX_DEPTH = 3;
 
 /**
  * Process nested calldata in parameters
+ * Handles bytes[] arrays and single bytes parameters for recursive decoding
  */
 async function processNestedParams(
   params: DecodedParameterWithRaw[] | null,
@@ -201,6 +208,11 @@ async function processNestedParams(
 
 /**
  * Decode calldata with recursive nested decoding support
+ * @param calldata - The hex-encoded calldata string
+ * @param _targetAddress - Optional target contract address (unused, reserved)
+ * @param depth - Current recursion depth (default: 0)
+ * @param chainContext - Chain context for address resolution (default: "arb1")
+ * @returns Decoded calldata with function name, parameters, and nested calls
  */
 export async function decodeCalldata(
   calldata: string,

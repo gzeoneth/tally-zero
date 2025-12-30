@@ -1,3 +1,8 @@
+/**
+ * Function signature lookup utilities
+ * Provides local registry lookup and 4byte.directory API integration with caching
+ */
+
 import localSignatures from "@data/function-signatures.json";
 
 import { STORAGE_PREFIX } from "@/config/storage-keys";
@@ -5,11 +10,16 @@ import { MS_PER_DAY } from "@/lib/date-utils";
 import { debug } from "@/lib/debug";
 import { getStoredValue, setStoredValue } from "@/lib/storage-utils";
 
+/** 4byte.directory API endpoint */
 const FOURBYTE_API = "https://www.4byte.directory/api/v1/signatures/";
-const CACHE_KEY_PREFIX = `${STORAGE_PREFIX}-4byte-`;
-const CACHE_TTL_MS = MS_PER_DAY; // 24 hours
 
-// In-memory cache for session
+/** LocalStorage key prefix for signature cache */
+const CACHE_KEY_PREFIX = `${STORAGE_PREFIX}-4byte-`;
+
+/** Cache TTL for signature lookups (24 hours) */
+const CACHE_TTL_MS = MS_PER_DAY;
+
+/** In-memory session cache for signature lookups */
 const sessionCache = new Map<
   string,
   { signature: string | null; timestamp: number }
@@ -17,6 +27,8 @@ const sessionCache = new Map<
 
 /**
  * Look up function signature in local registry
+ * @param selector - The 4-byte function selector (e.g., "0x12345678")
+ * @returns The function signature if found, null otherwise
  */
 export function lookupLocalSignature(selector: string): string | null {
   const normalizedSelector = selector.toLowerCase();
@@ -26,6 +38,9 @@ export function lookupLocalSignature(selector: string): string | null {
 
 /**
  * Query 4byte.directory API with caching
+ * Uses both session cache and localStorage for efficient lookups
+ * @param selector - The 4-byte function selector (e.g., "0x12345678")
+ * @returns The function signature if found, null otherwise
  */
 export async function lookup4byteDirectory(
   selector: string
