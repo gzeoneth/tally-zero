@@ -1,3 +1,11 @@
+/**
+ * Proposal cache utilities for pre-loading and merging proposals
+ *
+ * Provides functionality for loading the prebuilt proposal cache,
+ * merging cached proposals with fresh data, and seeding localStorage
+ * with stage tracking data.
+ */
+
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal } from "@/types/proposal";
 import type { ProposalStage } from "@/types/proposal-stage";
@@ -57,8 +65,10 @@ export interface ProposalCache {
   };
 }
 
+/** Current version of the proposal cache format */
 export const CURRENT_CACHE_VERSION = 1;
 
+/** Proposal states that don't need refresh */
 const FINALIZED_STATES = new Set([
   "canceled",
   "defeated",
@@ -68,10 +78,22 @@ const FINALIZED_STATES = new Set([
   "executed",
 ]);
 
+/**
+ * Check if a proposal state is finalized (won't change)
+ *
+ * @param state - The proposal state string
+ * @returns True if the proposal is in a finalized state
+ */
 export function isProposalFinalized(state: string): boolean {
   return FINALIZED_STATES.has(state.toLowerCase());
 }
 
+/**
+ * Check if a proposal state needs to be refreshed
+ *
+ * @param state - The proposal state string
+ * @returns True if the proposal is pending or active
+ */
 export function needsStateRefresh(state: string): boolean {
   const lowerState = state.toLowerCase();
   return lowerState === "pending" || lowerState === "active";
@@ -97,6 +119,14 @@ let cacheValidated = false;
 let stagesSeeded = false;
 let timelockStagesSeeded = false;
 
+/**
+ * Load and validate the proposal cache from static data
+ *
+ * Seeds localStorage with stage data on first load.
+ * Returns cached data on subsequent calls for performance.
+ *
+ * @returns The validated proposal cache, or null if unavailable/invalid
+ */
 export async function loadProposalCache(): Promise<ProposalCache | null> {
   if (getSkipPreloadCacheSetting()) {
     debug.proposals("skipping preload cache (setting enabled)");
@@ -164,6 +194,11 @@ export async function loadProposalCache(): Promise<ProposalCache | null> {
   return validatedCacheData;
 }
 
+/**
+ * Clear the validated proposal cache data
+ *
+ * Useful for forcing a cache refresh.
+ */
 export function clearCacheData(): void {
   validatedCacheData = null;
   cacheValidated = false;
@@ -171,17 +206,38 @@ export function clearCacheData(): void {
   timelockStagesSeeded = false;
 }
 
+/**
+ * Get the snapshot block number from the proposal cache
+ *
+ * @returns The block number when the cache was generated, or 0 if no cache
+ */
 export async function getCacheSnapshotBlock(): Promise<number> {
   const cache = await loadProposalCache();
   return cache?.snapshotBlock ?? 0;
 }
 
+/**
+ * Get proposals that need their state refreshed
+ *
+ * @param cache - The proposal cache
+ * @returns Array of proposals in pending or active state
+ */
 export function getProposalsNeedingRefresh(
   cache: ProposalCache
 ): ParsedProposal[] {
   return cache.proposals.filter((p) => needsStateRefresh(p.state));
 }
 
+/**
+ * Merge cached proposals with freshly fetched proposals
+ *
+ * Keeps finalized proposals from cache, uses fresh data for active proposals,
+ * and adds any new proposals not in cache.
+ *
+ * @param cachedProposals - Proposals from the prebuilt cache
+ * @param freshProposals - Proposals freshly fetched from RPC
+ * @returns Merged array of proposals
+ */
 export function mergeProposals(
   cachedProposals: ParsedProposal[],
   freshProposals: ParsedProposal[]
@@ -212,6 +268,14 @@ export function mergeProposals(
   return merged;
 }
 
+/**
+ * Sort proposals by state and start block
+ *
+ * Active proposals come first, then sorted by start block descending.
+ *
+ * @param proposals - Array of proposals to sort
+ * @returns Sorted array of proposals
+ */
 export function sortProposals(proposals: ParsedProposal[]): ParsedProposal[] {
   return [...proposals].sort((a, b) => {
     if (a.state === "Active" && b.state !== "Active") return -1;
@@ -220,6 +284,12 @@ export function sortProposals(proposals: ParsedProposal[]): ParsedProposal[] {
   });
 }
 
+/**
+ * Get statistics about the proposal cache
+ *
+ * @param cache - The proposal cache to analyze
+ * @returns Cache statistics including proposal count, age, and state distribution
+ */
 export function getCacheStats(cache: ProposalCache): {
   totalProposals: number;
   snapshotBlock: number;
@@ -243,6 +313,12 @@ export function getCacheStats(cache: ProposalCache): {
   };
 }
 
+/**
+ * Seed localStorage with stages from all cached proposals
+ *
+ * @param cache - The proposal cache containing proposals with stages
+ * @returns Number of proposals seeded
+ */
 export function seedAllStagesFromCache(cache: ProposalCache): number {
   if (!isBrowser) return 0;
 
@@ -270,6 +346,8 @@ export function seedAllStagesFromCache(cache: ProposalCache): number {
  *
  * This loads the prebuilt timelock-operations-cache.json and seeds
  * localStorage with stages 4-10 for each operation.
+ *
+ * @returns Number of operations seeded
  */
 export function seedTimelockOperationsFromCache(): number {
   if (!isBrowser) return 0;

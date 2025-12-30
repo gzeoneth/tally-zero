@@ -65,6 +65,10 @@ export interface UnifiedCacheResult {
 
 /**
  * Get cache key for timelock operations
+ *
+ * @param txHash - The queue transaction hash
+ * @param operationId - The timelock operation ID
+ * @returns The cache key string
  */
 export function getTimelockCacheKey(
   txHash: string,
@@ -75,6 +79,11 @@ export function getTimelockCacheKey(
 
 /**
  * Load cached timelock result from localStorage
+ *
+ * @param txHash - The queue transaction hash
+ * @param operationId - The timelock operation ID
+ * @param ttlMs - Cache TTL in milliseconds
+ * @returns Object with result and expiry status
  */
 export function loadCachedTimelockResult(
   txHash: string,
@@ -107,6 +116,10 @@ export function loadCachedTimelockResult(
 
 /**
  * Save timelock result to localStorage cache
+ *
+ * @param txHash - The queue transaction hash
+ * @param operationId - The timelock operation ID
+ * @param result - The timelock tracking result to cache
  */
 export function saveCachedTimelockResult(
   txHash: string,
@@ -130,6 +143,9 @@ export function saveCachedTimelockResult(
 
 /**
  * Clear timelock result from localStorage cache
+ *
+ * @param txHash - The queue transaction hash
+ * @param operationId - The timelock operation ID
  */
 export function clearCachedTimelockResult(
   txHash: string,
@@ -314,7 +330,11 @@ export function getRefreshNeeds(unifiedResult: UnifiedCacheResult): {
  * Used during app initialization to populate localStorage from
  * the prebuilt timelock operations cache.
  *
- * @returns true if seeded, false if skipped
+ * @param txHash - The queue transaction hash
+ * @param operationId - The timelock operation ID
+ * @param result - The timelock tracking result to seed
+ * @param trackedAt - Optional ISO timestamp of when stages were tracked
+ * @returns True if seeded, false if skipped
  */
 export function seedTimelockFromCache(
   txHash: string,
@@ -355,6 +375,10 @@ export function seedTimelockFromCache(
 
 /**
  * Check if timelock cache exists and is valid
+ *
+ * @param txHash - The queue transaction hash
+ * @param operationId - The timelock operation ID
+ * @returns True if valid cached data exists
  */
 export function hasTimelockCache(txHash: string, operationId: string): boolean {
   if (!isBrowser) return false;
