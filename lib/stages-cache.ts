@@ -1,3 +1,8 @@
+/**
+ * Stage caching utilities for proposal lifecycle tracking
+ * Provides localStorage-based caching with TTL and completion detection
+ */
+
 import { getFinalStageForGovernor } from "@/config/governors";
 import {
   CACHE_VERSION,
@@ -14,7 +19,7 @@ import { debug, isBrowser } from "./debug";
 import type { TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
 import { seedTimelockFromCache } from "./unified-cache";
 
-// Time after proposal creation to stop tracking (60 days)
+/** Maximum age for tracking (60 days after proposal creation) */
 export const MAX_TRACKING_AGE_MS = 60 * MS_PER_DAY;
 
 export interface CachedStagesResult {
@@ -29,6 +34,13 @@ export interface CacheLoadResult {
   isComplete: boolean;
 }
 
+/**
+ * Generate localStorage cache key for proposal stages
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
+ * @returns The cache key string
+ */
 export function getCacheKey(
   proposalId: string,
   governorAddress: string
@@ -36,12 +48,20 @@ export function getCacheKey(
   return `${STORAGE_KEYS.STAGES_CACHE_PREFIX}${governorAddress.toLowerCase()}-${proposalId}`;
 }
 
+/** Proposal completion status */
 export type CompletionStatus =
   | "pending"
   | "completed"
   | "failed"
   | "incomplete";
 
+/**
+ * Get completion status for a proposal based on its stages
+ *
+ * @param stages - Array of proposal stages
+ * @param governorAddress - The governor contract address
+ * @returns The completion status
+ */
 export function getCompletionStatus(
   stages: ProposalStage[],
   governorAddress: string
@@ -75,11 +95,13 @@ export function getCompletionStatus(
 /**
  * Check if stages are complete (have reached a terminal state)
  *
- * @deprecated Use getCompletionStatus() for more precise status
- *
  * Terminal states:
  * - COMPLETED: Proposal successfully executed through all stages
  * - FAILED: Proposal was defeated, canceled, or expired during voting
+ *
+ * @deprecated Use getCompletionStatus() for more precise status
+ * @param stages - Array of proposal stages
+ * @returns True if the last stage is in a terminal state
  */
 export function areStagesComplete(stages: ProposalStage[]): boolean {
   if (!stages || stages.length === 0) return false;
@@ -91,6 +113,9 @@ export function areStagesComplete(stages: ProposalStage[]): boolean {
  * Check if stages have reached the final stage for a specific governor
  *
  * @deprecated Use getCompletionStatus() for more precise status
+ * @param stages - Array of proposal stages
+ * @param governorAddress - The governor contract address
+ * @returns True if the proposal has reached its final stage
  */
 export function hasReachedFinalStage(
   stages: ProposalStage[],
@@ -108,7 +133,7 @@ export function hasReachedFinalStage(
  *
  * @param stagesTrackedAt - ISO timestamp of when stages were last tracked
  * @param proposalCreatedAt - ISO timestamp or block-based estimate of creation
- * @returns true if tracking should be skipped due to age
+ * @returns True if tracking should be skipped due to age
  */
 export function hasExceededTrackingAge(
   stagesTrackedAt: string | undefined,
@@ -130,7 +155,7 @@ export function hasExceededTrackingAge(
  *
  * @param stagesTrackedAt - ISO timestamp of when stages were last tracked
  * @param ttlMs - Time-to-live in milliseconds (default: DEFAULT_CACHE_TTL_MS)
- * @returns true if cache is expired and needs refresh
+ * @returns True if cache is expired and needs refresh
  */
 export function isCacheExpired(
   stagesTrackedAt: string | undefined,
@@ -149,6 +174,11 @@ export function isCacheExpired(
  * which accounts for governor-specific final stages:
  * - Core Governor: RETRYABLE_REDEEMED
  * - Treasury Governor: L2_TIMELOCK_EXECUTED
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
+ * @param ttlMs - Cache TTL in milliseconds
+ * @returns Cache load result with data, expiry, and completion status
  */
 export function loadCachedStages(
   proposalId: string,
@@ -193,6 +223,10 @@ export function loadCachedStages(
 
 /**
  * Save stages to localStorage cache
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
+ * @param result - The tracking result to cache
  */
 export function saveCachedStages(
   proposalId: string,
@@ -216,6 +250,9 @@ export function saveCachedStages(
 
 /**
  * Clear cached stages from localStorage
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
  */
 export function clearCachedStages(
   proposalId: string,
@@ -241,7 +278,8 @@ export function clearCachedStages(
  *
  * Only seeds if the proposal has more stages than what's currently cached.
  *
- * @returns true if stages were seeded, false if skipped
+ * @param proposal - The proposal with stages to seed
+ * @returns True if stages were seeded, false if skipped
  */
 export function seedStagesFromProposal(proposal: {
   id: string;
@@ -345,6 +383,10 @@ export function seedStagesFromProposal(proposal: {
 
 /**
  * Check if a proposal has preloaded stages in localStorage
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
+ * @returns True if cached stages exist for this proposal
  */
 export function hasPreloadedStages(
   proposalId: string,
@@ -371,6 +413,10 @@ export function hasPreloadedStages(
 
 /**
  * Get preloaded stages from localStorage
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
+ * @returns The cached tracking result, or null if not found
  */
 export function getPreloadedStages(
   proposalId: string,

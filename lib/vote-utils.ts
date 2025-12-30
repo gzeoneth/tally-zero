@@ -20,6 +20,10 @@ export interface QuorumProgress {
 
 /**
  * Calculate vote distribution percentages from vote strings.
+ * @param forVotes - String representation of "for" votes
+ * @param againstVotes - String representation of "against" votes
+ * @param abstainVotes - String representation of "abstain" votes
+ * @returns Vote distribution with percentages and totals
  */
 export function calculateVoteDistribution(
   forVotes: string,
@@ -52,6 +56,10 @@ export function calculateVoteDistribution(
 
 /**
  * Calculate quorum progress from current and required vote strings.
+ * @param current - Current vote count as string
+ * @param required - Required quorum as string
+ * @param reachedOverride - Optional override for quorum reached status
+ * @returns Quorum progress with percentage and reached status
  */
 export function calculateQuorumProgress(
   current: string,

@@ -13,6 +13,8 @@ const EXPLORER_BASE_URLS: Record<ChainId, string> = {
 
 /**
  * Get block explorer base URL for a chain
+ * @param chain - The chain identifier
+ * @returns The base URL for the chain's block explorer
  */
 export function getExplorerBaseUrl(chain: ChainId): string {
   return EXPLORER_BASE_URLS[chain];
@@ -20,6 +22,9 @@ export function getExplorerBaseUrl(chain: ChainId): string {
 
 /**
  * Get block explorer URL for an address
+ * @param address - The Ethereum address
+ * @param chain - The chain identifier (defaults to arb1)
+ * @returns The full explorer URL for the address
  */
 export function getAddressExplorerUrl(
   address: string,
@@ -30,6 +35,9 @@ export function getAddressExplorerUrl(
 
 /**
  * Get block explorer URL for a transaction hash
+ * @param hash - The transaction hash
+ * @param chain - The chain identifier (defaults to arb1)
+ * @returns The full explorer URL for the transaction
  */
 export function getTxExplorerUrl(
   hash: string,
@@ -40,6 +48,8 @@ export function getTxExplorerUrl(
 
 /**
  * Get explorer name for a chain
+ * @param chain - The chain identifier
+ * @returns Human-readable explorer name
  */
 export function getExplorerName(chain: ChainId): string {
   switch (chain) {
