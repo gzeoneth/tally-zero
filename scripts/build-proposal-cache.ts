@@ -14,12 +14,25 @@
  *   START_BLOCK - Override the starting block (default depends on mode)
  *   RPC_URL - Override the RPC URL (default: https://arb1.arbitrum.io/rpc)
  *   L1_RPC_URL - Override the L1 RPC URL (default: https://1rpc.io/eth)
+ *   L1_CHUNK_SIZE - Override L1 block range per query (default: 100000)
  *   SKIP_STAGES - Set to "true" to skip stage tracking (faster builds)
+ *   DEBUG_STAGE_TRACKER - Set to "false" to disable verbose debug logging
+ *
+ * Environment files:
+ *   .env.local - Loaded first (preferred for local overrides)
+ *   .env - Loaded as fallback
  */
+
+import * as dotenv from "dotenv";
+import * as path from "path";
+
+// Load environment variables from .env.local first, then .env as fallback
+// Note: dotenv doesn't override existing variables, so .env.local takes precedence
+dotenv.config({ path: path.resolve(__dirname, "..", ".env.local") });
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 import { ethers } from "ethers";
 import * as fs from "fs";
-import * as path from "path";
 
 import { addressesEqual, findByAddress } from "../lib/address-utils";
 import { delay } from "../lib/delay-utils";
@@ -39,6 +52,9 @@ const ARBITRUM_CHAIN_ID = 42161;
 const ARBITRUM_RPC_URL = process.env.RPC_URL || "https://arb1.arbitrum.io/rpc";
 const ETHEREUM_RPC_URL = process.env.L1_RPC_URL || "https://1rpc.io/eth";
 const SKIP_STAGES = process.env.SKIP_STAGES === "true";
+const L1_CHUNK_SIZE = process.env.L1_CHUNK_SIZE
+  ? parseInt(process.env.L1_CHUNK_SIZE, 10)
+  : undefined; // Use default from config if not specified
 
 // Production start block (first governance proposal era)
 const PRODUCTION_START_BLOCK = 70398215;
@@ -410,17 +426,27 @@ async function trackStagesForProposals(
 
   for (let i = 0; i < proposalsToTrack.length; i++) {
     const proposal = proposalsToTrack[i];
-    process.stdout.write(
-      `\r  Tracking ${i + 1}/${proposalsToTrack.length}: ${proposal.id.slice(0, 12)}...`
+    const startTime = Date.now();
+    console.log(
+      `\n[${new Date().toISOString()}] Tracking ${i + 1}/${proposalsToTrack.length}: ${proposal.id.slice(0, 20)}...`
     );
+    console.log(
+      `  State: ${proposal.state}, Governor: ${proposal.governorName}`
+    );
+    console.log(`  Existing stages: ${proposal.stages?.length ?? 0}`);
 
     try {
+      console.log(`  [DEBUG] Calling trackProposalStages...`);
       const result = await trackProposalStages({
         proposalId: proposal.id,
         creationTxHash: proposal.creationTxHash!,
         governorAddress: proposal.contractAddress,
         l2RpcUrl: ARBITRUM_RPC_URL,
         l1RpcUrl: ETHEREUM_RPC_URL,
+        // Use custom L1 chunk size if specified via environment variable
+        chunkingConfig: L1_CHUNK_SIZE
+          ? { l1ChunkSize: L1_CHUNK_SIZE }
+          : undefined,
         // Use existing stages for incremental tracking
         existingStages: proposal.stages,
         startFromStageIndex: proposal.stages?.length
@@ -428,8 +454,14 @@ async function trackStagesForProposals(
           : undefined,
       });
 
+      const elapsedMs = Date.now() - startTime;
+      console.log(`  [DEBUG] trackProposalStages completed in ${elapsedMs}ms`);
+      console.log(
+        `  [DEBUG] Stages returned: ${result.stages.length}, error: ${result.error ?? "none"}`
+      );
+
       if (result.error) {
-        console.warn(`\n  Warning: ${result.error}`);
+        console.warn(`  Warning: ${result.error}`);
         failed++;
       } else {
         completed++;
@@ -627,8 +659,10 @@ async function main() {
   console.log(`Mode: ${isDev ? "Development" : "Production"}`);
   console.log(`L2 RPC URL: ${ARBITRUM_RPC_URL}`);
   console.log(`L1 RPC URL: ${ETHEREUM_RPC_URL}`);
+  console.log(`L1 Chunk Size: ${L1_CHUNK_SIZE ?? "default (100000)"}`);
   console.log(`Force refresh: ${forceRefresh}`);
   console.log(`Skip stages: ${SKIP_STAGES}`);
+  console.log(`Timestamp: ${new Date().toISOString()}`);
   console.log("");
 
   // Check for existing cache
