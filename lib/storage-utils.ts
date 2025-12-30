@@ -2,10 +2,21 @@ import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
 
 import { debug } from "./debug";
 
-// Runtime check for browser environment (can't use isBrowser constant due to test mocking)
+/**
+ * Runtime check for browser environment
+ * Can't use isBrowser constant due to test mocking requirements
+ * @returns True if running in browser with localStorage available
+ */
 const inBrowser = () =>
   typeof window !== "undefined" && typeof localStorage !== "undefined";
 
+/**
+ * Get a value from localStorage with optional custom deserialization
+ * @param key - The localStorage key to retrieve
+ * @param defaultValue - Default value if key doesn't exist or parsing fails
+ * @param deserialize - Optional custom deserializer function
+ * @returns The stored value or default value
+ */
 export function getStoredValue<T>(
   key: string,
   defaultValue: T,
@@ -24,6 +35,12 @@ export function getStoredValue<T>(
   }
 }
 
+/**
+ * Get a raw string value from localStorage without JSON parsing
+ * @param key - The localStorage key to retrieve
+ * @param defaultValue - Default value if key doesn't exist
+ * @returns The stored string or default value
+ */
 export function getStoredString(key: string, defaultValue: string): string {
   if (!inBrowser()) return defaultValue;
 
@@ -31,7 +48,13 @@ export function getStoredString(key: string, defaultValue: string): string {
   return stored ?? defaultValue;
 }
 
-// Handles values stored via useLocalStorage which uses JSON.stringify
+/**
+ * Get a string value stored via useLocalStorage hook (which uses JSON.stringify)
+ * Handles values that were stringified before storage
+ * @param key - The localStorage key to retrieve
+ * @param defaultValue - Default value if key doesn't exist or parsing fails
+ * @returns The stored string or default value
+ */
 export function getStoredJsonString(key: string, defaultValue: string): string {
   if (!inBrowser()) return defaultValue;
 
@@ -47,6 +70,12 @@ export function getStoredJsonString(key: string, defaultValue: string): string {
   }
 }
 
+/**
+ * Get a numeric value from localStorage with JSON parsing
+ * @param key - The localStorage key to retrieve
+ * @param defaultValue - Default value if key doesn't exist, parsing fails, or value is NaN
+ * @returns The stored number or default value
+ */
 export function getStoredNumber(key: string, defaultValue: number): number {
   if (!inBrowser()) return defaultValue;
 
@@ -62,6 +91,12 @@ export function getStoredNumber(key: string, defaultValue: number): number {
   }
 }
 
+/**
+ * Store a value in localStorage with optional custom serialization
+ * @param key - The localStorage key to store under
+ * @param value - The value to store
+ * @param serialize - Optional custom serializer function (defaults to JSON.stringify)
+ */
 export function setStoredValue<T>(
   key: string,
   value: T,
@@ -77,6 +112,10 @@ export function setStoredValue<T>(
   }
 }
 
+/**
+ * Remove a value from localStorage
+ * @param key - The localStorage key to remove
+ */
 export function removeStoredValue(key: string): void {
   if (!inBrowser()) return;
 
@@ -87,6 +126,11 @@ export function removeStoredValue(key: string): void {
   }
 }
 
+/**
+ * Check if a key exists in localStorage
+ * @param key - The localStorage key to check
+ * @returns True if the key exists, false otherwise
+ */
 export function hasStoredValue(key: string): boolean {
   if (!inBrowser()) return false;
 
