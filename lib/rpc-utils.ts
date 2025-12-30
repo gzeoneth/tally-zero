@@ -1,5 +1,6 @@
 import { debug } from "@/lib/debug";
 import { delay } from "@/lib/delay-utils";
+import { toError } from "@/lib/error-utils";
 import { ethers } from "ethers";
 
 export const DEFAULT_MAX_BLOCK_RANGE = 10_000_000;
@@ -75,7 +76,7 @@ export async function queryWithRetry<T>(
     try {
       return await queryFn();
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      lastError = toError(error);
 
       // Check if it's a rate limit error
       const errorObj = error as { code?: number; message?: string };

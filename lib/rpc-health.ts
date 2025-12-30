@@ -6,6 +6,7 @@ import {
   DEFAULT_CHUNKING_CONFIG,
   ETHEREUM_RPC_URL,
 } from "@/config/arbitrum-governance";
+import { getErrorMessage } from "@/lib/error-utils";
 
 export type RpcId = "arb1" | "nova" | "l1";
 
@@ -170,8 +171,7 @@ export async function checkRpcHealth(
     return result;
   } catch (error) {
     const latencyMs = Date.now() - startTime;
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = getErrorMessage(error);
 
     const result: RpcHealthResult = {
       ...baseResult,
@@ -221,8 +221,7 @@ async function testLogSearch(
 
     return { supported: true };
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = getErrorMessage(error);
 
     // Check for common block range errors
     if (
