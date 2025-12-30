@@ -20,6 +20,11 @@ interface DelegateLabelsConfig {
 
 const delegateLabels = delegateLabelsData as DelegateLabelsConfig;
 
+/**
+ * Get the human-readable label for a delegate address
+ * @param address - The delegate's Ethereum address
+ * @returns The delegate's label if found, undefined otherwise
+ */
 export function getDelegateLabel(address: string): string | undefined {
   if (delegateLabels.delegates[address]) {
     return delegateLabels.delegates[address];
@@ -51,6 +56,11 @@ try {
 let validatedCacheData: DelegateCache | null = null;
 let cacheValidated = false;
 
+/**
+ * Load and validate the delegate cache from static data
+ * Returns cached data on subsequent calls for performance.
+ * @returns The validated delegate cache, or null if unavailable/invalid
+ */
 export async function loadDelegateCache(): Promise<DelegateCache | null> {
   if (getSkipDelegateCacheSetting()) {
     debug.delegates("skipping preload cache (setting enabled)");
@@ -110,16 +120,29 @@ export async function loadDelegateCache(): Promise<DelegateCache | null> {
   return validatedCacheData;
 }
 
+/**
+ * Clear the validated delegate cache data
+ * Useful for forcing a cache refresh
+ */
 export function clearDelegateCacheData(): void {
   validatedCacheData = null;
   cacheValidated = false;
 }
 
+/**
+ * Get the snapshot block number from the delegate cache
+ * @returns The block number when the cache was generated, or 0 if no cache
+ */
 export async function getDelegateCacheSnapshotBlock(): Promise<number> {
   const cache = await loadDelegateCache();
   return cache?.snapshotBlock ?? 0;
 }
 
+/**
+ * Get statistics about the delegate cache
+ * @param cache - The delegate cache to analyze
+ * @returns Cache statistics including delegate count, age, and voting power
+ */
 export function getDelegateCacheStats(
   cache: DelegateCache
 ): DelegateCacheStats {
@@ -135,6 +158,12 @@ export function getDelegateCacheStats(
   };
 }
 
+/**
+ * Get the top delegates by voting power
+ * @param cache - The delegate cache
+ * @param limit - Maximum number of delegates to return (default: 100)
+ * @returns Array of top delegates sorted by voting power descending
+ */
 export function getTopDelegates(
   cache: DelegateCache,
   limit: number = 100
@@ -142,6 +171,12 @@ export function getTopDelegates(
   return cache.delegates.slice(0, limit);
 }
 
+/**
+ * Find a delegate by their Ethereum address
+ * @param cache - The delegate cache to search
+ * @param address - The Ethereum address to look up
+ * @returns The delegate info if found, undefined otherwise
+ */
 export function findDelegateByAddress(
   cache: DelegateCache,
   address: string
@@ -152,6 +187,12 @@ export function findDelegateByAddress(
   );
 }
 
+/**
+ * Filter delegates by minimum voting power
+ * @param cache - The delegate cache to filter
+ * @param minPowerWei - Minimum voting power in wei (as string)
+ * @returns Array of delegates meeting the minimum power threshold
+ */
 export function getDelegatesWithMinPower(
   cache: DelegateCache,
   minPowerWei: string
