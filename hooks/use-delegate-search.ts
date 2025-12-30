@@ -10,6 +10,7 @@ import { addressesEqual } from "@/lib/address-utils";
 import { debug } from "@/lib/debug";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
 import { toError } from "@/lib/error-utils";
+import { createRpcProvider } from "@/lib/rpc-utils";
 import type {
   DelegateCache,
   DelegateCacheStats,
@@ -146,8 +147,7 @@ export function useDelegateSearch({
       setIsRefreshingVisible(true);
 
       try {
-        const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-        await provider.ready;
+        const provider = await createRpcProvider(rpcUrl);
 
         const contract = new ethers.Contract(
           ARB_TOKEN.address,

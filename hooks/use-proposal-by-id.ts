@@ -10,6 +10,7 @@ import {
 } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { createRpcProvider } from "@/lib/rpc-utils";
 import type {
   ParsedProposal,
   ProposalStateName,
@@ -71,8 +72,7 @@ export function useProposalById({
       setError(null);
 
       try {
-        const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-        await provider.ready;
+        const provider = await createRpcProvider(rpcUrl);
 
         // Try each governor until we find the proposal
         for (const governor of ARBITRUM_GOVERNORS) {

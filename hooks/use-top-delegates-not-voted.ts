@@ -13,6 +13,7 @@ import {
   loadDelegateCache,
 } from "@/lib/delegate-cache";
 import { toError } from "@/lib/error-utils";
+import { createRpcProvider } from "@/lib/rpc-utils";
 import type { DelegateInfo } from "@/types/delegate";
 import OzGovernor_ABI from "@data/OzGovernor_ABI.json";
 
@@ -77,8 +78,7 @@ export function useTopDelegatesNotVoted({
         return;
       }
 
-      const provider = new ethers.providers.JsonRpcProvider(effectiveRpcUrl);
-      await provider.ready;
+      const provider = await createRpcProvider(effectiveRpcUrl);
 
       const governor = new ethers.Contract(
         governorAddress,

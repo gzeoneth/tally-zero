@@ -10,6 +10,7 @@ import { addressesEqual, isValidAddress } from "@/lib/address-utils";
 import { debug } from "@/lib/debug";
 import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
 import { getErrorMessage } from "@/lib/error-utils";
+import { createRpcProvider } from "@/lib/rpc-utils";
 
 // Minimal ABI for ERC20Votes with OpenZeppelin standard methods
 const ERC20_VOTES_ABI = [
@@ -68,8 +69,7 @@ export function useDelegateLookup({
     setError(null);
 
     try {
-      const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-      await provider.ready;
+      const provider = await createRpcProvider(rpcUrl);
 
       const contract = new ethers.Contract(
         ARB_TOKEN.address,
