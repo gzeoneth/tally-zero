@@ -8,9 +8,13 @@ import type { ChunkingConfig } from "@/types/proposal-stage";
 
 export const ARBITRUM_CHAIN_ID = 42161;
 
-// RPC URLs
+/** Default Arbitrum One RPC URL */
 export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
+
+/** Default Arbitrum Nova RPC URL */
 export const ARBITRUM_NOVA_RPC_URL = "https://nova.arbitrum.io/rpc";
+
+/** Default Ethereum Mainnet RPC URL */
 export const ETHEREUM_RPC_URL = "https://1rpc.io/eth";
 
 /**
@@ -45,6 +49,10 @@ export const L2_CORE_TIMELOCK = {
   delay: "8 days",
 } as const;
 
+/**
+ * L2 Treasury Timelock Contract (Arbitrum One)
+ * 3-day delay for Treasury Governor funding proposals
+ */
 export const L2_TREASURY_TIMELOCK = {
   address: "0xbFc1FECa8B09A5c5D3EFfE7429eBE24b9c09EF58",
   name: "L2 Treasury Timelock",
@@ -77,9 +85,13 @@ export const ARBITRUM_GOVERNORS = [
   { id: "treasury" as const, ...TREASURY_GOVERNOR },
 ] as const;
 
+/** Governor identifier type derived from ARBITRUM_GOVERNORS */
 export type GovernorId = (typeof ARBITRUM_GOVERNORS)[number]["id"];
 
-// Delayed Inbox addresses for detecting target L2 chain
+/**
+ * Delayed Inbox addresses for detecting target L2 chain from L1→L2 messages
+ * Used to determine if a retryable ticket targets Arbitrum One or Nova
+ */
 export const DELAYED_INBOX = {
   ARB1: "0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f",
   NOVA: "0xc4448b71118c9071Bcb9734A0EAc55D18A153949",
@@ -134,11 +146,14 @@ export const ProposalState = {
   EXECUTED: 7,
 } as const;
 
+/** Type for proposal state numeric values */
 export type ProposalStateValue =
   (typeof ProposalState)[keyof typeof ProposalState];
 
 /**
  * Check if a proposal state indicates the proposal is still pending/voting
+ * @param state - The proposal state number
+ * @returns True if state is Pending or Active
  */
 export function isPendingOrActiveState(state: number): boolean {
   return state === ProposalState.PENDING || state === ProposalState.ACTIVE;
@@ -146,6 +161,8 @@ export function isPendingOrActiveState(state: number): boolean {
 
 /**
  * Check if a proposal state indicates failure (canceled, defeated, or expired)
+ * @param state - The proposal state number
+ * @returns True if state is Canceled, Defeated, or Expired
  */
 export function isFailedState(state: number): boolean {
   return (
@@ -157,6 +174,8 @@ export function isFailedState(state: number): boolean {
 
 /**
  * Check if a proposal state indicates success (succeeded or beyond)
+ * @param state - The proposal state number
+ * @returns True if state is Succeeded, Queued, or Executed
  */
 export function isSuccessState(state: number): boolean {
   return state >= ProposalState.SUCCEEDED && !isFailedState(state);
@@ -164,6 +183,8 @@ export function isSuccessState(state: number): boolean {
 
 /**
  * Get configuration for a specific governor type
+ * @param type - The governor type ("core" or "treasury")
+ * @returns Governor configuration with governor, timelock, and L1 timelock info
  */
 export function getGovernorConfig(type: "core" | "treasury") {
   if (type === "core") {
@@ -188,6 +209,8 @@ export function getGovernorConfig(type: "core" | "treasury") {
  * The older challenge period is shorter, we use that when looking up events.
  */
 export const CHALLENGE_PERIOD_L1_BLOCKS = 46080;
+
+/** Legacy challenge period in L1 blocks (used for historical event lookup) */
 export const OLD_CHALLENGE_PERIOD_L1_BLOCKS = 45818;
 
 export {
@@ -205,8 +228,15 @@ import {
   timeToBlocks as timeToBlocksById,
 } from "@/config/block-times";
 
+/** Chain IDs for named chain conversion */
 const CHAIN_IDS = { ethereum: 1, arbitrum: 42161 } as const;
 
+/**
+ * Convert time to blocks for a named chain
+ * @param seconds - Duration in seconds
+ * @param chain - Chain name ("ethereum" or "arbitrum")
+ * @returns Number of blocks
+ */
 export function timeToBlocks(
   seconds: number,
   chain: "ethereum" | "arbitrum"
@@ -214,6 +244,12 @@ export function timeToBlocks(
   return timeToBlocksById(seconds, CHAIN_IDS[chain]);
 }
 
+/**
+ * Convert blocks to time for a named chain
+ * @param blocks - Number of blocks
+ * @param chain - Chain name ("ethereum" or "arbitrum")
+ * @returns Duration in seconds
+ */
 export function blocksToTime(
   blocks: number,
   chain: "ethereum" | "arbitrum"
