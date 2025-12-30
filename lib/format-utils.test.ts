@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { MS_PER_DAY, MS_PER_HOUR } from "@/lib/date-utils";
+
 import {
   formatCacheAge,
   formatCompactNumber,
@@ -115,13 +117,13 @@ describe("format-utils", () => {
     });
 
     it("returns hours for cache less than a day old", () => {
-      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      const threeHoursAgo = new Date(Date.now() - 3 * MS_PER_HOUR);
       expect(formatCacheAge(threeHoursAgo)).toBe("3h");
     });
 
     it("returns days and hours for cache more than a day old", () => {
       const twoDaysFiveHoursAgo = new Date(
-        Date.now() - (2 * 24 + 5) * 60 * 60 * 1000
+        Date.now() - 2 * MS_PER_DAY - 5 * MS_PER_HOUR
       );
       expect(formatCacheAge(twoDaysFiveHoursAgo)).toBe("2d 5h");
     });
@@ -132,12 +134,14 @@ describe("format-utils", () => {
     });
 
     it("handles exactly 24 hours", () => {
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const oneDayAgo = new Date(Date.now() - MS_PER_DAY);
       expect(formatCacheAge(oneDayAgo)).toBe("1d 0h");
     });
 
     it("handles 1 day with extra hours", () => {
-      const oneDayThreeHoursAgo = new Date(Date.now() - 27 * 60 * 60 * 1000);
+      const oneDayThreeHoursAgo = new Date(
+        Date.now() - MS_PER_DAY - 3 * MS_PER_HOUR
+      );
       expect(formatCacheAge(oneDayThreeHoursAgo)).toBe("1d 3h");
     });
   });

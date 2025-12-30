@@ -1,4 +1,5 @@
 import { GOVERNORS } from "@/config/governors";
+import { MS_PER_DAY, MS_PER_MINUTE, MS_PER_SECOND } from "@/lib/date-utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import { describe, expect, it } from "vitest";
 import {
@@ -198,9 +199,7 @@ describe("stages-cache", () => {
     it("returns false within 60 days", () => {
       const createdAt = new Date();
       // Tracked 30 days after creation
-      const trackedAt = new Date(
-        createdAt.getTime() + 30 * 24 * 60 * 60 * 1000
-      );
+      const trackedAt = new Date(createdAt.getTime() + 30 * MS_PER_DAY);
       expect(hasExceededTrackingAge(trackedAt.toISOString(), createdAt)).toBe(
         false
       );
@@ -209,9 +208,7 @@ describe("stages-cache", () => {
     it("returns true after 60 days", () => {
       const createdAt = new Date();
       // Tracked 61 days after creation
-      const trackedAt = new Date(
-        createdAt.getTime() + 61 * 24 * 60 * 60 * 1000
-      );
+      const trackedAt = new Date(createdAt.getTime() + 61 * MS_PER_DAY);
       expect(hasExceededTrackingAge(trackedAt.toISOString(), createdAt)).toBe(
         true
       );
@@ -229,7 +226,7 @@ describe("stages-cache", () => {
     it("handles numeric timestamp for proposalCreatedAt", () => {
       const createdTime = Date.now();
       // Tracked 70 days after creation
-      const trackedAt = new Date(createdTime + 70 * 24 * 60 * 60 * 1000);
+      const trackedAt = new Date(createdTime + 70 * MS_PER_DAY);
       expect(hasExceededTrackingAge(trackedAt.toISOString(), createdTime)).toBe(
         true
       );
@@ -243,26 +240,28 @@ describe("stages-cache", () => {
 
     it("returns false within default TTL", () => {
       // Tracked 1 minute ago
-      const trackedAt = new Date(Date.now() - 60 * 1000);
+      const trackedAt = new Date(Date.now() - MS_PER_MINUTE);
       expect(isCacheExpired(trackedAt.toISOString())).toBe(false);
     });
 
     it("returns true after default TTL", () => {
       // Default TTL is typically several hours, let's test with a very old timestamp
-      const trackedAt = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
+      const trackedAt = new Date(Date.now() - MS_PER_DAY); // 24 hours ago
       expect(isCacheExpired(trackedAt.toISOString())).toBe(true);
     });
 
     it("respects custom TTL", () => {
-      const trackedAt = new Date(Date.now() - 5000); // 5 seconds ago
+      const trackedAt = new Date(Date.now() - 5 * MS_PER_SECOND); // 5 seconds ago
       // Should be expired with 1 second TTL
-      expect(isCacheExpired(trackedAt.toISOString(), 1000)).toBe(true);
+      expect(isCacheExpired(trackedAt.toISOString(), MS_PER_SECOND)).toBe(true);
       // Should not be expired with 10 second TTL
-      expect(isCacheExpired(trackedAt.toISOString(), 10000)).toBe(false);
+      expect(isCacheExpired(trackedAt.toISOString(), 10 * MS_PER_SECOND)).toBe(
+        false
+      );
     });
 
     it("handles edge case at exactly TTL boundary", () => {
-      const ttlMs = 5000;
+      const ttlMs = 5 * MS_PER_SECOND;
       const trackedAt = new Date(Date.now() - ttlMs - 1);
       expect(isCacheExpired(trackedAt.toISOString(), ttlMs)).toBe(true);
     });

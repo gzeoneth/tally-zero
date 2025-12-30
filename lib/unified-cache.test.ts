@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CACHE_VERSION, STORAGE_KEYS } from "@/config/storage-keys";
+import { MS_PER_HOUR, MS_PER_SECOND } from "@/lib/date-utils";
 import type { ProposalStage, TimelockLink } from "@/types/proposal-stage";
 
 import type {
@@ -161,14 +162,18 @@ describe("unified-cache", () => {
     it("marks expired cache correctly", () => {
       const cached = {
         version: CACHE_VERSION,
-        timestamp: Date.now() - 1000 * 60 * 60, // 1 hour ago
+        timestamp: Date.now() - MS_PER_HOUR, // 1 hour ago
         result: createMockTimelockResult([]),
       };
       const key = getTimelockCacheKey("0x123", "0x456");
       mockStorage[key] = JSON.stringify(cached);
 
       // With 30 second TTL, cache should be expired
-      const { isExpired } = loadCachedTimelockResult("0x123", "0x456", 30000);
+      const { isExpired } = loadCachedTimelockResult(
+        "0x123",
+        "0x456",
+        30 * MS_PER_SECOND
+      );
       expect(isExpired).toBe(true);
     });
 

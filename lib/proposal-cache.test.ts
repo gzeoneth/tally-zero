@@ -1,3 +1,4 @@
+import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "@/lib/date-utils";
 import type { ParsedProposal } from "@/types/proposal";
 import { describe, expect, it } from "vitest";
 import {
@@ -319,9 +320,7 @@ describe("proposal-cache", () => {
     });
 
     it("formats age correctly for hours", () => {
-      const twoHoursAgo = new Date(
-        Date.now() - 2 * 60 * 60 * 1000
-      ).toISOString();
+      const twoHoursAgo = new Date(Date.now() - 2 * MS_PER_HOUR).toISOString();
       const cache: ProposalCache = {
         version: 1,
         generatedAt: twoHoursAgo,
@@ -338,7 +337,7 @@ describe("proposal-cache", () => {
 
     it("formats age correctly for days", () => {
       const threeDaysAgo = new Date(
-        Date.now() - 3 * 24 * 60 * 60 * 1000 - 5 * 60 * 60 * 1000
+        Date.now() - 3 * MS_PER_DAY - 5 * MS_PER_HOUR
       ).toISOString();
       const cache: ProposalCache = {
         version: 1,
@@ -356,7 +355,7 @@ describe("proposal-cache", () => {
 
     it("formats age correctly for less than an hour", () => {
       const thirtyMinutesAgo = new Date(
-        Date.now() - 30 * 60 * 1000
+        Date.now() - 30 * MS_PER_MINUTE
       ).toISOString();
       const cache: ProposalCache = {
         version: 1,

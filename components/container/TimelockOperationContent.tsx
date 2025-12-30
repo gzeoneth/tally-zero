@@ -406,9 +406,9 @@ function OperationHeader({
 const STAGE_DURATIONS: Partial<Record<StageType, number>> = {
   L2_TIMELOCK_EXECUTED: 0, // Uses operation delay
   L2_TO_L1_MESSAGE_SENT: 0, // Immediate
-  L2_TO_L1_MESSAGE_CONFIRMED: 7 * 24 * 60 * 60, // ~7 days challenge period
+  L2_TO_L1_MESSAGE_CONFIRMED: 7 * SECONDS_PER_DAY, // ~7 days challenge period
   L1_TIMELOCK_QUEUED: 0, // Immediate after confirmation
-  L1_TIMELOCK_EXECUTED: 3 * 24 * 60 * 60, // 3 days L1 timelock
+  L1_TIMELOCK_EXECUTED: 3 * SECONDS_PER_DAY, // 3 days L1 timelock
   RETRYABLE_CREATED: 0, // Immediate
   RETRYABLE_REDEEMED: 0, // Near-immediate (auto-redeem)
 };
