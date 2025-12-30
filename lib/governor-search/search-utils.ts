@@ -133,22 +133,31 @@ export async function searchGovernorByDays(
 }
 
 /**
- * Parse raw proposals into ParsedProposal format with state and votes
+ * Parse raw proposals into ParsedProposal format with state and votes.
+ * Batches RPC calls to reduce rate limiting issues.
  */
 export async function parseProposals(
   provider: ethers.providers.Provider,
   proposals: Proposal[]
 ): Promise<ParsedProposal[]> {
-  const parsed: ParsedProposal[] = [];
+  if (proposals.length === 0) return [];
 
-  for (const proposal of proposals) {
-    try {
-      const contract = new ethers.Contract(
-        proposal.contractAddress,
-        OZGovernor_ABI,
-        provider
+  // Create contract instances (cached by address)
+  const contracts = new Map<string, ethers.Contract>();
+  const getContract = (address: string) => {
+    if (!contracts.has(address)) {
+      contracts.set(
+        address,
+        new ethers.Contract(address, OZGovernor_ABI, provider)
       );
+    }
+    return contracts.get(address)!;
+  };
 
+  // Build batched queries for all proposals
+  const queries = proposals.map((proposal) => async () => {
+    const contract = getContract(proposal.contractAddress);
+    try {
       const [proposalState, votes] = await Promise.all([
         contract.state(proposal.id),
         contract.proposalVotes(proposal.id),
@@ -158,9 +167,8 @@ export async function parseProposals(
       if (proposalState !== 0) {
         try {
           quorum = await contract.quorum(proposal.startBlock);
-        } catch (e) {
+        } catch {
           // Quorum fetch can fail for some states
-          console.debug("[parseProposals] Failed to fetch quorum:", e);
         }
       }
 
@@ -169,7 +177,7 @@ export async function parseProposals(
         proposal.contractAddress
       );
 
-      parsed.push({
+      return {
         ...proposal,
         networkId: String(ARBITRUM_CHAIN_ID),
         state: (ProposalState[proposalState] as string)?.toLowerCase(),
@@ -183,33 +191,44 @@ export async function parseProposals(
               quorum: quorum?.toString(),
             }
           : undefined,
-      } as ParsedProposal);
+      } as ParsedProposal;
     } catch (e) {
-      // Skip proposals that fail to parse
       console.debug("[parseProposals] Failed to parse proposal:", e);
+      return null;
     }
-  }
+  });
 
-  return parsed;
+  // Execute in batches of 5 with 500ms delay to avoid rate limits
+  const results = await batchQueryWithRateLimit(queries, 5, 500);
+  return results.filter((p): p is ParsedProposal => p !== null);
 }
 
 /**
- * Refresh state and votes for existing proposals
+ * Refresh state and votes for existing proposals.
+ * Batches RPC calls to reduce rate limiting issues.
  */
 export async function refreshProposalStates(
   provider: ethers.providers.Provider,
   proposals: ParsedProposal[]
 ): Promise<ParsedProposal[]> {
-  const refreshed: ParsedProposal[] = [];
+  if (proposals.length === 0) return [];
 
-  for (const proposal of proposals) {
-    try {
-      const contract = new ethers.Contract(
-        proposal.contractAddress,
-        OZGovernor_ABI,
-        provider
+  // Create contract instances (cached by address)
+  const contracts = new Map<string, ethers.Contract>();
+  const getContract = (address: string) => {
+    if (!contracts.has(address)) {
+      contracts.set(
+        address,
+        new ethers.Contract(address, OZGovernor_ABI, provider)
       );
+    }
+    return contracts.get(address)!;
+  };
 
+  // Build batched queries for all proposals
+  const queries = proposals.map((proposal) => async () => {
+    const contract = getContract(proposal.contractAddress);
+    try {
       const [proposalState, votes] = await Promise.all([
         contract.state(proposal.id),
         contract.proposalVotes(proposal.id),
@@ -225,7 +244,7 @@ export async function refreshProposalStates(
         }
       }
 
-      refreshed.push({
+      return {
         ...proposal,
         state: (
           ProposalState[proposalState] as string
@@ -236,12 +255,13 @@ export async function refreshProposalStates(
           abstainVotes: votes.abstainVotes.toString(),
           quorum,
         },
-      });
+      };
     } catch {
       // If refresh fails, keep the cached version
-      refreshed.push(proposal);
+      return proposal;
     }
-  }
+  });
 
-  return refreshed;
+  // Execute in batches of 5 with 500ms delay to avoid rate limits
+  return batchQueryWithRateLimit(queries, 5, 500);
 }

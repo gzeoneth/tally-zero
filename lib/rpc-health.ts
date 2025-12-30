@@ -55,15 +55,46 @@ export const DEFAULT_RPC_ENDPOINTS: RpcEndpoint[] = [
 
 const HEALTH_CHECK_TIMEOUT = 5000; // 5 seconds
 const LOG_SEARCH_TIMEOUT = 10000; // 10 seconds for log search
+const HEALTH_CACHE_TTL = 60000; // 60 seconds cache for health results
+
+// Cache for health check results to avoid redundant RPC calls
+interface HealthCacheEntry {
+  result: RpcHealthResult;
+  timestamp: number;
+}
+const healthCache = new Map<string, HealthCacheEntry>();
 
 /**
- * Test connectivity to a single RPC endpoint
+ * Generate a cache key for an RPC health check
+ */
+function getCacheKey(
+  endpointId: RpcId,
+  customUrl?: string,
+  chunkSize?: number
+): string {
+  return `${endpointId}:${customUrl || "default"}:${chunkSize || "default"}`;
+}
+
+/**
+ * Test connectivity to a single RPC endpoint.
+ * Results are cached for 60 seconds to reduce redundant RPC calls.
  */
 export async function checkRpcHealth(
   endpoint: RpcEndpoint,
   customUrl?: string,
-  chunkSize?: number
+  chunkSize?: number,
+  skipCache?: boolean
 ): Promise<RpcHealthResult> {
+  const cacheKey = getCacheKey(endpoint.id, customUrl, chunkSize);
+
+  // Check cache first (unless skipCache is true)
+  if (!skipCache) {
+    const cached = healthCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < HEALTH_CACHE_TTL) {
+      return cached.result;
+    }
+  }
+
   const url = customUrl || endpoint.url;
   const startTime = Date.now();
 
@@ -113,7 +144,7 @@ export async function checkRpcHealth(
     );
 
     if (!logSearchResult.supported) {
-      return {
+      const result: RpcHealthResult = {
         ...baseResult,
         status: "down",
         latencyMs,
@@ -122,29 +153,42 @@ export async function checkRpcHealth(
         logSearchError: logSearchResult.error,
         error: `Log search failed: ${logSearchResult.error}`,
       };
+      healthCache.set(cacheKey, { result, timestamp: Date.now() });
+      return result;
     }
 
     const status = latencyMs > 3000 ? "degraded" : "healthy";
 
-    return {
+    const result: RpcHealthResult = {
       ...baseResult,
       status,
       latencyMs,
       blockNumber,
       logSearchSupported: true,
     };
+    healthCache.set(cacheKey, { result, timestamp: Date.now() });
+    return result;
   } catch (error) {
     const latencyMs = Date.now() - startTime;
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
 
-    return {
+    const result: RpcHealthResult = {
       ...baseResult,
       status: "down",
       latencyMs,
       error: errorMessage,
     };
+    // Don't cache failures - allow retry on next request
+    return result;
   }
+}
+
+/**
+ * Clear the health check cache (useful for manual refresh)
+ */
+export function clearHealthCache(): void {
+  healthCache.clear();
 }
 
 /**
