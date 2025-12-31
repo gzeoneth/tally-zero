@@ -69,7 +69,8 @@ export function useTopDelegatesNotVoted({
   const [error, setError] = useState<Error | null>(null);
   const [allTopDelegatesVoted, setAllTopDelegatesVoted] = useState(false);
 
-  const fetchedRef = useRef(false);
+  // Track the last fetched proposal to detect when we need to refetch
+  const lastFetchedProposalRef = useRef<string | null>(null);
   const effectiveRpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   const fetchDelegatesNotVoted = useCallback(async () => {
@@ -141,13 +142,19 @@ export function useTopDelegatesNotVoted({
     }
   }, [proposalId, governorAddress, limit, effectiveRpcUrl]);
 
+  // Refetch when proposalId or governorAddress changes
   useEffect(() => {
     if (!l2RpcHydrated) return;
-    if (!fetchedRef.current) {
-      fetchedRef.current = true;
+
+    // Create a unique key for this proposal
+    const proposalKey = `${proposalId}:${governorAddress}`;
+
+    // Only refetch if this is a new proposal
+    if (lastFetchedProposalRef.current !== proposalKey) {
+      lastFetchedProposalRef.current = proposalKey;
       fetchDelegatesNotVoted();
     }
-  }, [l2RpcHydrated, fetchDelegatesNotVoted]);
+  }, [l2RpcHydrated, proposalId, governorAddress, fetchDelegatesNotVoted]);
 
   return {
     delegatesNotVoted,

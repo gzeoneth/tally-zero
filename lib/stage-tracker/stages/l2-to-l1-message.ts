@@ -76,6 +76,8 @@ export async function trackL2ToL1Message(
       status === ChildToParentMessageStatus.CONFIRMED &&
       overallStatus !== "COMPLETED"
     ) {
+      // CONFIRMED means challenge period is over - the "confirmed" stage is complete
+      overallStatus = "COMPLETED";
       statusNote = "Message confirmed, ready for L1 execution";
     }
 

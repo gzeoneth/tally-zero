@@ -194,6 +194,15 @@ export function useTimelockOperation({
 
           setStages((prev) => {
             const newStages = [...prev];
+            // Ensure we don't create sparse arrays by filling gaps with placeholders
+            while (newStages.length < index) {
+              // Fill gaps with placeholder stages to prevent sparse array
+              newStages.push({
+                type: "UNKNOWN" as ProposalStage["type"],
+                status: "PENDING",
+                transactions: [],
+              });
+            }
             newStages[index] = stage;
             return newStages;
           });
@@ -239,6 +248,15 @@ export function useTimelockOperation({
 
   // Select an operation and start tracking
   const selectOperation = useCallback((operation: TimelockOperationInfo) => {
+    // Abort any in-flight tracking before selecting new operation
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    // Reset states before setting new operation to avoid showing stale data
+    setStages([]);
+    setResult(null);
+    setError(null);
     setSelectedOperation(operation);
   }, []);
 

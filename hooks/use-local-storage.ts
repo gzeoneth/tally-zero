@@ -51,21 +51,31 @@ export function useLocalStorage<T>(
     [key]
   );
 
-  // Listen for changes from other tabs
+  // Listen for changes from other tabs (including deletions)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === key && e.newValue !== null) {
-        try {
-          setStoredValue(JSON.parse(e.newValue) as T);
-        } catch (error) {
-          debug.storage("failed to parse storage event for %s: %O", key, error);
+      if (e.key === key) {
+        if (e.newValue === null) {
+          // Item was deleted in another tab - revert to initial value
+          debug.storage("storage key %s deleted in another tab", key);
+          setStoredValue(initialValue);
+        } else {
+          try {
+            setStoredValue(JSON.parse(e.newValue) as T);
+          } catch (error) {
+            debug.storage(
+              "failed to parse storage event for %s: %O",
+              key,
+              error
+            );
+          }
         }
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [key]);
+  }, [key, initialValue]);
 
   return [storedValue, setValue, isHydrated];
 }

@@ -33,7 +33,8 @@ import { toast } from "sonner";
 
 import OZ_Governor_ABI from "@data/OzGovernor_ABI.json";
 import { delay } from "@lib/delay-utils";
-import { useEffect } from "react";
+import { getSimulationErrorMessage } from "@lib/error-utils";
+import { useEffect, useMemo } from "react";
 
 const ERC20_VOTES_ABI = [
   {
@@ -85,9 +86,15 @@ export default function VoteForm({
     functionName: "castVote",
     args: [BigInt(proposal.id), voteValue ? parseInt(voteValue) : 0],
     query: {
-      enabled: !!voteValue,
+      enabled: !!voteValue && isConnected,
     },
   });
+
+  // Parse simulation error for user-friendly display
+  const simulationErrorMessage = useMemo(() => {
+    if (!isPrepareError || !prepareError) return null;
+    return getSimulationErrorMessage(prepareError);
+  }, [isPrepareError, prepareError]);
 
   const {
     data: hash,
@@ -188,6 +195,11 @@ export default function VoteForm({
                     Your vote will be public and cannot be changed.
                   </FormDescription>
                   <FormMessage />
+                  {simulationErrorMessage && voteValue && (
+                    <p className="text-sm text-red-500 dark:text-red-400 mt-2">
+                      {simulationErrorMessage}
+                    </p>
+                  )}
                 </FormItem>
               )}
             />

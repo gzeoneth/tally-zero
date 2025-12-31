@@ -135,7 +135,7 @@ export class IncrementalStageTracker {
       );
     }
 
-    let votingStage: ProposalStage;
+    let votingStage: ProposalStage | undefined;
     if (startIndex <= 1) {
       debug.stageTracker(
         `[IncrementalStageTracker] Tracking stage 2: VOTING_ACTIVE...`
@@ -146,7 +146,12 @@ export class IncrementalStageTracker {
         `[IncrementalStageTracker] Stage 2 complete: ${votingStage.status}`
       );
     } else {
-      votingStage = stages.find((s) => s.type === "VOTING_ACTIVE")!;
+      votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
+      if (!votingStage) {
+        throw new Error(
+          `Cannot resume from stage ${startIndex}: VOTING_ACTIVE stage not found in existing stages`
+        );
+      }
     }
 
     if (votingStage && votingStage.status === "PENDING") {
@@ -175,7 +180,7 @@ export class IncrementalStageTracker {
       };
     }
 
-    let queuedStage: ProposalStage;
+    let queuedStage: ProposalStage | undefined;
     if (startIndex <= 2) {
       debug.stageTracker(
         `[IncrementalStageTracker] Tracking stage 3: PROPOSAL_QUEUED...`
@@ -186,7 +191,12 @@ export class IncrementalStageTracker {
         `[IncrementalStageTracker] Stage 3 complete: ${queuedStage.status}`
       );
     } else {
-      queuedStage = stages.find((s) => s.type === "PROPOSAL_QUEUED")!;
+      queuedStage = stages.find((s) => s.type === "PROPOSAL_QUEUED");
+      if (!queuedStage) {
+        throw new Error(
+          `Cannot resume from stage ${startIndex}: PROPOSAL_QUEUED stage not found in existing stages`
+        );
+      }
     }
 
     if (!queuedStage || queuedStage.status !== "COMPLETED") {

@@ -63,6 +63,7 @@ export async function trackVotingStage(
       );
     }
 
+    let extensionCount = 0;
     try {
       const extendedLogs = await searchLogsInChunks(
         ctx.l2Provider,
@@ -77,13 +78,17 @@ export async function trackVotingStage(
         searchEndBlock,
         ctx.chunkingConfig.l2ChunkSize,
         ctx.chunkingConfig.delayBetweenChunks,
-        (chunkLogs) => (chunkLogs.length > 0 ? chunkLogs[0] : null)
+        // Collect all extension events, not just the first one
+        undefined
       );
 
       if (extendedLogs.length > 0) {
         wasExtended = true;
         extensionPossible = false;
-        const parsed = ctx.governorInterface.parseLog(extendedLogs[0]);
+        extensionCount = extendedLogs.length;
+        // Use the LAST extension event to get the final extended deadline
+        const lastLog = extendedLogs[extendedLogs.length - 1];
+        const parsed = ctx.governorInterface.parseLog(lastLog);
         extendedDeadline = parsed.args.extendedDeadline?.toString();
       }
     } catch {
@@ -129,6 +134,7 @@ export async function trackVotingStage(
         abstainVotes: ethers.utils.formatEther(abstainVotes),
         extensionPossible,
         wasExtended,
+        extensionCount,
         extendedDeadline,
         quorumReached,
         quorumRequired,

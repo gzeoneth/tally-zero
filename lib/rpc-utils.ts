@@ -11,8 +11,38 @@ import { ethers } from "ethers";
 /** Default maximum block range for RPC queries */
 export const DEFAULT_MAX_BLOCK_RANGE = 10_000_000;
 
-/** Cache for RPC providers, keyed by URL */
-const providerCache = new Map<string, ethers.providers.JsonRpcProvider>();
+/** Maximum number of cached providers before cleanup */
+const MAX_PROVIDER_CACHE_SIZE = 10;
+
+/** Cache for RPC providers, keyed by URL with last used timestamp */
+interface CachedProvider {
+  provider: ethers.providers.JsonRpcProvider;
+  lastUsed: number;
+}
+const providerCache = new Map<string, CachedProvider>();
+
+/**
+ * Evicts least recently used providers when cache exceeds max size.
+ * Keeps the cache bounded to prevent memory leaks.
+ */
+function evictLruProviders(): void {
+  if (providerCache.size <= MAX_PROVIDER_CACHE_SIZE) return;
+
+  // Sort entries by lastUsed timestamp (oldest first)
+  const entries = Array.from(providerCache.entries()).sort(
+    ([, a], [, b]) => a.lastUsed - b.lastUsed
+  );
+
+  // Evict oldest entries until we're under the limit
+  const toEvict = entries.slice(
+    0,
+    providerCache.size - MAX_PROVIDER_CACHE_SIZE
+  );
+  for (const [url] of toEvict) {
+    debug.rpc("evicting LRU provider: %s", url);
+    providerCache.delete(url);
+  }
+}
 
 /**
  * Creates and initializes an RPC provider with ready state validation.
@@ -29,10 +59,13 @@ export async function createRpcProvider(
   if (cached) {
     try {
       // Quick check that provider is still working
-      await cached.getNetwork();
-      return cached;
+      await cached.provider.getNetwork();
+      // Update last used timestamp
+      cached.lastUsed = Date.now();
+      return cached.provider;
     } catch {
       // Provider disconnected, remove from cache
+      debug.rpc("cached provider disconnected, removing: %s", rpcUrl);
       providerCache.delete(rpcUrl);
     }
   }
@@ -42,8 +75,11 @@ export async function createRpcProvider(
   await provider.ready;
   await provider.getBlockNumber(); // Verify connection works
 
-  // Cache for reuse
-  providerCache.set(rpcUrl, provider);
+  // Evict LRU providers if cache is full
+  evictLruProviders();
+
+  // Cache for reuse with timestamp
+  providerCache.set(rpcUrl, { provider, lastUsed: Date.now() });
   return provider;
 }
 

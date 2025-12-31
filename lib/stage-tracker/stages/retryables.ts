@@ -210,19 +210,26 @@ export async function trackRetryables(
     },
   });
 
+  // Determine redemption status based on allRedeemed flag
+  // allRedeemed is true only if all messages have status === REDEEMED
+  // regardless of whether we could get the tx receipt
+  const redeemedCount = redemptionDetails.filter(
+    (d) => d.status === "REDEEMED"
+  ).length;
+  const redemptionStatus = allRedeemed
+    ? "COMPLETED"
+    : redeemedCount > 0
+      ? "PENDING"
+      : "NOT_STARTED";
+
   stages.push({
     type: "RETRYABLE_REDEEMED",
-    status:
-      allRedeemed && redemptionTxs.length === totalMessages
-        ? "COMPLETED"
-        : redemptionTxs.length > 0
-          ? "PENDING"
-          : "NOT_STARTED",
+    status: redemptionStatus,
     transactions: redemptionTxs,
     data: {
       totalRetryables: totalMessages,
       targetChains,
-      redeemedCount: redemptionTxs.length,
+      redeemedCount,
       redemptionDetails,
     },
   });
