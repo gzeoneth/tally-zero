@@ -83,9 +83,14 @@ export function buildUrlHash(state: UrlState): string {
   return "";
 }
 
+interface SetUrlStateOptions {
+  /** If true, replaces current history entry instead of adding new one */
+  replace?: boolean;
+}
+
 interface UseUrlStateResult {
   urlState: UrlState;
-  setUrlState: (newState: UrlState) => void;
+  setUrlState: (newState: UrlState, options?: SetUrlStateOptions) => void;
   openProposal: (proposalId: string, tab?: string) => void;
   openTimelock: (txHash: string, opIndex?: number) => void;
   clearUrlState: () => void;
@@ -123,32 +128,43 @@ export function useUrlState(): UseUrlStateResult {
   }, []);
 
   // Update URL hash when state changes programmatically
-  const setUrlState = useCallback((newState: UrlState) => {
-    if (typeof window === "undefined") return;
+  const setUrlState = useCallback(
+    (newState: UrlState, options?: { replace?: boolean }) => {
+      if (typeof window === "undefined") return;
 
-    const newHash = buildUrlHash(newState);
-    // Normalize current hash for comparison (remove # prefix if present)
-    const currentHashNormalized = window.location.hash.startsWith("#")
-      ? window.location.hash.slice(1)
-      : window.location.hash;
-    const newHashNormalized = newHash.startsWith("#")
-      ? newHash.slice(1)
-      : newHash;
+      const newHash = buildUrlHash(newState);
+      // Normalize current hash for comparison (remove # prefix if present)
+      const currentHashNormalized = window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash;
+      const newHashNormalized = newHash.startsWith("#")
+        ? newHash.slice(1)
+        : newHash;
 
-    // Only update if different to avoid extra history entries
-    if (newHashNormalized !== currentHashNormalized) {
-      if (newHash) {
-        // Set hash directly - this works well with Next.js
-        window.location.hash = newHash;
-      } else {
-        // Clear hash by setting to empty - this leaves a trailing # but is safe with Next.js
-        // The trailing # is acceptable and doesn't affect functionality
-        window.location.hash = "";
+      // Only update if different to avoid extra history entries
+      if (newHashNormalized !== currentHashNormalized) {
+        const baseUrl = window.location.pathname + window.location.search;
+
+        if (options?.replace) {
+          // Replace current history entry (for closing modals - back button goes to previous page)
+          window.history.replaceState(
+            null,
+            "",
+            newHash ? baseUrl + newHash : baseUrl
+          );
+        } else if (newHash) {
+          // Push new history entry (for opening modals)
+          window.location.hash = newHash;
+        } else {
+          // When clearing hash without replace option, use replaceState to avoid double back
+          window.history.replaceState(null, "", baseUrl);
+        }
       }
-    }
 
-    setUrlStateInternal(newState);
-  }, []);
+      setUrlStateInternal(newState);
+    },
+    []
+  );
 
   // Convenience methods
   const openProposal = useCallback(
