@@ -1,3 +1,7 @@
+/**
+ * Delegate type definitions for ARB token delegation tracking.
+ */
+
 import type { Address } from "@/types/search";
 
 /**
@@ -44,13 +48,19 @@ export interface DelegateCache {
 }
 
 /**
- * Statistics about the delegate cache
+ * Statistics about the delegate cache for display
  */
 export interface DelegateCacheStats {
+  /** Total number of delegates with non-zero voting power */
   totalDelegates: number;
+  /** Block number when cache was last updated */
   snapshotBlock: number;
+  /** Date when cache was generated */
   generatedAt: Date;
+  /** Human-readable age of cache (e.g., "2 hours ago") */
   age: string;
+  /** Total voting power in formatted ETH units */
   totalVotingPower: string;
+  /** ARB token total supply in formatted ETH units */
   totalSupply: string;
 }
