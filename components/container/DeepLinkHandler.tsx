@@ -98,7 +98,9 @@ export function DeepLinkHandler({ proposals }: DeepLinkHandlerProps) {
   // This ensures the modal stays rendered during close animation
   const activeType = urlState.type || lastType;
   const activeId = urlState.id || lastId;
-  const activeOpIndex = urlState.opIndex ?? lastOpIndex;
+  // Only use lastOpIndex when modal is closing (urlState.type is null)
+  // Don't use it as fallback when timelock is still open but user deselected an operation
+  const activeOpIndex = urlState.type ? urlState.opIndex : lastOpIndex;
 
   // Handle operation index changes (for timelock deep links)
   const handleOperationIndexChange = useCallback(
