@@ -4,8 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { TimelockOperationContent } from "@/components/container/TimelockOperationContent";
 import VoteModel from "@/components/container/VoteModel";
-import { Dialog, DialogContent } from "@/components/ui/Dialog";
-import { Drawer, DrawerContent } from "@/components/ui/Drawer";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/Dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/components/ui/Drawer";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { proposalSchema } from "@/config/schema";
 import { useDeepLink } from "@/context/DeepLinkContext";
@@ -335,6 +345,13 @@ function TimelockOperationTrackerModal({
     return (
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[1000px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogTitle className="sr-only">
+            Timelock Operation Tracker
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Track the lifecycle of a timelock operation through the Arbitrum
+            governance system
+          </DialogDescription>
           <TimelockOperationContent
             txHash={txHash}
             initialOpIndex={opIndex}
@@ -349,6 +366,13 @@ function TimelockOperationTrackerModal({
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh] px-4 py-4">
+        <DrawerTitle className="sr-only">
+          Timelock Operation Tracker
+        </DrawerTitle>
+        <DrawerDescription className="sr-only">
+          Track the lifecycle of a timelock operation through the Arbitrum
+          governance system
+        </DrawerDescription>
         <TimelockOperationContent
           txHash={txHash}
           initialOpIndex={opIndex}
