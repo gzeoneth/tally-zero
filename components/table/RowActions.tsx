@@ -13,6 +13,7 @@ import {
 } from "@components/ui/DropdownMenu";
 
 import { useDeepLink } from "@/context/DeepLinkContext";
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { proposalSchema } from "@config/schema";
 
 interface DataTableRowActionsProps<TData> {
@@ -27,6 +28,7 @@ function DataTableRowActionsComponent<TData>({
 }: DataTableRowActionsProps<TData>) {
   const proposal = proposalSchema.parse(row.original);
   const { openProposal } = useDeepLink();
+  const { copied, copy } = useCopyToClipboard();
 
   return (
     <DropdownMenu>
@@ -55,11 +57,9 @@ function DataTableRowActionsComponent<TData>({
         </DropdownMenuItem>
         <DropdownMenuItem
           className="transition-all duration-200 hover:bg-white/20 dark:hover:bg-white/10"
-          onClick={() => {
-            navigator.clipboard.writeText(proposal.id.toString());
-          }}
+          onClick={() => copy(proposal.id.toString())}
         >
-          Copy Proposal ID
+          {copied ? "Copied!" : "Copy Proposal ID"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
