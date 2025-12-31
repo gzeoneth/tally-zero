@@ -12,15 +12,6 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
- * Format a number as a percentage with 2 decimal places
- * @param percent - The percentage value to format
- * @returns Number with 2 decimal precision
- */
-export function formatPercent(percent: number): number {
-  return Number(percent.toFixed(2));
-}
-
-/**
  * Validate an RPC URL format
  * Accepts empty strings (returns true) for optional URL fields
  * @param url - The URL to validate

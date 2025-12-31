@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cn, formatPercent, isValidRpcUrl } from "./utils";
+import { cn, isValidRpcUrl } from "./utils";
 
 describe("utils", () => {
   describe("cn", () => {
@@ -23,31 +23,6 @@ describe("utils", () => {
 
     it("handles arrays", () => {
       expect(cn(["foo", "bar"])).toBe("foo bar");
-    });
-  });
-
-  describe("formatPercent", () => {
-    it("rounds to 2 decimal places", () => {
-      expect(formatPercent(12.3456)).toBe(12.35);
-      expect(formatPercent(99.999)).toBe(100);
-    });
-
-    it("handles whole numbers", () => {
-      expect(formatPercent(50)).toBe(50);
-      expect(formatPercent(100)).toBe(100);
-    });
-
-    it("handles zero", () => {
-      expect(formatPercent(0)).toBe(0);
-    });
-
-    it("handles small decimals", () => {
-      expect(formatPercent(0.123)).toBe(0.12);
-      expect(formatPercent(0.001)).toBe(0);
-    });
-
-    it("handles negative numbers", () => {
-      expect(formatPercent(-12.345)).toBe(-12.35);
     });
   });
 
