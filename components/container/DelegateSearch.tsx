@@ -2,7 +2,7 @@
 
 import { BigNumber } from "ethers";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import RpcStatus from "@/components/container/RpcStatus";
 import {
@@ -11,13 +11,12 @@ import {
   SnapshotBlockNotice,
 } from "@/components/container/delegate";
 import { useDelegateSearch } from "@/hooks/use-delegate-search";
+import { useRpcHealthOrchestration } from "@/hooks/use-rpc-health-orchestration";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { debug } from "@/lib/debug";
 
 export default function DelegateSearch() {
   const searchParams = useSearchParams();
-  const [autoStarted, setAutoStarted] = useState(false);
-  const [rpcHealthy, setRpcHealthy] = useState<boolean | null>(null);
   const [minPowerFilter, setMinPowerFilter] = useState<string>("");
 
   const { l1Rpc, l2Rpc, isHydrated: rpcSettingsHydrated } = useRpcSettings();
@@ -33,12 +32,8 @@ export default function DelegateSearch() {
     [customRpc, l1Rpc]
   );
 
-  const handleRpcHealthChecked = useCallback(
-    (_allHealthy: boolean, requiredHealthy: boolean) => {
-      setRpcHealthy(requiredHealthy);
-    },
-    []
-  );
+  const { autoStarted, rpcHealthy, handleRpcHealthChecked } =
+    useRpcHealthOrchestration();
 
   // Convert min power from ARB to wei (18 decimals) for filtering
   const minVotingPowerWei = useMemo(() => {
@@ -69,12 +64,6 @@ export default function DelegateSearch() {
     customRpcUrl: customRpc || undefined,
     minVotingPower: minVotingPowerWei,
   });
-
-  useEffect(() => {
-    if (rpcHealthy === true && !autoStarted) {
-      setAutoStarted(true);
-    }
-  }, [rpcHealthy, autoStarted]);
 
   // Calculate delegated percentage
   const delegatedPercentage = useMemo(() => {

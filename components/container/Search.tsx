@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { DeepLinkHandler } from "@/components/container/DeepLinkHandler";
 import RpcStatus from "@/components/container/RpcStatus";
@@ -13,12 +13,11 @@ import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useMultiGovernorSearch } from "@/hooks/use-multi-governor-search";
+import { useRpcHealthOrchestration } from "@/hooks/use-rpc-health-orchestration";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 
 export default function Search() {
   const searchParams = useSearchParams();
-  const [autoStarted, setAutoStarted] = useState(false);
-  const [rpcHealthy, setRpcHealthy] = useState<boolean | null>(null);
 
   const [storedDays] = useLocalStorage<number>(
     STORAGE_KEYS.DAYS_TO_SEARCH,
@@ -52,12 +51,8 @@ export default function Search() {
     [customRpc, l1Rpc]
   );
 
-  const handleRpcHealthChecked = useCallback(
-    (_allHealthy: boolean, requiredHealthy: boolean) => {
-      setRpcHealthy(requiredHealthy);
-    },
-    []
-  );
+  const { autoStarted, rpcHealthy, handleRpcHealthChecked } =
+    useRpcHealthOrchestration();
 
   const { proposals, progress, error, isProviderReady, cacheInfo } =
     useMultiGovernorSearch({
@@ -67,12 +62,6 @@ export default function Search() {
       blockRange: storedBlockRange,
       skipCache,
     });
-
-  useEffect(() => {
-    if (isProviderReady && rpcHealthy === true && !autoStarted) {
-      setAutoStarted(true);
-    }
-  }, [isProviderReady, rpcHealthy, autoStarted]);
 
   const progressMessage = useMemo(() => {
     if (progress === 0) return "Connecting to Arbitrum...";
