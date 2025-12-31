@@ -11,16 +11,27 @@ export type GovernorType = "core" | "treasury";
 
 /** Configuration for a governor contract */
 export interface GovernorConfig {
+  /** Governor contract address */
   address: string;
+  /** Governor type identifier */
   type: GovernorType;
+  /** Display name (e.g., "Core Governor") */
   name: string;
+  /** Brief description of the governor's purpose */
   description: string;
+  /** Quorum threshold as a percentage string (e.g., "4.5%") */
   quorum: string;
+  /** L2 timelock contract address */
   l2TimelockAddress: string;
+  /** L2 timelock delay as human-readable string (e.g., "8 days") */
   l2TimelockDelay: string;
+  /** L1 timelock contract address (null for Treasury) */
   l1TimelockAddress: string | null;
+  /** L1 timelock delay as human-readable string (null for Treasury) */
   l1TimelockDelay: string | null;
+  /** Whether proposals require L1 round-trip */
   hasL1Timelock: boolean;
+  /** Final stage in the proposal lifecycle */
   finalStage: StageType;
 }
 
