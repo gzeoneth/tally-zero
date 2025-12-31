@@ -3,6 +3,7 @@
 import { getGovernorByAddress, isCoreGovernor } from "@/config/governors";
 import {
   CACHE_TTL_CHECK_INTERVAL_MS,
+  L1_BLOCK_CACHE_FRESHNESS_MS,
   L1_BLOCK_REFRESH_INTERVAL_MS,
 } from "@/config/storage-keys";
 import { getErrorMessage } from "@/lib/error-utils";
@@ -40,8 +41,11 @@ let pendingL1BlockPromise: Promise<number | null> | null = null;
  * within a short time window
  */
 async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
-  // Return cached value if fresh (within 30 seconds)
-  if (sharedL1Block && Date.now() - sharedL1Block.timestamp < 30000) {
+  // Return cached value if fresh
+  if (
+    sharedL1Block &&
+    Date.now() - sharedL1Block.timestamp < L1_BLOCK_CACHE_FRESHNESS_MS
+  ) {
     return sharedL1Block.block;
   }
 

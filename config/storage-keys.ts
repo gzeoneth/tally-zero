@@ -56,6 +56,9 @@ export const CACHE_TTL_CHECK_INTERVAL_MS = 30 * MS_PER_SECOND;
 /** Interval for refreshing L1 block number in milliseconds */
 export const L1_BLOCK_REFRESH_INTERVAL_MS = MS_PER_MINUTE;
 
+/** Duration that a cached L1 block number is considered fresh in milliseconds */
+export const L1_BLOCK_CACHE_FRESHNESS_MS = 30 * MS_PER_SECOND;
+
 /** Available cache TTL options for user settings (values in seconds) */
 export const CACHE_TTL_OPTIONS = [
   { label: "15 min", value: 15 * SECONDS_PER_MINUTE },
