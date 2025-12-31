@@ -1,4 +1,5 @@
 import {
+  MAX_VOTING_PERIOD_BLOCKS_L2,
   PROPOSAL_STATE_NAMES,
   ProposalState,
   isFailedState,
@@ -51,13 +52,10 @@ export async function trackVotingStage(
       state !== ProposalState.PENDING && state !== ProposalState.ACTIVE;
 
     if (votingFinished) {
-      // Voting on Arbitrum lasts ~14-16 days, which is ~5-6M L2 blocks at 250ms/block
-      // Add a generous buffer for vote extensions (which can add up to 2 days)
-      // Maximum voting period including extensions: ~18 days = ~6.2M L2 blocks
-      const maxVotingPeriodBlocks = 6_500_000;
+      // Limit search to proposal's voting period (including potential extensions)
       const creationBlock = ctx.creationReceipt!.blockNumber;
       searchEndBlock = Math.min(
-        creationBlock + maxVotingPeriodBlocks,
+        creationBlock + MAX_VOTING_PERIOD_BLOCKS_L2,
         currentBlock
       );
       debug.stageTracker(

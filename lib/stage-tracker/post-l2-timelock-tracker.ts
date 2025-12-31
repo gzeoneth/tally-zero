@@ -28,6 +28,7 @@ import type {
   ChunkingConfig,
   ProposalStage,
   StageStatus,
+  StageType,
 } from "@/types/proposal-stage";
 import {
   ChildToParentMessageStatus,
@@ -49,6 +50,23 @@ import type {
   StageProgressCallback,
   StageTransaction,
 } from "./types";
+
+/**
+ * Creates placeholder stages for stages that haven't started yet.
+ * Used when earlier stages haven't completed, so later stages can't be tracked.
+ *
+ * @param types - Array of stage types to create placeholders for
+ * @returns Array of ProposalStage objects with NOT_STARTED status
+ */
+function createPlaceholderStages(types: StageType[]): ProposalStage[] {
+  return types.map((type) => ({
+    type,
+    status: "NOT_STARTED" as StageStatus,
+    transactions: [],
+    // RETRYABLE_REDEEMED uses undefined data, others use empty object
+    ...(type === "RETRYABLE_REDEEMED" ? { data: undefined } : {}),
+  }));
+}
 
 /**
  * Context required for tracking post-L2-timelock stages
@@ -152,40 +170,17 @@ export async function trackPostL2TimelockStages(
 
   // Core Governor: Continue with L1 round-trip stages
   if (l2ExecutionStage.status !== "COMPLETED" || !l2TimelockTxHash) {
-    // L2 not executed yet, add placeholder stages
-    addStage({
-      type: "L2_TO_L1_MESSAGE_SENT",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage({
-      type: "L2_TO_L1_MESSAGE_CONFIRMED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage({
-      type: "L1_TIMELOCK_QUEUED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage({
-      type: "L1_TIMELOCK_EXECUTED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage({
-      type: "RETRYABLE_CREATED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage(
-      {
-        type: "RETRYABLE_REDEEMED",
-        status: "NOT_STARTED",
-        transactions: [],
-        data: undefined,
-      },
-      true
+    // L2 not executed yet, add placeholder stages for remaining L1 round-trip
+    const placeholders = createPlaceholderStages([
+      "L2_TO_L1_MESSAGE_SENT",
+      "L2_TO_L1_MESSAGE_CONFIRMED",
+      "L1_TIMELOCK_QUEUED",
+      "L1_TIMELOCK_EXECUTED",
+      "RETRYABLE_CREATED",
+      "RETRYABLE_REDEEMED",
+    ]);
+    placeholders.forEach((stage, i) =>
+      addStage(stage, i === placeholders.length - 1)
     );
 
     return { stages, l2TimelockTxHash };
@@ -208,30 +203,15 @@ export async function trackPostL2TimelockStages(
     (s) => s.type === "L2_TO_L1_MESSAGE_CONFIRMED"
   );
   if (!confirmStage || confirmStage.status !== "COMPLETED") {
-    // L2→L1 message not confirmed yet, add placeholder stages
-    addStage({
-      type: "L1_TIMELOCK_QUEUED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage({
-      type: "L1_TIMELOCK_EXECUTED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage({
-      type: "RETRYABLE_CREATED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage(
-      {
-        type: "RETRYABLE_REDEEMED",
-        status: "NOT_STARTED",
-        transactions: [],
-        data: undefined,
-      },
-      true
+    // L2→L1 message not confirmed yet, add placeholder stages for L1 timelock and retryables
+    const placeholders = createPlaceholderStages([
+      "L1_TIMELOCK_QUEUED",
+      "L1_TIMELOCK_EXECUTED",
+      "RETRYABLE_CREATED",
+      "RETRYABLE_REDEEMED",
+    ]);
+    placeholders.forEach((stage, i) =>
+      addStage(stage, i === placeholders.length - 1)
     );
 
     return { stages, l2TimelockTxHash };
@@ -255,20 +235,13 @@ export async function trackPostL2TimelockStages(
     (s) => s.type === "L1_TIMELOCK_EXECUTED"
   );
   if (!l1ExecutedStage || l1ExecutedStage.status !== "COMPLETED") {
-    // L1 timelock not executed yet, add placeholder stages
-    addStage({
-      type: "RETRYABLE_CREATED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage(
-      {
-        type: "RETRYABLE_REDEEMED",
-        status: "NOT_STARTED",
-        transactions: [],
-        data: undefined,
-      },
-      true
+    // L1 timelock not executed yet, add placeholder stages for retryables
+    const placeholders = createPlaceholderStages([
+      "RETRYABLE_CREATED",
+      "RETRYABLE_REDEEMED",
+    ]);
+    placeholders.forEach((stage, i) =>
+      addStage(stage, i === placeholders.length - 1)
     );
 
     return { stages, l2TimelockTxHash, l1OperationId };
@@ -290,19 +263,13 @@ export async function trackPostL2TimelockStages(
       addStage(stage, i === lastIndex);
     });
   } else {
-    addStage({
-      type: "RETRYABLE_CREATED",
-      status: "NOT_STARTED",
-      transactions: [],
-    });
-    addStage(
-      {
-        type: "RETRYABLE_REDEEMED",
-        status: "NOT_STARTED",
-        transactions: [],
-        data: undefined,
-      },
-      true
+    // No L1 execution tx hash available, add placeholder stages for retryables
+    const placeholders = createPlaceholderStages([
+      "RETRYABLE_CREATED",
+      "RETRYABLE_REDEEMED",
+    ]);
+    placeholders.forEach((stage, i) =>
+      addStage(stage, i === placeholders.length - 1)
     );
   }
 

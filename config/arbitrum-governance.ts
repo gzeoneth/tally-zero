@@ -213,6 +213,13 @@ export const CHALLENGE_PERIOD_L1_BLOCKS = 46080;
 /** Legacy challenge period in L1 blocks (used for historical event lookup) */
 export const OLD_CHALLENGE_PERIOD_L1_BLOCKS = 45818;
 
+/**
+ * Maximum voting period search range in L2 blocks.
+ * ~18 days including extensions at 250ms/block (4 blocks/second).
+ * Used to limit log search range when finding voting-related events.
+ */
+export const MAX_VOTING_PERIOD_BLOCKS_L2 = 6_500_000;
+
 export {
   BLOCKS_PER_DAY,
   BLOCK_TIMES,
