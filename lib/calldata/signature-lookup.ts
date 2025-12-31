@@ -19,6 +19,9 @@ const CACHE_KEY_PREFIX = `${STORAGE_PREFIX}-4byte-`;
 /** Cache TTL for signature lookups (24 hours) */
 const CACHE_TTL_MS = MS_PER_DAY;
 
+/** Timeout for 4byte.directory API requests in milliseconds */
+const API_TIMEOUT_MS = 5000;
+
 /** In-memory session cache for signature lookups */
 const sessionCache = new Map<
   string,
@@ -66,7 +69,7 @@ export async function lookup4byteDirectory(
   // Fetch from API
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
     const response = await fetch(
       `${FOURBYTE_API}?hex_signature=${normalizedSelector}`,
