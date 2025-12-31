@@ -8,11 +8,15 @@ import {
 } from "@/lib/date-utils";
 
 import {
+  CACHE_TTL_CHECK_INTERVAL_MS,
   CACHE_TTL_OPTIONS,
   CACHE_VERSION,
+  COPY_SUCCESS_TIMEOUT_MS,
   DEFAULT_CACHE_TTL_MS,
   DEFAULT_TENDERLY_ORG,
   DEFAULT_TENDERLY_PROJECT,
+  L1_BLOCK_CACHE_FRESHNESS_MS,
+  L1_BLOCK_REFRESH_INTERVAL_MS,
   STORAGE_KEYS,
   STORAGE_PREFIX,
 } from "./storage-keys";
@@ -118,6 +122,24 @@ describe("storage-keys config", () => {
     it("equals 1 hour in milliseconds", () => {
       expect(DEFAULT_CACHE_TTL_MS).toBe(MS_PER_HOUR);
       expect(DEFAULT_CACHE_TTL_MS).toBe(3600000);
+    });
+  });
+
+  describe("timing constants", () => {
+    it("COPY_SUCCESS_TIMEOUT_MS is 2 seconds", () => {
+      expect(COPY_SUCCESS_TIMEOUT_MS).toBe(2000);
+    });
+
+    it("CACHE_TTL_CHECK_INTERVAL_MS is 30 seconds", () => {
+      expect(CACHE_TTL_CHECK_INTERVAL_MS).toBe(30000);
+    });
+
+    it("L1_BLOCK_REFRESH_INTERVAL_MS is 1 minute", () => {
+      expect(L1_BLOCK_REFRESH_INTERVAL_MS).toBe(60000);
+    });
+
+    it("L1_BLOCK_CACHE_FRESHNESS_MS is 30 seconds", () => {
+      expect(L1_BLOCK_CACHE_FRESHNESS_MS).toBe(30000);
     });
   });
 
