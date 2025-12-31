@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@components/ui/Table";
 
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { ParsedProposal } from "@/types/proposal";
 import { MobileProposalList } from "@components/table/MobileProposalCard";
 import { DataTablePagination } from "@components/table/Pagination";
@@ -42,41 +43,30 @@ export function DataTable<TData, TValue>({
   isPaginated = true,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
-  const [isMobileView, setIsMobileView] = React.useState(false);
+  // Use media queries for responsive column visibility (more efficient than resize events)
+  const isMobileView = useMediaQuery("(max-width: 639px)");
+  const isSmallScreen = useMediaQuery("(min-width: 640px)");
+  const isMediumScreen = useMediaQuery("(min-width: 768px)");
+  const isLargeScreen = useMediaQuery("(min-width: 1024px)");
+  const isXLScreen = useMediaQuery("(min-width: 1280px)");
 
-  // Show/hide columns based on screen size
-  React.useEffect(() => {
-    const handleResize = () => {
-      const isXLScreen = window.innerWidth >= 1280;
-      const isLargeScreen = window.innerWidth >= 1024;
-      const isMediumScreen = window.innerWidth >= 768;
-      const isSmallScreen = window.innerWidth >= 640;
-      const isMobile = window.innerWidth < 640;
-
-      setIsMobileView(isMobile);
-
-      setColumnVisibility((prev) => ({
-        ...prev,
-        proposer: isXLScreen,
-        votes: isLargeScreen,
-        governorName: isMediumScreen,
-        id: isSmallScreen,
-        state: false, // Hidden - lifecycle/status column shows similar info
-        lifecycle: isSmallScreen,
-      }));
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  // Compute column visibility based on breakpoints
+  const columnVisibility = React.useMemo<VisibilityState>(
+    () => ({
+      proposer: isXLScreen,
+      votes: isLargeScreen,
+      governorName: isMediumScreen,
+      id: isSmallScreen,
+      state: false, // Hidden - lifecycle/status column shows similar info
+      lifecycle: isSmallScreen,
+    }),
+    [isXLScreen, isLargeScreen, isMediumScreen, isSmallScreen]
+  );
 
   const table = useReactTable({
     data,
@@ -91,7 +81,6 @@ export function DataTable<TData, TValue>({
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
