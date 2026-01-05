@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
-import type { TimelockOperationInfo } from "@/lib/stage-tracker/timelock-operation-tracker";
+import type { TimelockOperationInfo } from "@/hooks/use-timelock-operation";
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";

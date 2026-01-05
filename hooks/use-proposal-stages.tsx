@@ -1,6 +1,6 @@
 "use client";
 
-import { getGovernorByAddress, isCoreGovernor } from "@/config/governors";
+import { getGovernorByAddress } from "@/config/governors";
 import {
   CACHE_TTL_CHECK_INTERVAL_MS,
   L1_BLOCK_CACHE_FRESHNESS_MS,
@@ -13,10 +13,12 @@ import {
   type TrackingSession,
 } from "@/lib/proposal-tracker-manager";
 import {
-  createCoreGovernorTracker,
-  createTreasuryGovernorTracker,
+  createProposalTracker,
   getAllStageMetadata,
+  toProposalTrackingResult,
   type StageProgressCallback,
+  type TrackedStage,
+  type TrackingProgress,
 } from "@/lib/stage-tracker";
 import { clearCachedStages, saveCachedStages } from "@/lib/stages-cache";
 import { getStoredCacheTtlMs } from "@/lib/storage-utils";
@@ -153,7 +155,7 @@ export function useProposalStages({
     setIsBackgroundRefreshing(session.isBackgroundRefreshing);
   }, []);
 
-  // Start tracking function
+  // Start tracking function using gov-tracker
   const startTracking = useCallback(
     async (startFromStage?: number, existingStages?: ProposalStage[]) => {
       if (!proposalId || !creationTxHash || !governorAddress) return;
@@ -173,17 +175,11 @@ export function useProposalStages({
           throw new Error(`Unknown governor address: ${governorAddress}`);
         }
 
-        const tracker = isCoreGovernor(governorAddress)
-          ? createCoreGovernorTracker(
-              effectiveL2RpcUrl || undefined,
-              effectiveL1RpcUrl || undefined
-            )
-          : createTreasuryGovernorTracker(
-              effectiveL2RpcUrl || undefined,
-              effectiveL1RpcUrl || undefined
-            );
-
-        const onProgress: StageProgressCallback = (stage, index) => {
+        // Create tracker with progress callback
+        const onProgress: StageProgressCallback = (
+          stage: TrackedStage,
+          index: number
+        ) => {
           if (abortController.signal.aborted) return;
 
           const session = trackerManager.getSession(
@@ -201,31 +197,51 @@ export function useProposalStages({
           });
         };
 
-        const trackingResult = await tracker.trackProposal(
-          proposalId,
-          creationTxHash,
-          onProgress,
-          startFromStage !== undefined ? existingStages : undefined,
-          startFromStage
+        // Create tracker using gov-tracker package
+        const tracker = createProposalTracker(
+          effectiveL2RpcUrl || undefined,
+          effectiveL1RpcUrl || undefined,
+          {
+            onProgress: (progress: TrackingProgress) => {
+              onProgress(progress.stage, progress.currentIndex, progress.isComplete);
+            },
+          }
         );
 
+        // Track by transaction hash
+        const results = await tracker.trackByTxHash(creationTxHash);
+
         if (abortController.signal.aborted) return;
+
+        // Use first result (governor proposals return single result)
+        const trackingResult = results[0];
+        if (!trackingResult) {
+          throw new Error("No tracking result returned");
+        }
+
+        // Convert to ProposalTrackingResult for backwards compatibility
+        const proposalResult = toProposalTrackingResult(
+          trackingResult,
+          proposalId,
+          creationTxHash,
+          governorAddress
+        );
 
         trackerManager.trackingFinished(proposalId, governorAddress);
 
         trackerManager.updateSession(proposalId, governorAddress, {
-          result: trackingResult,
-          stages: trackingResult.stages,
+          result: proposalResult,
+          stages: proposalResult.stages,
           status: "complete",
           refreshingFromIndex: null,
           abortController: null,
           isBackgroundRefreshing: false,
         });
 
-        saveCachedStages(proposalId, governorAddress, trackingResult);
+        saveCachedStages(proposalId, governorAddress, proposalResult);
 
-        // Lifecycle tracker stores votes in ether format, convert to wei
-        const votingStage = trackingResult.stages.find(
+        // gov-tracker stores votes as strings, emit vote update
+        const votingStage = proposalResult.stages.find(
           (s) => s.type === "VOTING_ACTIVE"
         );
         const forVotesStr = votingStage?.data?.forVotes as string | undefined;
@@ -290,35 +306,18 @@ export function useProposalStages({
       // Abort any existing tracking
       trackerManager.abortTracking(proposalId, governorAddress);
 
-      const existingStages = session?.stages ?? [];
-
-      if (stageIndex === 0) {
-        trackerManager.updateSession(proposalId, governorAddress, {
-          stages: [],
-          currentStageIndex: -1,
-          status: "idle",
-          result: null,
-          error: null,
-          queuePosition: null,
-        });
-        trackerManager.requestTracking(proposalId, governorAddress, () =>
-          startTracking(0)
-        );
-      } else {
-        // Truncate stages from the target index onward
-        const truncatedStages = existingStages.slice(0, stageIndex);
-        trackerManager.updateSession(proposalId, governorAddress, {
-          stages: truncatedStages,
-          currentStageIndex: stageIndex - 1,
-          status: "idle",
-          result: null,
-          error: null,
-          queuePosition: null,
-        });
-        trackerManager.requestTracking(proposalId, governorAddress, () =>
-          startTracking(stageIndex, truncatedStages)
-        );
-      }
+      // gov-tracker always tracks from the beginning, so just reset and restart
+      trackerManager.updateSession(proposalId, governorAddress, {
+        stages: [],
+        currentStageIndex: -1,
+        status: "idle",
+        result: null,
+        error: null,
+        queuePosition: null,
+      });
+      trackerManager.requestTracking(proposalId, governorAddress, () =>
+        startTracking()
+      );
     },
     [proposalId, governorAddress, startTracking]
   );
@@ -510,6 +509,11 @@ export function useProposalStages({
   };
 }
 
+/**
+ * Get all stage metadata as an array, compatible with old code that expected an array
+ * gov-tracker's getAllStageMetadata() returns a Record<StageType, StageMetadata>
+ */
 export function getAllStageTypes(governorType: "core" | "treasury" = "core") {
-  return getAllStageMetadata(governorType);
+  const metadata = getAllStageMetadata();
+  return Object.values(metadata);
 }

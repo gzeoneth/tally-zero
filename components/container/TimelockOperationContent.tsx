@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { useTimelockOperation } from "@/hooks/use-timelock-operation";
+import {
+  useTimelockOperation,
+  type TimelockOperationInfo,
+} from "@/hooks/use-timelock-operation";
 import {
   SECONDS_PER_DAY,
   SECONDS_PER_HOUR,
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
 import { shortenAddress } from "@/lib/format-utils";
-import { getAllStageMetadata } from "@/lib/stage-tracker";
-import type { TimelockOperationInfo } from "@/lib/stage-tracker/timelock-operation-tracker";
+import { getAllStageMetadata, type StageMetadata } from "@/lib/stage-tracker";
 import { truncateMiddle } from "@/lib/text-utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import {
@@ -403,26 +405,21 @@ function OperationHeader({
 }
 
 // Stage durations in seconds for ETA calculations
+// Using consolidated stage types from gov-tracker
 const STAGE_DURATIONS: Partial<Record<StageType, number>> = {
-  L2_TIMELOCK_EXECUTED: 0, // Uses operation delay
-  L2_TO_L1_MESSAGE_SENT: 0, // Immediate
-  L2_TO_L1_MESSAGE_CONFIRMED: 7 * SECONDS_PER_DAY, // ~7 days challenge period
-  L1_TIMELOCK_QUEUED: 0, // Immediate after confirmation
-  L1_TIMELOCK_EXECUTED: 3 * SECONDS_PER_DAY, // 3 days L1 timelock
-  RETRYABLE_CREATED: 0, // Immediate
-  RETRYABLE_REDEEMED: 0, // Near-immediate (auto-redeem)
+  L2_TIMELOCK: 0, // Uses operation delay
+  L2_TO_L1_MESSAGE: 7 * SECONDS_PER_DAY, // ~7 days challenge period
+  L1_TIMELOCK: 3 * SECONDS_PER_DAY, // 3 days L1 timelock
+  RETRYABLE_EXECUTED: 0, // Near-immediate (auto-redeem)
 };
 
-// Timelock operation stage types (subset of proposal stages, starting from queued)
+// Timelock operation stage types (consolidated from gov-tracker)
 const TIMELOCK_STAGE_TYPES: StageType[] = [
   "PROPOSAL_QUEUED", // We reuse this for "CallScheduled"
-  "L2_TIMELOCK_EXECUTED",
-  "L2_TO_L1_MESSAGE_SENT",
-  "L2_TO_L1_MESSAGE_CONFIRMED",
-  "L1_TIMELOCK_QUEUED",
-  "L1_TIMELOCK_EXECUTED",
-  "RETRYABLE_CREATED",
-  "RETRYABLE_REDEEMED",
+  "L2_TIMELOCK",
+  "L2_TO_L1_MESSAGE",
+  "L1_TIMELOCK",
+  "RETRYABLE_EXECUTED",
 ];
 
 interface StagesListProps {
@@ -477,7 +474,8 @@ function StagesList({
   }, [stages]);
 
   // Get stage metadata for calculating ETAs
-  const allStageMetadata = useMemo(() => getAllStageMetadata("core"), []);
+  // getAllStageMetadata returns a Record<StageType, StageMetadata> in gov-tracker
+  const allStageMetadata = useMemo(() => getAllStageMetadata(), []);
 
   // Always show all stages - user wants full lifecycle visibility
   const relevantStageTypes = TIMELOCK_STAGE_TYPES;
@@ -485,7 +483,7 @@ function StagesList({
   // Build stage metadata with estimated durations
   const relevantStages = useMemo(() => {
     return relevantStageTypes.map((type) => {
-      const meta = allStageMetadata.find((m) => m.type === type);
+      const meta = allStageMetadata[type];
       return {
         type,
         estimatedDuration: meta?.estimatedDuration,
@@ -528,7 +526,7 @@ function StagesList({
       let duration = STAGE_DURATIONS[stageType] || 0;
 
       // L2 Timelock uses the operation's specific delay
-      if (stageType === "L2_TIMELOCK_EXECUTED" && i === 1) {
+      if (stageType === "L2_TIMELOCK" && i === 1) {
         duration = operationDelay;
       }
 
@@ -595,11 +593,12 @@ function StagesList({
         const isTrackingThis = isLoading && idx === currentStageIndex + 1;
         const estimatedCompletion = estimatedTimes.get(meta.type);
 
-        // Check if this stage is ready for execution
+        // Check if this stage is ready for execution (status READY in gov-tracker)
         const isReadyForExecution =
-          meta.type === "L2_TIMELOCK_EXECUTED" &&
-          stage?.status === "PENDING" &&
-          stage?.data?.message === "Operation ready for execution";
+          meta.type === "L2_TIMELOCK" &&
+          (stage?.status === "READY" ||
+            (stage?.status === "PENDING" &&
+              stage?.data?.message === "Operation ready for execution"));
 
         return (
           <div key={meta.type}>

@@ -11,7 +11,7 @@ import type { ParsedProposal } from "@/types/proposal";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { debug, isBrowser } from "./debug";
 import { formatCacheAge } from "./format-utils";
-import type { TimelockOperationInfo } from "./stage-tracker/timelock-operation-tracker";
+import type { TimelockOperationInfo } from "@/hooks/use-timelock-operation";
 import { seedStagesFromProposal } from "./stages-cache";
 import { getStoredValue } from "./storage-utils";
 import { seedTimelockFromCache } from "./unified-cache";

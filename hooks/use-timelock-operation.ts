@@ -2,28 +2,48 @@
 
 /**
  * Hook for tracking timelock operations across L1/L2
- * Parses transactions, tracks lifecycle stages, and manages caching
+ * Uses @gzeoneth/gov-tracker for tracking lifecycle stages
  */
 
-import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
-import { STORAGE_KEYS } from "@/config/storage-keys";
 import { isValidTxHash } from "@/lib/address-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
-  createTimelockOperationTracker,
-  parseTimelockTransaction,
-  type TimelockOperationInfo,
-  type TimelockTrackingResult,
-} from "@/lib/stage-tracker/timelock-operation-tracker";
-import type { StageProgressCallback } from "@/lib/stage-tracker/types";
-import { getStoredCacheTtlMs, getStoredNumber } from "@/lib/storage-utils";
+  createProposalTracker,
+  findCallScheduledByTxHash,
+  type TrackedStage,
+  type TrackingProgress,
+  type CallScheduledData,
+} from "@/lib/stage-tracker";
+import { getStoredCacheTtlMs } from "@/lib/storage-utils";
 import {
   loadCachedTimelockResult,
   saveCachedTimelockResult,
 } from "@/lib/unified-cache";
 import type { ProposalStage } from "@/types/proposal-stage";
+import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
+
+/** Info about a discovered timelock operation */
+export interface TimelockOperationInfo {
+  operationId: string;
+  target: string;
+  value: string;
+  data: string;
+  predecessor: string;
+  delay: string;
+  txHash: string;
+  blockNumber: number;
+  timestamp: number;
+  timelockAddress: string;
+}
+
+/** Result from tracking a timelock operation */
+export interface TimelockTrackingResult {
+  operationInfo: TimelockOperationInfo;
+  stages: ProposalStage[];
+  error?: string;
+}
 
 /** Options for configuring timelock operation tracking */
 interface UseTimelockOperationOptions {
@@ -65,6 +85,8 @@ interface UseTimelockOperationResult {
 
 /**
  * Hook for tracking timelock operations from a transaction
+ * Uses gov-tracker package for lifecycle tracking
+ *
  * @param options - Tracking options including txHash and RPC URLs
  * @returns Operations, stages, loading state, and control functions
  */
@@ -75,11 +97,6 @@ export function useTimelockOperation({
   l2RpcUrl,
 }: UseTimelockOperationOptions): UseTimelockOperationResult {
   const { l1Rpc, l2Rpc, isHydrated: rpcHydrated } = useRpcSettings();
-
-  const storedL1BlockRange = getStoredNumber(
-    STORAGE_KEYS.L1_BLOCK_RANGE,
-    DEFAULT_FORM_VALUES.l1BlockRange
-  );
 
   const effectiveL1RpcUrl = l1RpcUrl || l1Rpc;
   const effectiveL2RpcUrl = l2RpcUrl || l2Rpc;
@@ -97,7 +114,7 @@ export function useTimelockOperation({
   const isMounted = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Parse transaction to find CallScheduled events
+  // Parse transaction to find CallScheduled events using gov-tracker
   const parseTransaction = useCallback(async () => {
     if (!txHash || !enabled || !rpcHydrated) return;
 
@@ -114,20 +131,37 @@ export function useTimelockOperation({
     setResult(null);
 
     try {
-      const { ethers } = await import("ethers");
       const l2Provider = new ethers.providers.JsonRpcProvider(
         effectiveL2RpcUrl
       );
 
-      const ops = await parseTimelockTransaction(txHash, l2Provider);
+      // Use gov-tracker's discovery function
+      const discoveredOps = await findCallScheduledByTxHash(txHash, l2Provider);
 
       if (!isMounted.current) return;
 
-      if (ops.length === 0) {
+      if (!discoveredOps || discoveredOps.length === 0) {
         setError("No CallScheduled events found in this transaction");
         setIsParsing(false);
         return;
       }
+
+      // Convert to TimelockOperationInfo format
+      // Note: CallScheduledData doesn't have timestamp, we'll use 0 as placeholder
+      const ops: TimelockOperationInfo[] = discoveredOps.map(
+        (op: CallScheduledData) => ({
+          operationId: op.operationId,
+          target: op.target || "",
+          value: op.value?.toString() || "0",
+          data: op.data || "0x",
+          predecessor: op.predecessor || ethers.constants.HashZero,
+          delay: op.delay?.toString() || "0",
+          txHash: op.txHash || txHash,
+          blockNumber: op.blockNumber || 0,
+          timestamp: 0, // CallScheduledData doesn't have timestamp
+          timelockAddress: op.timelockAddress || "",
+        })
+      );
 
       setOperations(ops);
 
@@ -144,7 +178,7 @@ export function useTimelockOperation({
     }
   }, [txHash, enabled, rpcHydrated, effectiveL2RpcUrl]);
 
-  // Track selected operation
+  // Track selected operation using gov-tracker
   const trackOperation = useCallback(
     async (forceRefresh: boolean = false) => {
       if (!selectedOperation || !enabled || !rpcHydrated) return;
@@ -172,7 +206,6 @@ export function useTimelockOperation({
       }
       const controller = new AbortController();
       abortControllerRef.current = controller;
-      // Capture the signal locally to avoid race condition when user switches operations
       const signal = controller.signal;
 
       setIsTracking(true);
@@ -182,41 +215,50 @@ export function useTimelockOperation({
       setResult(null);
 
       try {
-        const tracker = createTimelockOperationTracker(
+        // Create tracker using gov-tracker package
+        const tracker = createProposalTracker(
           effectiveL2RpcUrl || undefined,
           effectiveL1RpcUrl || undefined,
-          { l1ChunkSize: storedL1BlockRange }
-        );
+          {
+            onProgress: (progress: TrackingProgress) => {
+              if (signal.aborted) return;
+              if (!isMounted.current) return;
 
-        const onProgress: StageProgressCallback = (stage, index) => {
-          if (signal.aborted) return;
-          if (!isMounted.current) return;
-
-          setStages((prev) => {
-            const newStages = [...prev];
-            // Ensure we don't create sparse arrays by filling gaps with placeholders
-            while (newStages.length < index) {
-              // Fill gaps with placeholder stages to prevent sparse array
-              newStages.push({
-                type: "UNKNOWN" as ProposalStage["type"],
-                status: "PENDING",
-                transactions: [],
+              setStages((prev) => {
+                const newStages = [...prev];
+                newStages[progress.currentIndex] = progress.stage;
+                return newStages;
               });
-            }
-            newStages[index] = stage;
-            return newStages;
-          });
-        };
-
-        const trackingResult = await tracker.trackOperation(
-          selectedOperation,
-          onProgress
+            },
+          }
         );
+
+        // Track by transaction hash
+        const results = await tracker.trackByTxHash(selectedOperation.txHash);
 
         if (signal.aborted) return;
         if (!isMounted.current) return;
 
-        setResult(trackingResult);
+        // Find the matching result by operation ID
+        const trackingResult =
+          results.find((r) => {
+            if (r.input.type === "timelock") {
+              return r.input.operationId === selectedOperation.operationId;
+            }
+            return true; // Take first result if types don't match
+          }) || results[0];
+
+        if (!trackingResult) {
+          throw new Error("No tracking result returned");
+        }
+
+        // Convert to TimelockTrackingResult
+        const timelockResult: TimelockTrackingResult = {
+          operationInfo: selectedOperation,
+          stages: trackingResult.stages,
+        };
+
+        setResult(timelockResult);
         setStages(trackingResult.stages);
         setIsLoading(false);
         setIsTracking(false);
@@ -225,7 +267,7 @@ export function useTimelockOperation({
         saveCachedTimelockResult(
           selectedOperation.txHash,
           selectedOperation.operationId,
-          trackingResult
+          timelockResult
         );
       } catch (err) {
         if (signal.aborted) return;
@@ -242,7 +284,6 @@ export function useTimelockOperation({
       rpcHydrated,
       effectiveL1RpcUrl,
       effectiveL2RpcUrl,
-      storedL1BlockRange,
     ]
   );
 
