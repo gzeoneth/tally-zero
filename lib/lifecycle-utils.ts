@@ -4,18 +4,32 @@
  */
 
 import { isCoreGovernor } from "@/config/governors";
+import {
+  areAllStagesComplete,
+  formatStageTitle,
+  getCurrentStage,
+  type StageType,
+  type TrackedStage,
+} from "@/lib/stage-tracker";
 import type { ProposalStage } from "@/types/proposal-stage";
 
 /**
  * Format a stage name from UPPER_SNAKE_CASE to Title Case
+ * Uses gov-tracker's formatStageTitle for consistent formatting
+ * Falls back to manual formatting for unknown/legacy stage names
  * @param stageName - The stage name in UPPER_SNAKE_CASE (e.g., "VOTING_ACTIVE")
  * @returns Formatted stage name (e.g., "Voting Active")
  */
 export function formatStageName(stageName: string): string {
-  return stageName
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  try {
+    return formatStageTitle(stageName as StageType);
+  } catch {
+    // Fallback to manual formatting for unknown/legacy stage names
+    return stageName
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
 }
 
 /**
@@ -29,37 +43,40 @@ export function getTotalStages(governorAddress: string): number {
 
 /**
  * Determine the current active stage (1-indexed) from the stages array
+ * Uses gov-tracker's getCurrentStage for consistent stage detection
  * @param stages - Array of proposal stages
  * @returns The 1-indexed stage number of the last active stage, or 0 if empty
  */
 export function getCurrentStageNumber(stages: ProposalStage[]): number {
   if (!stages || stages.length === 0) return 0;
 
-  // Find the last stage that isn't NOT_STARTED
-  for (let i = stages.length - 1; i >= 0; i--) {
-    if (stages[i].status !== "NOT_STARTED") {
-      return i + 1; // 1-indexed
-    }
-  }
-  return 1;
+  // Convert ProposalStage[] to TrackedStage[] for gov-tracker
+  const trackedStages = stages as unknown as TrackedStage[];
+  const currentStage = getCurrentStage(trackedStages);
+
+  if (!currentStage) return 1;
+
+  // Find the index of the current stage in the array (1-indexed)
+  const index = stages.findIndex((s) => s.type === currentStage.type);
+  return index >= 0 ? index + 1 : 1;
 }
 
 /**
  * Check if a proposal has truly completed all stages
+ * Uses gov-tracker's areAllStagesComplete for consistent completion detection
  * @param stages - Array of proposal stages to check
- * @param governorAddress - The governor contract address
+ * @param governorAddress - The governor contract address (currently unused by gov-tracker)
  * @returns True if the proposal has completed all expected stages
  */
 export function isProposalFullyExecuted(
   stages: ProposalStage[],
   governorAddress: string
 ): boolean {
-  const totalExpected = getTotalStages(governorAddress);
-  if (stages.length < totalExpected) return false;
+  if (!stages || stages.length === 0) return false;
 
-  // For Core Governor, check if the last stage (RETRYABLE_REDEEMED or L1_TIMELOCK_EXECUTED) is COMPLETED
-  const lastStage = stages[stages.length - 1];
-  return lastStage?.status === "COMPLETED";
+  // Convert ProposalStage[] to TrackedStage[] for gov-tracker
+  const trackedStages = stages as unknown as TrackedStage[];
+  return areAllStagesComplete(trackedStages);
 }
 
 /**
