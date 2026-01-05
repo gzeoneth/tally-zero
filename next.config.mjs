@@ -7,6 +7,16 @@ const nextConfig = {
   },
   webpack: (config) => {
     config.externals.push("pino-pretty", "lokijs", "encoding");
+    // Polyfill/fallback for Node.js modules used by @gzeoneth/gov-tracker
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      async_hooks: false,
+      net: false,
+      tls: false,
+      dns: false,
+      child_process: false,
+    };
     return config;
   },
 };
