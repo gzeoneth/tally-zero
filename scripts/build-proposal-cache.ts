@@ -39,7 +39,7 @@ import { addressesEqual, findByAddress } from "../lib/address-utils";
 import { delay } from "../lib/delay-utils";
 import { fetchProposalStateAndVotes } from "../lib/governor-search";
 import { batchQueryWithRateLimit } from "../lib/rpc-utils";
-import { trackProposalStages } from "../lib/stage-tracker-core";
+import { trackProposalByTxHash } from "../lib/stage-tracker";
 import {
   hasExceededTrackingAge,
   hasReachedFinalStage,
@@ -420,26 +420,23 @@ async function trackStagesForProposals(
     console.log(`  Existing stages: ${proposal.stages?.length ?? 0}`);
 
     try {
-      console.log(`  [DEBUG] Calling trackProposalStages...`);
-      const result = await trackProposalStages({
-        proposalId: proposal.id,
-        creationTxHash: proposal.creationTxHash!,
-        governorAddress: proposal.contractAddress,
-        l2RpcUrl: ARBITRUM_RPC_URL,
-        l1RpcUrl: ETHEREUM_RPC_URL,
-        // Use custom L1 chunk size if specified via environment variable
-        chunkingConfig: L1_CHUNK_SIZE
-          ? { l1ChunkSize: L1_CHUNK_SIZE }
-          : undefined,
-        // Use existing stages for incremental tracking
-        existingStages: proposal.stages,
-        startFromStageIndex: proposal.stages?.length
-          ? getResumeStageIndex(proposal.stages)
-          : undefined,
-      });
+      console.log(`  [DEBUG] Calling trackProposalByTxHash...`);
+      const results = await trackProposalByTxHash(
+        proposal.creationTxHash!,
+        ARBITRUM_RPC_URL,
+        ETHEREUM_RPC_URL
+      );
+
+      // Use first result (governor proposals return single result)
+      const trackingResult = results[0];
+      const result = {
+        stages: trackingResult?.stages ?? [],
+        timelockLink: trackingResult?.timelockLink,
+        error: trackingResult ? undefined : "No tracking result returned",
+      };
 
       const elapsedMs = Date.now() - startTime;
-      console.log(`  [DEBUG] trackProposalStages completed in ${elapsedMs}ms`);
+      console.log(`  [DEBUG] trackProposalByTxHash completed in ${elapsedMs}ms`);
       console.log(
         `  [DEBUG] Stages returned: ${result.stages.length}, error: ${result.error ?? "none"}`
       );

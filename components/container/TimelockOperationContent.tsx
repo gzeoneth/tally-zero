@@ -486,7 +486,7 @@ function StagesList({
       const meta = allStageMetadata[type];
       return {
         type,
-        estimatedDuration: meta?.estimatedDuration,
+        estimatedDays: meta?.estimatedDays,
       };
     });
   }, [relevantStageTypes, allStageMetadata]);

@@ -24,7 +24,7 @@ import type {
   TimelockLink,
 } from "@/types/proposal-stage";
 import { debug, isBrowser } from "./debug";
-import { type TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
+import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import {
   getCacheKey,
   getCompletionStatus,

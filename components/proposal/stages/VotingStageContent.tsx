@@ -25,7 +25,7 @@ export interface VotingStageContentProps {
     title: string;
     description: string;
     chain: string;
-    estimatedDuration?: string;
+    estimatedDays?: number;
   } | null;
   stageType: StageType;
   proposalId: string;
@@ -96,10 +96,10 @@ export const VotingStageContent = memo(function VotingStageContent({
         governorAddress={governorAddress}
       />
 
-      {Boolean(stage?.data?.quorumRequired) && (
+      {Boolean(stage?.data?.quorum) && (
         <QuorumProgressBar
-          current={String(stage?.data?.votesTowardsQuorum ?? "0")}
-          required={String(stage?.data?.quorumRequired)}
+          current={String(stage?.data?.forVotes ?? "0")}
+          required={String(stage?.data?.quorum)}
           reached={Boolean(stage?.data?.quorumReached)}
         />
       )}

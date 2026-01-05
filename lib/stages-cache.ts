@@ -16,7 +16,7 @@ import type {
 } from "@/types/proposal-stage";
 import { MS_PER_DAY } from "./date-utils";
 import { debug, isBrowser } from "./debug";
-import type { TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
+import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import { seedTimelockFromCache } from "./unified-cache";
 
 /** Maximum age for tracking (60 days after proposal creation) */

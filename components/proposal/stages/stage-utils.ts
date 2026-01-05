@@ -5,18 +5,27 @@ import {
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
 import { getTxExplorerUrl, type ChainId } from "@/lib/explorer-utils";
+import type { ChainType } from "@/lib/stage-tracker";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 
 /**
  * Get the explorer URL for a transaction based on chain
+ * Supports gov-tracker's ChainType which includes NOVA
  */
 export function getStageTxExplorerUrl(
   hash: string,
-  chain: "L1" | "L2",
+  chain: ChainType,
   targetChain?: "Arb1" | "Nova"
 ): string {
-  const chainId: ChainId =
-    chain === "L1" ? "ethereum" : targetChain === "Nova" ? "nova" : "arb1";
+  let chainId: ChainId;
+  if (chain === "L1") {
+    chainId = "ethereum";
+  } else if (chain === "NOVA") {
+    chainId = "nova";
+  } else {
+    // L2 - check targetChain for Nova retryables
+    chainId = targetChain === "Nova" ? "nova" : "arb1";
+  }
   return getTxExplorerUrl(hash, chainId);
 }
 

@@ -17,6 +17,7 @@ import {
   getAllStageMetadata,
   toProposalTrackingResult,
   type StageProgressCallback,
+  type StageType,
   type TrackedStage,
   type TrackingProgress,
 } from "@/lib/stage-tracker";
@@ -509,11 +510,29 @@ export function useProposalStages({
   };
 }
 
+/** Stage metadata with type included for array iteration */
+export interface StageMetadataWithType {
+  type: StageType;
+  title: string;
+  description: string;
+  chain: "L1" | "L2" | "NOVA" | "CROSS_CHAIN";
+  estimatedDays: number;
+  requiresAction: boolean;
+}
+
 /**
- * Get all stage metadata as an array, compatible with old code that expected an array
+ * Get all stage metadata as an array with type included
  * gov-tracker's getAllStageMetadata() returns a Record<StageType, StageMetadata>
+ * This function converts it to an array with the type key included
  */
-export function getAllStageTypes(governorType: "core" | "treasury" = "core") {
+export function getAllStageTypes(
+  governorType: "core" | "treasury" = "core"
+): StageMetadataWithType[] {
   const metadata = getAllStageMetadata();
-  return Object.values(metadata);
+  return (
+    Object.entries(metadata) as [StageType, (typeof metadata)[StageType]][]
+  ).map(([type, meta]) => ({
+    type,
+    ...meta,
+  }));
 }
