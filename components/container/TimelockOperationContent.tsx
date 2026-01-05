@@ -13,7 +13,11 @@ import {
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
 import { shortenAddress } from "@/lib/format-utils";
-import { getAllStageMetadata, type StageMetadata } from "@/lib/stage-tracker";
+import {
+  calculateExpectedEta,
+  getAllStageMetadata,
+  type TrackedStage,
+} from "@/lib/stage-tracker";
 import { truncateMiddle } from "@/lib/text-utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import {
@@ -404,15 +408,6 @@ function OperationHeader({
   );
 }
 
-// Stage durations in seconds for ETA calculations
-// Using consolidated stage types from gov-tracker
-const STAGE_DURATIONS: Partial<Record<StageType, number>> = {
-  L2_TIMELOCK: 0, // Uses operation delay
-  L2_TO_L1_MESSAGE: 7 * SECONDS_PER_DAY, // ~7 days challenge period
-  L1_TIMELOCK: 3 * SECONDS_PER_DAY, // 3 days L1 timelock
-  RETRYABLE_EXECUTED: 0, // Near-immediate (auto-redeem)
-};
-
 // Timelock operation stage types (consolidated from gov-tracker)
 const TIMELOCK_STAGE_TYPES: StageType[] = [
   "PROPOSAL_QUEUED", // We reuse this for "CallScheduled"
@@ -491,59 +486,34 @@ function StagesList({
     });
   }, [relevantStageTypes, allStageMetadata]);
 
-  // Calculate estimated completion times for each stage
+  // Calculate estimated completion times using gov-tracker's calculateExpectedEta
   const estimatedTimes = useMemo(() => {
     const times = new Map<StageType, EstimatedTimeRange>();
-    const operationDelay = parseInt(operation.delay);
-    const scheduledTimestamp = operation.timestamp;
 
-    // Find the last completed stage as reference point
-    let referenceTimestamp = scheduledTimestamp;
-    let startFromIndex = 0;
+    // Convert ProposalStage[] to TrackedStage[] for gov-tracker
+    const trackedStages = stages as unknown as TrackedStage[];
 
-    for (let i = relevantStageTypes.length - 1; i >= 0; i--) {
-      const stageType = relevantStageTypes[i];
-      const stage = stageMap.get(stageType);
-
-      if (stage?.status === "COMPLETED" && stage.transactions?.[0]?.timestamp) {
-        referenceTimestamp = stage.transactions[0].timestamp;
-        startFromIndex = i + 1;
-        break;
-      }
-    }
-
-    // Calculate cumulative times for future stages
-    let cumulativeSeconds = 0;
-
-    for (let i = startFromIndex; i < relevantStageTypes.length; i++) {
+    for (let i = 0; i < relevantStageTypes.length; i++) {
       const stageType = relevantStageTypes[i];
       const stage = stageMap.get(stageType);
 
       // Skip completed stages
       if (stage?.status === "COMPLETED") continue;
 
-      // Get duration for this stage
-      let duration = STAGE_DURATIONS[stageType] || 0;
+      // Use gov-tracker's calculateExpectedEta for consistent ETA calculation
+      const eta = calculateExpectedEta(trackedStages, i);
 
-      // L2 Timelock uses the operation's specific delay
-      if (stageType === "L2_TIMELOCK" && i === 1) {
-        duration = operationDelay;
+      if (eta) {
+        const estimatedTime = new Date(eta * 1000);
+        times.set(stageType, {
+          minDate: estimatedTime,
+          maxDate: estimatedTime,
+        });
       }
-
-      cumulativeSeconds += duration;
-
-      const estimatedTime = new Date(
-        (referenceTimestamp + cumulativeSeconds) * 1000
-      );
-
-      times.set(stageType, {
-        minDate: estimatedTime,
-        maxDate: estimatedTime,
-      });
     }
 
     return times;
-  }, [operation, relevantStageTypes, stageMap]);
+  }, [stages, relevantStageTypes, stageMap]);
 
   // Refresh handler for StageItem (refreshes from a specific stage index)
   const handleRefreshFromStage = useCallback(
