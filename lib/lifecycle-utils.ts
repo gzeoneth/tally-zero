@@ -33,11 +33,11 @@ export function formatStageName(stageName: string): string {
 
 /**
  * Get the total expected stages for a proposal based on governor type
- * - Core Governor: 10 stages (includes L1 round-trip)
+ * - Core Governor: 7 stages (includes L1 round-trip)
  * - Treasury Governor: 4 stages (L2 only)
  */
 export function getTotalStages(governorAddress: string): number {
-  return isCoreGovernor(governorAddress) ? 10 : 4;
+  return isCoreGovernor(governorAddress) ? 7 : 4;
 }
 
 /**
@@ -104,8 +104,23 @@ export function getEffectiveDisplayState(
   // Core Governor with "Executed" state but not fully done - show stage progress
   const currentStage = getCurrentStageNumber(stages);
   const totalStages = getTotalStages(governorAddress);
+
+  // If the current stage is the last stage but not fully complete,
+  // show the previous completed stage number instead
+  let displayStage = currentStage;
+  if (
+    currentStage === totalStages &&
+    !isProposalFullyExecuted(stages, governorAddress)
+  ) {
+    // Find the last completed stage
+    const completedCount = stages.filter(
+      (s) => s.status === "COMPLETED"
+    ).length;
+    displayStage = Math.max(1, completedCount);
+  }
+
   return {
-    display: `Stage ${currentStage}/${totalStages}`,
+    display: `Stage ${displayStage}/${totalStages}`,
     isInProgress: true,
   };
 }

@@ -4,7 +4,7 @@ import { CheckCircledIcon, TargetIcon } from "@radix-ui/react-icons";
 import { memo } from "react";
 
 import { QUORUM_COLORS } from "@/lib/badge-colors";
-import { formatCompactNumber } from "@/lib/format-utils";
+import { formatVotingPower } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
 import { calculateQuorumProgress } from "@/lib/vote-utils";
 
@@ -58,11 +58,9 @@ export const QuorumProgressBar = memo(function QuorumProgressBar({
 
       {/* Vote counts */}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="tabular-nums">{formatVotingPower(current)} votes</span>
         <span className="tabular-nums">
-          {formatCompactNumber(current)} votes
-        </span>
-        <span className="tabular-nums">
-          {formatCompactNumber(required)} required
+          {formatVotingPower(required)} required
         </span>
       </div>
     </div>
