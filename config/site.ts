@@ -1,15 +1,22 @@
-import type { SiteConfig } from "@types";
-import path from "path";
+/**
+ * Site configuration for TallyZero
+ * Contains metadata, URLs, and social links
+ */
 
+import type { SiteConfig } from "@types";
+
+/** Base URL for the site */
 const url = "https://zero.tally.xyz";
+
+/** Site-wide configuration for metadata and links */
 export const siteConfig = {
-  name: "Tally Zero",
-  description: "A decentralized zero dependency voting client",
+  name: "Arbitrum Governance",
+  description: "Vote on Arbitrum DAO proposals",
   url,
-  ogImage: path.join(url, "og.png"),
+  ogImage: `${url}/og.png`,
   links: {
-    twitter: "https://twitter.com/tallyxyz",
+    twitter: "https://twitter.com/arbitrum",
     github: "https://github.com/withtally/tally-zero",
   },
-  manifest: path.join(url, "site.webmanifest"),
+  manifest: `${url}/site.webmanifest`,
 } as const satisfies SiteConfig;

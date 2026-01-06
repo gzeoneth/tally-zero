@@ -2,5 +2,13 @@
   "extends": "next/core-web-vitals",
   "rules": {
     "no-process-env": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**/*.ts"],
+      "rules": {
+        "no-process-env": "off"
+      }
+    }
+  ]
 }
