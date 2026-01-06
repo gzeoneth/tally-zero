@@ -1,9 +1,13 @@
 "use client";
 
+import {
+  getAddressExplorerUrl,
+  getAddressLabel,
+  getChainLabel,
+} from "@gzeoneth/gov-tracker";
 import { Badge } from "@components/ui/Badge";
 import { CopyableText } from "@components/ui/CopyableText";
 import { SimulationButton } from "@components/ui/SimulationButton";
-import type { DecodedCalldata, DecodedParameter } from "@lib/calldata-decoder";
 import {
   simulateCall,
   simulateRetryableTicket,
@@ -13,7 +17,30 @@ import {
 import { truncateMiddle } from "@lib/text-utils";
 import { cn } from "@lib/utils";
 
-// Wrapper to maintain backwards compatibility with existing calls
+// Types matching gov-tracker's decoded calldata shapes
+type ChainContext = "ethereum" | "arb1" | "nova";
+
+interface DecodedParameter {
+  name: string;
+  type: string;
+  value: string;
+  isNested: boolean;
+  nested?: DecodedCalldata;
+  nestedArray?: DecodedCalldata[];
+  addressLabel?: string;
+}
+
+interface DecodedCalldata {
+  selector: string;
+  functionName: string | null;
+  signature: string | null;
+  parameters: DecodedParameter[] | null;
+  raw: string;
+  decodingSource: "local" | "api" | "failed";
+  decodingTarget?: string;
+  chainContext?: ChainContext;
+}
+
 function truncateValue(value: string, maxLength = 50): string {
   if (value.length <= maxLength) return value;
   return truncateMiddle(value, 24, 20);
@@ -48,6 +75,7 @@ export interface ParameterViewProps {
   param: DecodedParameter;
   index: number;
   siblingParams?: DecodedParameter[];
+  chainContext?: ChainContext;
 }
 
 /**
@@ -57,10 +85,21 @@ export function ParameterView({
   param,
   index,
   siblingParams,
+  chainContext = "arb1",
 }: ParameterViewProps) {
   // Check if this is a bytes[] with decoded nested array
   const hasNestedArray = param.nestedArray && param.nestedArray.length > 0;
   const hasNestedSingle = param.nested && param.nested.functionName;
+
+  // Compute UI metadata for addresses using gov-tracker
+  const isAddress = param.type === "address";
+  const link = isAddress
+    ? getAddressExplorerUrl(param.value, chainContext)
+    : undefined;
+  const addressLabel = isAddress
+    ? getAddressLabel(param.value, chainContext)
+    : undefined;
+  const chainLabel = isAddress ? getChainLabel(chainContext) : undefined;
 
   // Render the value - either as a link or plain text
   const renderValue = () => {
@@ -73,28 +112,28 @@ export function ParameterView({
           ? `[${param.nestedArray!.length} calls]`
           : param.value;
 
-    if (param.link && param.type === "address") {
+    if (link && isAddress) {
       // Show label as primary text if available, address as title
-      const linkText = param.addressLabel || displayValue;
-      const titleText = param.addressLabel ? displayValue : undefined;
+      const linkText = addressLabel || displayValue;
+      const titleText = addressLabel ? displayValue : undefined;
 
       return (
         <span className="inline-flex items-center gap-1 flex-wrap">
           <a
-            href={param.link}
+            href={link}
             target="_blank"
             rel="noopener noreferrer"
             title={titleText}
             className={cn(
               "text-blue-600 dark:text-blue-400 hover:underline",
-              param.addressLabel ? "font-medium" : "font-mono"
+              addressLabel ? "font-medium" : "font-mono"
             )}
           >
             {linkText}
           </a>
-          {param.chainLabel && (
+          {chainLabel && (
             <Badge variant="outline" className="text-[9px] px-1 py-0">
-              {param.chainLabel}
+              {chainLabel}
             </Badge>
           )}
         </span>
@@ -131,14 +170,21 @@ export function ParameterView({
           <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 block mb-2 uppercase tracking-wide">
             Nested call
           </span>
-          <DecodedCalldataView decoded={param.nested!} isDecoding={false} />
+          <DecodedCalldataView
+            decoded={param.nested!}
+            isDecoding={false}
+            chainContext={param.nested!.chainContext || chainContext}
+          />
           {param.nested!.functionName?.match(/^schedule(Batch)?$/) &&
             (() => {
               const targetParam = siblingParams?.find(
                 (p) => p.type === "address"
               );
               if (!targetParam || !param.value) return null;
-              const chain = getChainTypeFromLabel(targetParam.chainLabel);
+              // Use chainContext to determine network
+              const chain = getChainTypeFromLabel(
+                getChainLabel(chainContext)
+              );
               const networkId =
                 TIMELOCK_CHAIN_IDS[chain] || TIMELOCK_CHAIN_IDS.L1;
               return (
@@ -187,6 +233,7 @@ export function ParameterView({
                   <DecodedCalldataView
                     decoded={nestedCall}
                     isDecoding={false}
+                    chainContext={nestedCall.chainContext || chainContext}
                   />
                   {nestedCall.functionName?.startsWith("Retryable Ticket") &&
                     nestedCall.parameters &&
@@ -279,6 +326,7 @@ export function ParameterView({
 export interface DecodedCalldataViewProps {
   decoded: DecodedCalldata | null;
   isDecoding: boolean;
+  chainContext?: ChainContext;
 }
 
 /**
@@ -287,7 +335,11 @@ export interface DecodedCalldataViewProps {
 export function DecodedCalldataView({
   decoded,
   isDecoding,
+  chainContext: explicitChainContext,
 }: DecodedCalldataViewProps) {
+  // Use explicit chain context, or from decoded data, or default to arb1
+  const chainContext: ChainContext =
+    explicitChainContext || decoded?.chainContext || "arb1";
   if (isDecoding) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 rounded-lg bg-muted/20">
@@ -325,6 +377,7 @@ export function DecodedCalldataView({
               param={param}
               index={idx}
               siblingParams={decoded.parameters ?? undefined}
+              chainContext={chainContext}
             />
           ))}
         </div>

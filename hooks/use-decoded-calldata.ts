@@ -3,9 +3,33 @@
  * Parses calldata into human-readable function calls and parameters
  */
 
+import { decodeCalldata } from "@gzeoneth/gov-tracker";
 import { getErrorMessage } from "@/lib/error-utils";
-import { decodeCalldata, type DecodedCalldata } from "@lib/calldata-decoder";
 import { useCallback, useEffect, useState } from "react";
+
+// Type matching gov-tracker's decoded calldata shape
+type ChainContext = "ethereum" | "arb1" | "nova";
+
+interface DecodedParameter {
+  name: string;
+  type: string;
+  value: string;
+  isNested: boolean;
+  nested?: DecodedCalldata;
+  nestedArray?: DecodedCalldata[];
+  addressLabel?: string;
+}
+
+interface DecodedCalldata {
+  selector: string;
+  functionName: string | null;
+  signature: string | null;
+  parameters: DecodedParameter[] | null;
+  raw: string;
+  decodingSource: "local" | "api" | "failed";
+  decodingTarget?: string;
+  chainContext?: ChainContext;
+}
 
 /** Options for configuring calldata decoding */
 interface UseDecodedCalldataOptions {
@@ -54,7 +78,10 @@ export function useDecodedCalldata({
     setError(null);
 
     try {
-      const result = await decodeCalldata(calldata, targetAddress);
+      const result = (await decodeCalldata(
+        calldata,
+        targetAddress
+      )) as DecodedCalldata;
       setDecoded(result);
     } catch (err) {
       setError(getErrorMessage(err, "decode calldata"));
