@@ -541,10 +541,10 @@
     "@metamask/rpc-errors" "7.0.2"
     eventemitter3 "5.0.1"
 
-"@gzeoneth/gov-tracker@0.1.1-0":
-  version "0.1.1-0"
-  resolved "https://registry.npmjs.org/@gzeoneth/gov-tracker/-/gov-tracker-0.1.1-0.tgz"
-  integrity sha512-LHWBq/oPTxsuRZkWoHWSQkrKkt8NPYouQquzyc8aIQBKOYOoYwDceN3IFVHlxEjQthGZ/lruBnZw+vTGo2Uykg==
+"@gzeoneth/gov-tracker@0.1.1-1":
+  version "0.1.1-1"
+  resolved "https://registry.npmjs.org/@gzeoneth/gov-tracker/-/gov-tracker-0.1.1-1.tgz"
+  integrity sha512-M953rrC9W80+KdQ57PSgTFEoAxL1nk4gmkuLCIVhS//CJu7s5usbKLLWERgmFMvWiowWR7n42P9Zn0JF6y+hDQ==
   dependencies:
     "@arbitrum/sdk" "^4.0.0"
     commander "^14.0.2"

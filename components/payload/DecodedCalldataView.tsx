@@ -1,5 +1,10 @@
 "use client";
 
+import type {
+  ChainContext,
+  DecodedCalldata,
+  DecodedParameter,
+} from "@gzeoneth/gov-tracker";
 import {
   getAddressExplorerUrl,
   getAddressLabel,
@@ -17,42 +22,9 @@ import {
 import { truncateMiddle } from "@lib/text-utils";
 import { cn } from "@lib/utils";
 
-// Types matching gov-tracker's decoded calldata shapes
-type ChainContext = "ethereum" | "arb1" | "nova";
-
-interface DecodedParameter {
-  name: string;
-  type: string;
-  value: string;
-  isNested: boolean;
-  nested?: DecodedCalldata;
-  nestedArray?: DecodedCalldata[];
-  addressLabel?: string;
-}
-
-interface DecodedCalldata {
-  selector: string;
-  functionName: string | null;
-  signature: string | null;
-  parameters: DecodedParameter[] | null;
-  raw: string;
-  decodingSource: "local" | "api" | "failed";
-  decodingTarget?: string;
-  chainContext?: ChainContext;
-}
-
 function truncateValue(value: string, maxLength = 50): string {
   if (value.length <= maxLength) return value;
   return truncateMiddle(value, 24, 20);
-}
-
-function parseAddressArray(value: string): string[] {
-  const match = value.match(/\[(.*)\]/);
-  if (!match) return [];
-  return match[1]
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.startsWith("0x"));
 }
 
 export interface ParameterViewProps {
@@ -225,13 +197,6 @@ export function ParameterView({
                       const l2ValueParam = nestedCall.parameters.find(
                         (p) => p.name === "l2Value"
                       );
-                      const chainFromName = nestedCall.functionName?.includes(
-                        "Nova"
-                      )
-                        ? "nova"
-                        : nestedCall.functionName?.includes("Arbitrum One")
-                          ? "arb1"
-                          : "unknown";
 
                       if (l2TargetParam && l2CalldataParam) {
                         return (
@@ -243,10 +208,7 @@ export function ParameterView({
                                   l2Target: l2TargetParam.value,
                                   l2Calldata: l2CalldataParam.value,
                                   l2Value: l2ValueParam?.value?.split(" ")[0],
-                                  chain: chainFromName as
-                                    | "arb1"
-                                    | "nova"
-                                    | "unknown",
+                                  chain: nestedCall.targetChain || "unknown",
                                 })
                               }
                             />
@@ -261,10 +223,11 @@ export function ParameterView({
                         (p) => p.type === "address[]"
                       );
                       if (!addressArrayParam) return null;
-                      const addresses = parseAddressArray(
-                        addressArrayParam.value
-                      );
-                      const batchTarget = addresses[nestedIdx];
+                      // Use rawValue which contains the original address array
+                      const addresses = addressArrayParam.rawValue as
+                        | string[]
+                        | undefined;
+                      const batchTarget = addresses?.[nestedIdx];
                       if (!batchTarget || !nestedCall.raw) return null;
                       return (
                         <div className="mt-2">
