@@ -7,16 +7,22 @@
 
 export {
   decodeCalldata,
-  decodeParameters,
+  decodeCalldataArray,
   decodeRetryableTicket,
+  extractAllSimulationsFromDecoded,
   formatDecodedValue,
   getAddressLabel,
   getChainLabel,
+  getChainDisplayLabel,
   isLikelyCalldata,
   isRetryableTicketMagic,
-  lookup4byteDirectory,
   lookupLocalSignature,
+  lookupSignature,
   parseParamTypes,
+  prepareCallSimulation,
+  prepareRetryableSimulation,
+  prepareTimelockSimulation,
+  NETWORK_IDS,
 } from "./calldata";
 
 export type {
@@ -24,5 +30,8 @@ export type {
   DecodedCalldata,
   DecodedParameter,
   DecodedParameterWithRaw,
+  ExtractedSimulation,
   RetryableTicketData,
+  SimulationData,
+  SimulationType,
 } from "./calldata";
