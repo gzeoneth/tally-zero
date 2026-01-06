@@ -3,6 +3,7 @@
 import { memo } from "react";
 
 import { formatRelativeTimestamp } from "@/lib/date-utils";
+import type { ChainType } from "@gzeoneth/gov-tracker";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 
 import { getStageTxExplorerUrl } from "./stage-utils";
@@ -10,7 +11,7 @@ import { getStageTxExplorerUrl } from "./stage-utils";
 export interface TransactionsListProps {
   transactions: Array<{
     hash: string;
-    chain: "L1" | "L2";
+    chain: ChainType;
     timestamp?: number;
     targetChain?: "Arb1" | "Nova";
   }>;

@@ -6,9 +6,9 @@ import {
   formatEstimatedCompletion,
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
-import { getStageMetadata } from "@/lib/stage-tracker";
 import { cn } from "@/lib/utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
+import { getStageMetadata } from "@gzeoneth/gov-tracker";
 import { CalendarIcon, ReloadIcon } from "@radix-ui/react-icons";
 
 import { createStageCalendarUrl, type VotingTimeRange } from "./stage-utils";
@@ -48,7 +48,9 @@ export const StageItem = memo(function StageItem({
   proposalId,
   governorAddress,
 }: StageItemProps) {
-  const metadata = getStageMetadata(stageType, governorType);
+  // Note: governorType ("core"/"treasury") maps to ProposalType conceptually
+  // but getStageMetadata's second param is optional, so we omit it
+  const metadata = getStageMetadata(stageType);
   const status = stage?.status || "NOT_STARTED";
   const isActive = isTracking && !stage;
   const canRefresh = Boolean(stage && !isLoading);
@@ -119,7 +121,7 @@ export const StageItem = memo(function StageItem({
         {/* Estimated completion for non-voting stages */}
         {status !== "COMPLETED" &&
           stageType !== "VOTING_ACTIVE" &&
-          (estimatedCompletion || metadata?.estimatedDuration) && (
+          (estimatedCompletion || metadata?.estimatedDays) && (
             <EstimatedCompletionDisplay
               metadata={metadata}
               estimatedCompletion={estimatedCompletion}
@@ -145,7 +147,7 @@ interface StageHeaderProps {
     title: string;
     description: string;
     chain: string;
-    estimatedDuration?: string;
+    estimatedDays?: number;
   } | null;
   stageType: StageType;
   status: string;
@@ -213,7 +215,7 @@ interface EstimatedCompletionDisplayProps {
     title: string;
     description: string;
     chain: string;
-    estimatedDuration?: string;
+    estimatedDays?: number;
   } | null;
   estimatedCompletion?: EstimatedTimeRange;
   stageType: StageType;
@@ -228,8 +230,11 @@ const EstimatedCompletionDisplay = memo(function EstimatedCompletionDisplay({
 }: EstimatedCompletionDisplayProps) {
   return (
     <div className="text-xs text-muted-foreground mt-2 space-y-1 glass-subtle rounded-lg px-3 py-2">
-      {metadata?.estimatedDuration && (
-        <p className="italic">Est. duration: {metadata.estimatedDuration}</p>
+      {metadata?.estimatedDays !== undefined && metadata.estimatedDays > 0 && (
+        <p className="italic">
+          Est. duration: {metadata.estimatedDays} day
+          {metadata.estimatedDays !== 1 ? "s" : ""}
+        </p>
       )}
       {estimatedCompletion && (
         <p className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5">

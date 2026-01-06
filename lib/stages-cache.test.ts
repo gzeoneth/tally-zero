@@ -20,6 +20,8 @@ const createStage = (
 ): ProposalStage => ({
   type,
   status,
+  chain: "L2",
+  data: {},
   transactions: [],
 });
 
@@ -102,40 +104,38 @@ describe("stages-cache", () => {
 
   describe("hasReachedFinalStage", () => {
     describe("Core Governor", () => {
-      it("returns true when RETRYABLE_REDEEMED is COMPLETED", () => {
+      it("returns true when RETRYABLE_EXECUTED is COMPLETED", () => {
+        // gov-tracker uses consolidated stage types
         const stages: ProposalStage[] = [
           createStage("PROPOSAL_CREATED", "COMPLETED"),
           createStage("VOTING_ACTIVE", "COMPLETED"),
           createStage("PROPOSAL_QUEUED", "COMPLETED"),
-          createStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
-          createStage("L2_TO_L1_MESSAGE_SENT", "COMPLETED"),
-          createStage("L2_TO_L1_MESSAGE_CONFIRMED", "COMPLETED"),
-          createStage("L1_TIMELOCK_QUEUED", "COMPLETED"),
-          createStage("L1_TIMELOCK_EXECUTED", "COMPLETED"),
-          createStage("RETRYABLE_CREATED", "COMPLETED"),
-          createStage("RETRYABLE_REDEEMED", "COMPLETED"),
+          createStage("L2_TIMELOCK", "COMPLETED"),
+          createStage("L2_TO_L1_MESSAGE", "COMPLETED"),
+          createStage("L1_TIMELOCK", "COMPLETED"),
+          createStage("RETRYABLE_EXECUTED", "COMPLETED"),
         ];
         expect(hasReachedFinalStage(stages, CORE_GOVERNOR_ADDRESS)).toBe(true);
       });
 
-      it("returns false when not at RETRYABLE_REDEEMED", () => {
+      it("returns false when not at RETRYABLE_EXECUTED", () => {
         const stages: ProposalStage[] = [
           createStage("PROPOSAL_CREATED", "COMPLETED"),
           createStage("VOTING_ACTIVE", "COMPLETED"),
           createStage("PROPOSAL_QUEUED", "COMPLETED"),
-          createStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+          createStage("L2_TIMELOCK", "COMPLETED"),
         ];
         expect(hasReachedFinalStage(stages, CORE_GOVERNOR_ADDRESS)).toBe(false);
       });
     });
 
     describe("Treasury Governor", () => {
-      it("returns true when L2_TIMELOCK_EXECUTED is COMPLETED", () => {
+      it("returns true when L2_TIMELOCK is COMPLETED", () => {
         const stages: ProposalStage[] = [
           createStage("PROPOSAL_CREATED", "COMPLETED"),
           createStage("VOTING_ACTIVE", "COMPLETED"),
           createStage("PROPOSAL_QUEUED", "COMPLETED"),
-          createStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+          createStage("L2_TIMELOCK", "COMPLETED"),
         ];
         expect(hasReachedFinalStage(stages, TREASURY_GOVERNOR_ADDRESS)).toBe(
           true
@@ -183,7 +183,7 @@ describe("stages-cache", () => {
         createStage("PROPOSAL_CREATED", "COMPLETED"),
         createStage("VOTING_ACTIVE", "COMPLETED"),
         createStage("PROPOSAL_QUEUED", "COMPLETED"),
-        createStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+        createStage("L2_TIMELOCK", "COMPLETED"),
       ];
       expect(
         hasReachedFinalStage(stages, TREASURY_GOVERNOR_ADDRESS.toUpperCase())

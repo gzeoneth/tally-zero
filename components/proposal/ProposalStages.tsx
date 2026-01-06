@@ -81,7 +81,7 @@ export default function ProposalStages({
       }
       if (isTreasuryProposal) {
         const l2ExecutedIdx = allStageTypes.findIndex(
-          (s) => s.type === "L2_TIMELOCK_EXECUTED"
+          (s) => s.type === "L2_TIMELOCK"
         );
         const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
         return currentIdx <= l2ExecutedIdx;

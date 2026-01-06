@@ -3,6 +3,7 @@
 import { memo } from "react";
 
 import { formatEtaTimestamp } from "@/lib/date-utils";
+import type { TrackedStage } from "@gzeoneth/gov-tracker";
 
 import {
   RetryableCreationDetails,
@@ -10,7 +11,7 @@ import {
 } from "./RetryableDetails";
 
 export interface StageDataDisplayProps {
-  data: Record<string, unknown>;
+  data: TrackedStage["data"];
 }
 
 export const StageDataDisplay = memo(function StageDataDisplay({

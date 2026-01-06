@@ -9,6 +9,7 @@ import {
   DEFAULT_CACHE_TTL_MS,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
+import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import type {
   ProposalStage,
   ProposalTrackingResult,
@@ -16,7 +17,6 @@ import type {
 } from "@/types/proposal-stage";
 import { MS_PER_DAY } from "./date-utils";
 import { debug, isBrowser } from "./debug";
-import type { TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
 import { seedTimelockFromCache } from "./unified-cache";
 
 /** Maximum age for tracking (60 days after proposal creation) */
@@ -436,5 +436,66 @@ export function getPreloadedStages(
   } catch (err) {
     debug.cache("failed to get preloaded stages for %s: %O", proposalId, err);
     return null;
+  }
+}
+
+/**
+ * Trim cached stages from a specific index onwards
+ *
+ * This removes all stages including and after the specified index,
+ * allowing the tracker to re-track from that point.
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
+ * @param fromIndex - Index to start trimming from (inclusive)
+ * @returns True if stages were trimmed, false if nothing to trim
+ */
+export function trimCachedStagesFromIndex(
+  proposalId: string,
+  governorAddress: string,
+  fromIndex: number
+): boolean {
+  if (!isBrowser) return false;
+
+  try {
+    const key = getCacheKey(proposalId, governorAddress);
+    const cached = localStorage.getItem(key);
+    if (!cached) return false;
+
+    const parsed: CachedStagesResult = JSON.parse(cached);
+    if (parsed.version !== CACHE_VERSION) return false;
+
+    // Trim stages from the specified index
+    const trimmedStages = parsed.result.stages.slice(0, fromIndex);
+
+    // If no stages left, clear the cache entirely
+    if (trimmedStages.length === 0) {
+      clearCachedStages(proposalId, governorAddress);
+      return true;
+    }
+
+    // Update the cached result with trimmed stages
+    const updatedResult: ProposalTrackingResult = {
+      ...parsed.result,
+      stages: trimmedStages,
+      // Clear timelockLink if we're trimming before PROPOSAL_QUEUED stage
+      timelockLink: trimmedStages.some((s) => s.type === "PROPOSAL_QUEUED")
+        ? parsed.result.timelockLink
+        : undefined,
+    };
+
+    // Save back to localStorage
+    const updatedCache: CachedStagesResult = {
+      version: CACHE_VERSION,
+      timestamp: Date.now(), // Update timestamp to mark as fresh
+      result: updatedResult,
+    };
+
+    localStorage.setItem(key, JSON.stringify(updatedCache));
+    debug.cache("trimmed stages from index %d for %s", fromIndex, proposalId);
+    return true;
+  } catch (err) {
+    debug.cache("failed to trim stages for %s: %O", proposalId, err);
+    return false;
   }
 }

@@ -5,61 +5,71 @@
 
 import { isCoreGovernor } from "@/config/governors";
 import type { ProposalStage } from "@/types/proposal-stage";
+import {
+  areAllStagesComplete,
+  formatStageTitle,
+  getCurrentStage,
+  type StageType,
+} from "@gzeoneth/gov-tracker";
 
 /**
  * Format a stage name from UPPER_SNAKE_CASE to Title Case
+ * Uses gov-tracker's formatStageTitle for known stage types
+ * Falls back to basic formatting for UI strings like "Starting..."
  * @param stageName - The stage name in UPPER_SNAKE_CASE (e.g., "VOTING_ACTIVE")
  * @returns Formatted stage name (e.g., "Voting Active")
  */
 export function formatStageName(stageName: string): string {
-  return stageName
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  try {
+    return formatStageTitle(stageName as StageType);
+  } catch {
+    // Fallback for UI strings that aren't valid stage types (e.g., "Starting...")
+    return stageName
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
 }
 
 /**
  * Get the total expected stages for a proposal based on governor type
- * - Core Governor: 10 stages (includes L1 round-trip)
+ * - Core Governor: 7 stages (includes L1 round-trip)
  * - Treasury Governor: 4 stages (L2 only)
  */
 export function getTotalStages(governorAddress: string): number {
-  return isCoreGovernor(governorAddress) ? 10 : 4;
+  return isCoreGovernor(governorAddress) ? 7 : 4;
 }
 
 /**
  * Determine the current active stage (1-indexed) from the stages array
+ * Uses gov-tracker's getCurrentStage for consistent stage detection
  * @param stages - Array of proposal stages
  * @returns The 1-indexed stage number of the last active stage, or 0 if empty
  */
 export function getCurrentStageNumber(stages: ProposalStage[]): number {
   if (!stages || stages.length === 0) return 0;
 
-  // Find the last stage that isn't NOT_STARTED
-  for (let i = stages.length - 1; i >= 0; i--) {
-    if (stages[i].status !== "NOT_STARTED") {
-      return i + 1; // 1-indexed
-    }
-  }
-  return 1;
+  const currentStage = getCurrentStage(stages);
+  if (!currentStage) return 1;
+
+  // Find the index of the current stage in the array (1-indexed)
+  const index = stages.findIndex((s) => s.type === currentStage.type);
+  return index >= 0 ? index + 1 : 1;
 }
 
 /**
  * Check if a proposal has truly completed all stages
+ * Uses gov-tracker's areAllStagesComplete for consistent completion detection
  * @param stages - Array of proposal stages to check
- * @param governorAddress - The governor contract address
+ * @param governorAddress - The governor contract address (for UI context only)
  * @returns True if the proposal has completed all expected stages
  */
 export function isProposalFullyExecuted(
   stages: ProposalStage[],
   governorAddress: string
 ): boolean {
-  const totalExpected = getTotalStages(governorAddress);
-  if (stages.length < totalExpected) return false;
-
-  // For Core Governor, check if the last stage (RETRYABLE_REDEEMED or L1_TIMELOCK_EXECUTED) is COMPLETED
-  const lastStage = stages[stages.length - 1];
-  return lastStage?.status === "COMPLETED";
+  if (!stages || stages.length === 0) return false;
+  return areAllStagesComplete(stages);
 }
 
 /**
@@ -94,8 +104,23 @@ export function getEffectiveDisplayState(
   // Core Governor with "Executed" state but not fully done - show stage progress
   const currentStage = getCurrentStageNumber(stages);
   const totalStages = getTotalStages(governorAddress);
+
+  // If the current stage is the last stage but not fully complete,
+  // show the previous completed stage number instead
+  let displayStage = currentStage;
+  if (
+    currentStage === totalStages &&
+    !isProposalFullyExecuted(stages, governorAddress)
+  ) {
+    // Find the last completed stage
+    const completedCount = stages.filter(
+      (s) => s.status === "COMPLETED"
+    ).length;
+    displayStage = Math.max(1, completedCount);
+  }
+
   return {
-    display: `Stage ${currentStage}/${totalStages}`,
+    display: `Stage ${displayStage}/${totalStages}`,
     isInProgress: true,
   };
 }
