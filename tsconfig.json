@@ -30,7 +30,8 @@
       "@types": ["./types"],
       "@data/*": ["./data/*"],
       "@context/*": ["./context/*"]
-    }
+    },
+    "target": "ES2017"
   },
   "include": [
     "next-env.d.ts",

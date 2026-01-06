@@ -1,20 +1,61 @@
+/**
+ * Zod validation schemas for forms and data validation
+ * Provides runtime validation for user inputs and proposal data
+ */
+
+import { ETH_ADDRESS_REGEX } from "@/lib/address-utils";
+import { isValidRpcUrl } from "@lib/utils";
 import * as z from "zod";
 
-// `0x${string}` is a valid Ethereum address
-const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+import { DEFAULT_FORM_VALUES } from "./arbitrum-governance";
 
+/** Schema for validating optional RPC URLs */
+const rpcUrlSchema = z
+  .string()
+  .optional()
+  .refine(
+    (url) => {
+      if (!url || url === "") return true;
+      return isValidRpcUrl(url);
+    },
+    {
+      message: "RPC URL must be a valid HTTP or HTTPS URL",
+    }
+  )
+  .or(z.literal(""));
+
+/** Schema for the main search/settings form */
 export const formSchema = z.object({
-  address: z.string().regex(ethAddressRegex, "Invalid Ethereum address"),
+  address: z.string().regex(ETH_ADDRESS_REGEX, "Invalid Ethereum address"),
   networkId: z.string(),
-  deploymentBlock: z.number().optional(),
+  daysToSearch: z
+    .number()
+    .min(1)
+    .optional()
+    .default(DEFAULT_FORM_VALUES.daysToSearch),
+  rpcUrl: rpcUrlSchema,
+  l1RpcUrl: rpcUrlSchema,
+  blockRange: z
+    .number()
+    .min(100)
+    .optional()
+    .default(DEFAULT_FORM_VALUES.blockRange),
+  l1BlockRange: z
+    .number()
+    .min(100)
+    .optional()
+    .default(DEFAULT_FORM_VALUES.l1BlockRange),
+  autoRun: z.boolean().optional().default(false),
 });
 
+/** Schema for vote submission form */
 export const voteSchema = z.object({
   vote: z.string().refine((data) => ["0", "1", "2"].includes(data), {
     message: "Please select a valid vote option",
   }),
 });
 
+/** Schema for validating proposal data structure */
 export const proposalSchema = z.object({
   id: z.string(),
   proposer: z.string(),
@@ -28,13 +69,5 @@ export const proposalSchema = z.object({
   description: z.string(),
   networkId: z.string(),
   state: z.string(),
+  creationTxHash: z.string().optional(),
 });
-
-export const daoSchema = z.object({
-  name: z.string(),
-  networkId: z.number(),
-  imageUrl: z.string(),
-  ethAddresses: z.array(z.string().regex(ethAddressRegex)),
-  maxBlockRange: z.number(),
-});
-export type DAO = z.infer<typeof daoSchema>;
