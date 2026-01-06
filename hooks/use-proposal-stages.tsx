@@ -204,7 +204,11 @@ export function useProposalStages({
           effectiveL1RpcUrl || undefined,
           {
             onProgress: (progress: TrackingProgress) => {
-              onProgress(progress.stage, progress.currentIndex, progress.isComplete);
+              onProgress(
+                progress.stage,
+                progress.currentIndex,
+                progress.isComplete
+              );
             },
           }
         );
@@ -352,6 +356,7 @@ export function useProposalStages({
   }, [enabled, rpcHydrated, effectiveL1RpcUrl]);
 
   // Function to trigger background refresh
+  // Background refresh keeps cached stages visible while updating
   const triggerBackgroundRefresh = useCallback(() => {
     if (!proposalId || !governorAddress) return;
 
@@ -366,9 +371,10 @@ export function useProposalStages({
       return;
     }
 
+    // Mark as background refreshing without changing status
+    // This keeps cached stages visible during refresh
     trackerManager.updateSession(proposalId, governorAddress, {
       isBackgroundRefreshing: true,
-      status: "idle",
     });
 
     trackerManager.requestTracking(proposalId, governorAddress, () =>
