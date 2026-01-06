@@ -3,7 +3,7 @@
  *
  * This module provides a unified view of proposal stages by combining:
  * - Proposal cache: stages 1-3 (PROPOSAL_CREATED, VOTING_ACTIVE, PROPOSAL_QUEUED)
- * - Timelock cache: stages 4-10 (L2_TIMELOCK_EXECUTED through RETRYABLE_REDEEMED)
+ * - Timelock cache: stages 4-10 (L2_TIMELOCK through RETRYABLE_EXECUTED)
  *
  * When a proposal reaches PROPOSAL_QUEUED, a timelockLink is created that
  * references the timelock operation cache. This allows:
@@ -18,13 +18,13 @@ import {
   DEFAULT_CACHE_TTL_MS,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
+import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import type {
   ProposalStage,
   ProposalTrackingResult,
   TimelockLink,
 } from "@/types/proposal-stage";
 import { debug, isBrowser } from "./debug";
-import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import {
   getCacheKey,
   getCompletionStatus,
