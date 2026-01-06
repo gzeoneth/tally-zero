@@ -15,22 +15,24 @@ describe("lifecycle-utils", () => {
       expect(formatStageName("VOTING_ACTIVE")).toBe("Voting Active");
     });
 
-    it("converts L2_TO_L1_MESSAGE_SENT to L2 To L1 Message Sent", () => {
-      expect(formatStageName("L2_TO_L1_MESSAGE_SENT")).toBe(
-        "L2 To L1 Message Sent"
-      );
+    it("converts PROPOSAL_QUEUED to Proposal Queued", () => {
+      expect(formatStageName("PROPOSAL_QUEUED")).toBe("Proposal Queued");
     });
 
-    it("converts RETRYABLE_REDEEMED to Retryable Redeemed", () => {
-      expect(formatStageName("RETRYABLE_REDEEMED")).toBe("Retryable Redeemed");
+    it("converts L2_TIMELOCK to L2 Timelock", () => {
+      expect(formatStageName("L2_TIMELOCK")).toBe("L2 Timelock");
     });
 
-    it("handles single word stage names", () => {
-      expect(formatStageName("EXECUTED")).toBe("Executed");
+    it("converts L2_TO_L1_MESSAGE to L2→L1 Message", () => {
+      expect(formatStageName("L2_TO_L1_MESSAGE")).toBe("L2→L1 Message");
     });
 
-    it("handles lowercase input", () => {
-      expect(formatStageName("proposal_created")).toBe("Proposal Created");
+    it("converts L1_TIMELOCK to L1 Timelock", () => {
+      expect(formatStageName("L1_TIMELOCK")).toBe("L1 Timelock");
+    });
+
+    it("converts RETRYABLE_EXECUTED to Retryable Executed", () => {
+      expect(formatStageName("RETRYABLE_EXECUTED")).toBe("Retryable Executed");
     });
   });
 

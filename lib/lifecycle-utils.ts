@@ -9,27 +9,17 @@ import {
   formatStageTitle,
   getCurrentStage,
   type StageType,
-  type TrackedStage,
 } from "@/lib/stage-tracker";
 import type { ProposalStage } from "@/types/proposal-stage";
 
 /**
  * Format a stage name from UPPER_SNAKE_CASE to Title Case
  * Uses gov-tracker's formatStageTitle for consistent formatting
- * Falls back to manual formatting for unknown/legacy stage names
  * @param stageName - The stage name in UPPER_SNAKE_CASE (e.g., "VOTING_ACTIVE")
  * @returns Formatted stage name (e.g., "Voting Active")
  */
 export function formatStageName(stageName: string): string {
-  try {
-    return formatStageTitle(stageName as StageType);
-  } catch {
-    // Fallback to manual formatting for unknown/legacy stage names
-    return stageName
-      .replace(/_/g, " ")
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
+  return formatStageTitle(stageName as StageType);
 }
 
 /**
@@ -50,10 +40,7 @@ export function getTotalStages(governorAddress: string): number {
 export function getCurrentStageNumber(stages: ProposalStage[]): number {
   if (!stages || stages.length === 0) return 0;
 
-  // Convert ProposalStage[] to TrackedStage[] for gov-tracker
-  const trackedStages = stages as unknown as TrackedStage[];
-  const currentStage = getCurrentStage(trackedStages);
-
+  const currentStage = getCurrentStage(stages);
   if (!currentStage) return 1;
 
   // Find the index of the current stage in the array (1-indexed)
@@ -65,7 +52,7 @@ export function getCurrentStageNumber(stages: ProposalStage[]): number {
  * Check if a proposal has truly completed all stages
  * Uses gov-tracker's areAllStagesComplete for consistent completion detection
  * @param stages - Array of proposal stages to check
- * @param governorAddress - The governor contract address (currently unused by gov-tracker)
+ * @param governorAddress - The governor contract address (for UI context only)
  * @returns True if the proposal has completed all expected stages
  */
 export function isProposalFullyExecuted(
@@ -73,10 +60,7 @@ export function isProposalFullyExecuted(
   governorAddress: string
 ): boolean {
   if (!stages || stages.length === 0) return false;
-
-  // Convert ProposalStage[] to TrackedStage[] for gov-tracker
-  const trackedStages = stages as unknown as TrackedStage[];
-  return areAllStagesComplete(trackedStages);
+  return areAllStagesComplete(stages);
 }
 
 /**
