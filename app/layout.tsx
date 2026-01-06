@@ -13,10 +13,13 @@ import { MainNav } from "@components/navigation/MainNav";
 import { SiteFooter } from "@components/navigation/SiteFooter";
 
 import { Analytics } from "@components/Analytics";
-import { TailwindIndicator } from "@components/TailwindIndicator";
 import { ThemeProvider } from "@components/ThemeProvider";
+import { DeepLinkProvider } from "@context/DeepLinkContext";
+import { NerdModeProvider } from "@context/NerdModeContext";
+import { SettingsSheetProvider } from "@context/SettingsSheetContext";
 
 export const metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: {
     default: siteConfig.name,
     template: `%s | ${siteConfig.name}`,
@@ -71,19 +74,28 @@ export default function RootLayout({ children }: RootLayoutProps) {
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Web3ModalProvider>
-            <header className="container z-40">
-              <div className="flex h-20 items-center justify-between py-6">
-                <MainNav items={marketingConfig.mainNav} />
-                <ButtonNav />
-              </div>
-            </header>
+            <NerdModeProvider>
+              <DeepLinkProvider>
+                <SettingsSheetProvider>
+                  <header className="sticky top-0 z-50 w-full">
+                    <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4">
+                      <div className="glass rounded-2xl px-4 sm:px-6">
+                        <div className="flex h-14 sm:h-16 items-center justify-between gap-2">
+                          <MainNav items={marketingConfig.mainNav} />
+                          <ButtonNav />
+                        </div>
+                      </div>
+                    </div>
+                  </header>
 
-            {children}
-            <SiteFooter />
+                  {children}
+                  <SiteFooter />
 
-            <Toaster />
-            <Analytics />
-            <TailwindIndicator />
+                  <Toaster />
+                  <Analytics />
+                </SettingsSheetProvider>
+              </DeepLinkProvider>
+            </NerdModeProvider>
           </Web3ModalProvider>
         </ThemeProvider>
       </body>
