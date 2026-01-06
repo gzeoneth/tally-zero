@@ -39,7 +39,7 @@ import { addressesEqual, findByAddress } from "../lib/address-utils";
 import { delay } from "../lib/delay-utils";
 import { fetchProposalStateAndVotes } from "../lib/governor-search";
 import { batchQueryWithRateLimit } from "../lib/rpc-utils";
-import { trackProposalByTxHash } from "../lib/stage-tracker";
+import { createProposalTracker } from "../lib/stage-tracker";
 import {
   hasExceededTrackingAge,
   hasReachedFinalStage,
@@ -420,12 +420,9 @@ async function trackStagesForProposals(
     console.log(`  Existing stages: ${proposal.stages?.length ?? 0}`);
 
     try {
-      console.log(`  [DEBUG] Calling trackProposalByTxHash...`);
-      const results = await trackProposalByTxHash(
-        proposal.creationTxHash!,
-        ARBITRUM_RPC_URL,
-        ETHEREUM_RPC_URL
-      );
+      console.log(`  [DEBUG] Creating tracker and tracking proposal...`);
+      const tracker = createProposalTracker(ARBITRUM_RPC_URL, ETHEREUM_RPC_URL);
+      const results = await tracker.trackByTxHash(proposal.creationTxHash!);
 
       // Use first result (governor proposals return single result)
       const trackingResult = results[0];
@@ -436,7 +433,7 @@ async function trackStagesForProposals(
       };
 
       const elapsedMs = Date.now() - startTime;
-      console.log(`  [DEBUG] trackProposalByTxHash completed in ${elapsedMs}ms`);
+      console.log(`  [DEBUG] Tracking completed in ${elapsedMs}ms`);
       console.log(
         `  [DEBUG] Stages returned: ${result.stages.length}, error: ${result.error ?? "none"}`
       );

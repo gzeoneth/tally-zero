@@ -5,8 +5,8 @@ import {
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
 import { getTxExplorerUrl, type ChainId } from "@/lib/explorer-utils";
-import type { ChainType } from "@/lib/stage-tracker";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
+import type { ChainType } from "@gzeoneth/gov-tracker";
 
 /**
  * Get the explorer URL for a transaction based on chain

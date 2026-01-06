@@ -7,19 +7,18 @@
 
 import { isValidTxHash } from "@/lib/address-utils";
 import { getErrorMessage } from "@/lib/error-utils";
-import {
-  createProposalTracker,
-  findCallScheduledByTxHash,
-  type TrackedStage,
-  type TrackingProgress,
-  type CallScheduledData,
-} from "@/lib/stage-tracker";
+import { createProposalTracker } from "@/lib/stage-tracker";
 import { getStoredCacheTtlMs } from "@/lib/storage-utils";
 import {
   loadCachedTimelockResult,
   saveCachedTimelockResult,
 } from "@/lib/unified-cache";
 import type { ProposalStage } from "@/types/proposal-stage";
+import {
+  findCallScheduledByTxHash,
+  type CallScheduledData,
+  type TrackingProgress,
+} from "@gzeoneth/gov-tracker";
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";

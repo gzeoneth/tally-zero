@@ -6,9 +6,9 @@ import {
   formatEstimatedCompletion,
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
-import { getStageMetadata } from "@/lib/stage-tracker";
 import { cn } from "@/lib/utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
+import { getStageMetadata } from "@gzeoneth/gov-tracker";
 import { CalendarIcon, ReloadIcon } from "@radix-ui/react-icons";
 
 import { createStageCalendarUrl, type VotingTimeRange } from "./stage-utils";

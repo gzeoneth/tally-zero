@@ -4,13 +4,13 @@
  */
 
 import { isCoreGovernor } from "@/config/governors";
+import type { ProposalStage } from "@/types/proposal-stage";
 import {
   areAllStagesComplete,
   formatStageTitle,
   getCurrentStage,
   type StageType,
-} from "@/lib/stage-tracker";
-import type { ProposalStage } from "@/types/proposal-stage";
+} from "@gzeoneth/gov-tracker";
 
 /**
  * Format a stage name from UPPER_SNAKE_CASE to Title Case

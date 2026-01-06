@@ -3,7 +3,7 @@
 import { memo } from "react";
 
 import { formatEtaTimestamp } from "@/lib/date-utils";
-import type { TrackedStage } from "@/lib/stage-tracker";
+import type { TrackedStage } from "@gzeoneth/gov-tracker";
 
 import {
   RetryableCreationDetails,

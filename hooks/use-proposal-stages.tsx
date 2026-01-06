@@ -14,12 +14,7 @@ import {
 } from "@/lib/proposal-tracker-manager";
 import {
   createProposalTracker,
-  getAllStageMetadata,
   toProposalTrackingResult,
-  type StageProgressCallback,
-  type StageType,
-  type TrackedStage,
-  type TrackingProgress,
 } from "@/lib/stage-tracker";
 import { clearCachedStages, saveCachedStages } from "@/lib/stages-cache";
 import { getStoredCacheTtlMs } from "@/lib/storage-utils";
@@ -32,6 +27,12 @@ import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
+import {
+  getAllStageMetadata,
+  type StageType,
+  type TrackedStage,
+  type TrackingProgress,
+} from "@gzeoneth/gov-tracker";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
 
@@ -177,9 +178,10 @@ export function useProposalStages({
         }
 
         // Create tracker with progress callback
-        const onProgress: StageProgressCallback = (
+        const onProgress = (
           stage: TrackedStage,
-          index: number
+          index: number,
+          isComplete: boolean
         ) => {
           if (abortController.signal.aborted) return;
 

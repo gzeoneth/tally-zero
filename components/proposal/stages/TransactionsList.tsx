@@ -3,7 +3,7 @@
 import { memo } from "react";
 
 import { formatRelativeTimestamp } from "@/lib/date-utils";
-import type { ChainType } from "@/lib/stage-tracker";
+import type { ChainType } from "@gzeoneth/gov-tracker";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 
 import { getStageTxExplorerUrl } from "./stage-utils";

@@ -13,13 +13,13 @@ import {
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
 import { shortenAddress } from "@/lib/format-utils";
+import { truncateMiddle } from "@/lib/text-utils";
+import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import {
   calculateExpectedEta,
   getAllStageMetadata,
   type TrackedStage,
-} from "@/lib/stage-tracker";
-import { truncateMiddle } from "@/lib/text-utils";
-import type { ProposalStage, StageType } from "@/types/proposal-stage";
+} from "@gzeoneth/gov-tracker";
 import {
   ExternalLinkIcon,
   InfoCircledIcon,
