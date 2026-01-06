@@ -1,15 +1,15 @@
 # Using gov-tracker Calldata Decoding and Simulation
 
-This document describes how to use the new calldata decoding and simulation features powered by @gzeoneth/gov-tracker@0.1.1-0.
+This document describes how to use the calldata decoding and simulation features powered by @gzeoneth/gov-tracker@0.1.1-0.
 
 ## Calldata Decoding
 
-The calldata decoding now uses gov-tracker's decoding engine with UI enhancements:
+The calldata decoding uses gov-tracker directly as a first-class dependency:
 
 ```typescript
 import { decodeCalldata } from "@lib/calldata";
 
-// Decode calldata (same API as before)
+// Decode calldata (gov-tracker API)
 const decoded = await decodeCalldata(
   "0x...", // calldata hex string
   "0x...", // target address (optional)
@@ -21,22 +21,33 @@ const decoded = await decodeCalldata(
 console.log(decoded.functionName); // e.g., "scheduleBatch"
 console.log(decoded.parameters); // Array of parameters with types and values
 
-// Parameters now include:
+// Parameters include:
 // - value: decoded value
 // - type: solidity type
 // - name: parameter name
-// - link: explorer link (for addresses)
-// - chainLabel: chain label (for addresses)
-// - addressLabel: known address label (e.g., "L1 Timelock")
+// - addressLabel: known address label (e.g., "L1 Timelock") - computed by gov-tracker
 // - nested: nested decoded calldata (for bytes)
 // - nestedArray: array of nested decoded calldata (for bytes[])
 ```
 
+### UI-Specific Fields
+
+The UI components compute explorer links and chain labels on-the-fly when rendering:
+
+```typescript
+import { getAddressExplorerUrl } from "@/lib/explorer-utils";
+import { getChainLabel } from "@lib/calldata";
+
+// When rendering address parameters
+const link = getAddressExplorerUrl(param.value, chainContext);
+const chainLabel = getChainLabel(chainContext);
+```
+
 ## Tenderly Simulation
 
-### Option 1: Using the new gov-tracker-based API
+### Using the gov-tracker-based API
 
-The new API automatically extracts all simulatable calls from decoded calldata:
+Automatically extract and execute all simulatable calls from decoded calldata:
 
 ```typescript
 import { decodeCalldata } from "@lib/calldata";
@@ -68,68 +79,31 @@ for (const sim of simulations) {
 }
 ```
 
-### Option 2: Using the existing API (backward compatible)
-
-The existing simulation functions are still available:
-
-```typescript
-import {
-  simulateCall,
-  simulateRetryableTicket,
-  simulateTimelockBatch,
-} from "@lib/tenderly";
-
-// Simulate a generic call
-await simulateCall({
-  target: "0x...",
-  calldata: "0x...",
-  chain: "Arb1",
-  value: "0",
-});
-
-// Simulate a retryable ticket (L1→L2 message)
-await simulateRetryableTicket({
-  l2Target: "0x...",
-  l2Calldata: "0x...",
-  l2Value: "0",
-  chain: "arb1",
-});
-
-// Simulate a timelock batch operation
-await simulateTimelockBatch({
-  timelockAddress: "0x...",
-  calldata: "0x...", // scheduleBatch calldata
-  networkId: "42161",
-});
-```
-
 ## Benefits of gov-tracker Integration
 
-1. **Shared Implementation**: Calldata decoding logic is now maintained in one place (gov-tracker)
-2. **Better Coverage**: gov-tracker includes more function signatures and better handling of edge cases
-3. **Simulation Extraction**: Automatically identifies all simulatable calls in complex governance proposals
-4. **Storage Overrides**: Timelock simulations include proper storage overrides for Tenderly
-5. **Type Safety**: Better TypeScript types for simulation data
+1. **First-Class Integration**: gov-tracker is the primary implementation, not a wrapper or afterthought
+2. **No Compatibility Layer**: Types and APIs are used directly from gov-tracker
+3. **Better Coverage**: gov-tracker includes more function signatures and better handling of edge cases
+4. **Simulation Extraction**: Automatically identifies all simulatable calls in complex governance proposals
+5. **Storage Overrides**: Timelock simulations include proper storage overrides for Tenderly
+6. **Type Safety**: Direct use of gov-tracker TypeScript types
+
+## Architecture
+
+- **lib/calldata/index.ts**: Direct re-exports from gov-tracker
+- **lib/tenderly/gov-tracker-simulation.ts**: Uses gov-tracker's `extractAllSimulationsFromDecoded`
+- **UI Components**: Compute display fields (link, chainLabel) on-the-fly when rendering
 
 ## Migration Notes
 
-### Breaking Changes
+### Removed
 
-- **`formatDecodedValue` behavior**: The function now returns `"undefined"` (string) instead of `"null"` when the value is `undefined`. This is due to gov-tracker's implementation which uses `String(value)` for conversion. If your code depends on checking for the string `"null"`, you may need to update it to also check for `"undefined"`.
-
-  ```typescript
-  // Before (old behavior)
-  if (formattedValue === "null") {
-    /* ... */
-  }
-
-  // After (new behavior with gov-tracker)
-  if (formattedValue === "null" || formattedValue === "undefined") {
-    /* ... */
-  }
-  ```
+- **decoder-wrapper.ts**: Removed the compatibility wrapper that added UI-specific fields
+- **EnrichedDecodedCalldata/EnrichedDecodedParameter**: UI-specific type extensions removed
+- UI components now compute `link` and `chainLabel` on-the-fly when rendering
 
 ### Non-Breaking Changes
 
-- The `decodeCalldata` function has the same signature but now returns enriched data with `link` and `chainLabel` fields for address parameters
+- The `decodeCalldata` function signature remains the same
 - All other APIs remain backward compatible
+- Existing simulation functions continue to work

@@ -1,9 +1,15 @@
 "use client";
 
+import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 import { Badge } from "@components/ui/Badge";
 import { CopyableText } from "@components/ui/CopyableText";
 import { SimulationButton } from "@components/ui/SimulationButton";
-import type { DecodedCalldata, DecodedParameter } from "@lib/calldata-decoder";
+import type {
+  ChainContext,
+  DecodedCalldata,
+  DecodedParameter,
+} from "@lib/calldata-decoder";
+import { getChainLabel } from "@lib/calldata-decoder";
 import {
   simulateCall,
   simulateRetryableTicket,
@@ -25,6 +31,22 @@ const TIMELOCK_CHAIN_IDS: Record<string, string> = {
   Arb1: "42161",
   Nova: "42170",
 };
+
+/**
+ * Map ChainContext to ChainType for simulations
+ */
+function chainContextToChainType(context: ChainContext): ChainType {
+  switch (context) {
+    case "ethereum":
+      return "L1";
+    case "arb1":
+      return "Arb1";
+    case "nova":
+      return "Nova";
+    default:
+      return "unknown";
+  }
+}
 
 function getChainTypeFromLabel(chainLabel?: string): ChainType {
   if (!chainLabel) return "unknown";
@@ -48,6 +70,7 @@ export interface ParameterViewProps {
   param: DecodedParameter;
   index: number;
   siblingParams?: DecodedParameter[];
+  chainContext?: ChainContext;
 }
 
 /**
@@ -57,10 +80,19 @@ export function ParameterView({
   param,
   index,
   siblingParams,
+  chainContext = "arb1",
 }: ParameterViewProps) {
   // Check if this is a bytes[] with decoded nested array
   const hasNestedArray = param.nestedArray && param.nestedArray.length > 0;
   const hasNestedSingle = param.nested && param.nested.functionName;
+
+  // Compute link and chainLabel on-the-fly for address parameters
+  const link =
+    param.type === "address"
+      ? getAddressExplorerUrl(param.value, chainContext)
+      : undefined;
+  const chainLabel =
+    param.type === "address" ? getChainLabel(chainContext) : undefined;
 
   // Render the value - either as a link or plain text
   const renderValue = () => {
@@ -73,7 +105,7 @@ export function ParameterView({
           ? `[${param.nestedArray!.length} calls]`
           : param.value;
 
-    if (param.link && param.type === "address") {
+    if (link && param.type === "address") {
       // Show label as primary text if available, address as title
       const linkText = param.addressLabel || displayValue;
       const titleText = param.addressLabel ? displayValue : undefined;
@@ -81,7 +113,7 @@ export function ParameterView({
       return (
         <span className="inline-flex items-center gap-1 flex-wrap">
           <a
-            href={param.link}
+            href={link}
             target="_blank"
             rel="noopener noreferrer"
             title={titleText}
@@ -92,9 +124,9 @@ export function ParameterView({
           >
             {linkText}
           </a>
-          {param.chainLabel && (
+          {chainLabel && (
             <Badge variant="outline" className="text-[9px] px-1 py-0">
-              {param.chainLabel}
+              {chainLabel}
             </Badge>
           )}
         </span>
@@ -131,14 +163,19 @@ export function ParameterView({
           <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 block mb-2 uppercase tracking-wide">
             Nested call
           </span>
-          <DecodedCalldataView decoded={param.nested!} isDecoding={false} />
+          <DecodedCalldataView
+            decoded={param.nested!}
+            isDecoding={false}
+            chainContext={chainContext}
+          />
           {param.nested!.functionName?.match(/^schedule(Batch)?$/) &&
             (() => {
               const targetParam = siblingParams?.find(
                 (p) => p.type === "address"
               );
               if (!targetParam || !param.value) return null;
-              const chain = getChainTypeFromLabel(targetParam.chainLabel);
+              // Compute chain type from chainContext
+              const chain = chainContextToChainType(chainContext);
               const networkId =
                 TIMELOCK_CHAIN_IDS[chain] || TIMELOCK_CHAIN_IDS.L1;
               return (
@@ -187,6 +224,7 @@ export function ParameterView({
                   <DecodedCalldataView
                     decoded={nestedCall}
                     isDecoding={false}
+                    chainContext={chainContext}
                   />
                   {nestedCall.functionName?.startsWith("Retryable Ticket") &&
                     nestedCall.parameters &&
@@ -279,6 +317,7 @@ export function ParameterView({
 export interface DecodedCalldataViewProps {
   decoded: DecodedCalldata | null;
   isDecoding: boolean;
+  chainContext?: ChainContext;
 }
 
 /**
@@ -287,6 +326,7 @@ export interface DecodedCalldataViewProps {
 export function DecodedCalldataView({
   decoded,
   isDecoding,
+  chainContext = "arb1",
 }: DecodedCalldataViewProps) {
   if (isDecoding) {
     return (
@@ -325,6 +365,7 @@ export function DecodedCalldataView({
               param={param}
               index={idx}
               siblingParams={decoded.parameters ?? undefined}
+              chainContext={chainContext}
             />
           ))}
         </div>

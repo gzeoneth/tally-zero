@@ -1,12 +1,12 @@
 /**
- * Calldata decoding module - re-exports from @gzeoneth/gov-tracker
+ * Calldata decoding module - direct exports from @gzeoneth/gov-tracker
  *
- * This module now delegates to gov-tracker for calldata decoding functionality.
- * Local implementations are kept for backward compatibility but deprecated.
+ * This module uses gov-tracker as the primary calldata decoding implementation.
  */
 
-// Import and re-export from gov-tracker
+// Direct exports from gov-tracker
 export {
+  decodeCalldata,
   decodeCalldataArray,
   formatDecodedValue,
   getAddressLabel,
@@ -17,23 +17,18 @@ export {
   parseParamTypes,
 } from "@gzeoneth/gov-tracker";
 
-// Re-export enriched decoder that adds UI-specific fields
-export { decodeCalldata } from "./decoder-wrapper";
-export type {
-  EnrichedDecodedCalldata as DecodedCalldata,
-  EnrichedDecodedParameter as DecodedParameter,
-} from "./decoder-wrapper";
-
-// Re-export types from gov-tracker type modules
+// Re-export types from gov-tracker
 export type {
   ChainContext,
+  DecodedCalldata,
+  DecodedParameter,
   RetryableTicketData,
 } from "@gzeoneth/gov-tracker/dist/types/calldata";
 
-// Keep local utilities for backward compatibility
+// Keep local utilities for backward compatibility where needed
 export { decodeParameters } from "./parameter-decoder";
 export { decodeRetryableTicket } from "./retryable-ticket";
 export { lookup4byteDirectory } from "./signature-lookup";
 
-// Export local types that are not in gov-tracker
+// Export local types
 export type { DecodedParameterWithRaw } from "./types";

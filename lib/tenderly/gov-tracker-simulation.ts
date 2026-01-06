@@ -6,9 +6,8 @@
  */
 
 import { extractAllSimulationsFromDecoded } from "@gzeoneth/gov-tracker";
-import type { DecodedCalldata as GovTrackerDecodedCalldata } from "@gzeoneth/gov-tracker/dist/types/calldata";
+import type { DecodedCalldata } from "@gzeoneth/gov-tracker/dist/types/calldata";
 import type { ExtractedSimulation } from "@gzeoneth/gov-tracker/dist/types/simulation";
-import type { EnrichedDecodedCalldata } from "@lib/calldata/decoder-wrapper";
 
 import { getSimulationLink, getTenderlySettings } from "./settings";
 import type {
@@ -17,20 +16,6 @@ import type {
   TenderlySimulationRequest,
   TenderlySimulationResponse,
 } from "./types";
-
-/**
- * Convert EnrichedDecodedCalldata to the gov-tracker compatible format
- *
- * This strips the UI-specific fields (link, chainLabel) that are not part of
- * gov-tracker's DecodedCalldata type, allowing safe passage to gov-tracker functions.
- */
-function toGovTrackerFormat(
-  decoded: EnrichedDecodedCalldata
-): GovTrackerDecodedCalldata {
-  // The enriched version extends the gov-tracker version, so it's safe to use
-  // We just need to ensure the type system knows this
-  return decoded as unknown as GovTrackerDecodedCalldata;
-}
 
 /**
  * Execute a Tenderly simulation from gov-tracker simulation data
@@ -184,15 +169,11 @@ async function executeSimulation(
  * @returns Array of simulation results
  */
 export async function simulateDecodedCalldata(
-  decoded: EnrichedDecodedCalldata,
+  decoded: DecodedCalldata,
   chainContext: "arb1" | "nova" | "ethereum" = "arb1"
 ): Promise<Array<{ label: string; result: SimulationWithLink }>> {
   // Extract all simulations from the decoded calldata
-  const govTrackerDecoded = toGovTrackerFormat(decoded);
-  const simulations = extractAllSimulationsFromDecoded(
-    govTrackerDecoded,
-    chainContext
-  );
+  const simulations = extractAllSimulationsFromDecoded(decoded, chainContext);
 
   // Execute each simulation
   const results = [];
@@ -216,9 +197,8 @@ export async function simulateDecodedCalldata(
  * manually or with other tools (e.g., Foundry).
  */
 export function getSimulationData(
-  decoded: EnrichedDecodedCalldata,
+  decoded: DecodedCalldata,
   chainContext: "arb1" | "nova" | "ethereum" = "arb1"
 ): ExtractedSimulation[] {
-  const govTrackerDecoded = toGovTrackerFormat(decoded);
-  return extractAllSimulationsFromDecoded(govTrackerDecoded, chainContext);
+  return extractAllSimulationsFromDecoded(decoded, chainContext);
 }
