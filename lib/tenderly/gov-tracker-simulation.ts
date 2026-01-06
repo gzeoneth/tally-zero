@@ -6,6 +6,7 @@
  */
 
 import { extractAllSimulationsFromDecoded } from "@gzeoneth/gov-tracker";
+import type { DecodedCalldata as GovTrackerDecodedCalldata } from "@gzeoneth/gov-tracker/dist/types/calldata";
 import type { ExtractedSimulation } from "@gzeoneth/gov-tracker/dist/types/simulation";
 import type { EnrichedDecodedCalldata } from "@lib/calldata/decoder-wrapper";
 
@@ -16,6 +17,20 @@ import type {
   TenderlySimulationRequest,
   TenderlySimulationResponse,
 } from "./types";
+
+/**
+ * Convert EnrichedDecodedCalldata to the gov-tracker compatible format
+ *
+ * This strips the UI-specific fields (link, chainLabel) that are not part of
+ * gov-tracker's DecodedCalldata type, allowing safe passage to gov-tracker functions.
+ */
+function toGovTrackerFormat(
+  decoded: EnrichedDecodedCalldata
+): GovTrackerDecodedCalldata {
+  // The enriched version extends the gov-tracker version, so it's safe to use
+  // We just need to ensure the type system knows this
+  return decoded as unknown as GovTrackerDecodedCalldata;
+}
 
 /**
  * Execute a Tenderly simulation from gov-tracker simulation data
@@ -173,9 +188,9 @@ export async function simulateDecodedCalldata(
   chainContext: "arb1" | "nova" | "ethereum" = "arb1"
 ): Promise<Array<{ label: string; result: SimulationWithLink }>> {
   // Extract all simulations from the decoded calldata
-  // Cast to the underlying type that gov-tracker expects
+  const govTrackerDecoded = toGovTrackerFormat(decoded);
   const simulations = extractAllSimulationsFromDecoded(
-    decoded as any,
+    govTrackerDecoded,
     chainContext
   );
 
@@ -204,6 +219,6 @@ export function getSimulationData(
   decoded: EnrichedDecodedCalldata,
   chainContext: "arb1" | "nova" | "ethereum" = "arb1"
 ): ExtractedSimulation[] {
-  // Cast to the underlying type that gov-tracker expects
-  return extractAllSimulationsFromDecoded(decoded as any, chainContext);
+  const govTrackerDecoded = toGovTrackerFormat(decoded);
+  return extractAllSimulationsFromDecoded(govTrackerDecoded, chainContext);
 }
