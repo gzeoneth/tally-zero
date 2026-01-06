@@ -22,6 +22,7 @@ import {
   clearCachedTimelockResult,
   loadUnifiedStages,
   needsRefresh,
+  trimUnifiedCacheFromIndex,
 } from "@/lib/unified-cache";
 import type {
   ProposalStage,
@@ -309,31 +310,52 @@ export function useProposalStages({
     (stageIndex: number) => {
       if (!proposalId || !governorAddress) return;
 
-      // Clear proposal cache
-      clearCachedStages(proposalId, governorAddress);
+      // Trim cache from the specified stage index
+      // This removes all stages including and after stageIndex
+      const trimmed = trimUnifiedCacheFromIndex(
+        proposalId,
+        governorAddress,
+        stageIndex
+      );
 
-      // Also clear timelock cache if we have a timelockLink
-      const session = trackerManager.getSession(proposalId, governorAddress);
-      const existingResult = session?.result;
-      if (existingResult?.timelockLink) {
-        clearCachedTimelockResult(
-          existingResult.timelockLink.txHash,
-          existingResult.timelockLink.operationId
-        );
+      // If nothing was trimmed (no cache), clear everything as fallback
+      if (!trimmed) {
+        clearCachedStages(proposalId, governorAddress);
+        const session = trackerManager.getSession(proposalId, governorAddress);
+        const existingResult = session?.result;
+        if (existingResult?.timelockLink) {
+          clearCachedTimelockResult(
+            existingResult.timelockLink.txHash,
+            existingResult.timelockLink.operationId
+          );
+        }
       }
 
       // Abort any existing tracking
       trackerManager.abortTracking(proposalId, governorAddress);
 
-      // gov-tracker always tracks from the beginning, so just reset and restart
+      // Load the trimmed cache to get the updated stages
+      const cacheTtlMs = getStoredCacheTtlMs();
+      const unifiedResult = loadUnifiedStages(
+        proposalId,
+        governorAddress,
+        cacheTtlMs
+      );
+
+      // Update session with trimmed stages (keep what we have)
       trackerManager.updateSession(proposalId, governorAddress, {
-        stages: [],
-        currentStageIndex: -1,
+        stages: unifiedResult.stages,
+        currentStageIndex:
+          unifiedResult.stages.length > 0
+            ? unifiedResult.stages.length - 1
+            : -1,
         status: "idle",
-        result: null,
+        result: unifiedResult.proposalResult,
         error: null,
         queuePosition: null,
       });
+
+      // Start tracking to re-discover the removed stages
       trackerManager.requestTracking(proposalId, governorAddress, () =>
         startTracking()
       );
