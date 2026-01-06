@@ -85,19 +85,22 @@ export function getCompletionStatus(
     return lastStage.status === "COMPLETED" ? "completed" : "incomplete";
   }
 
-  // Check if the expected final stage exists and is COMPLETED or SKIPPED
-  // SKIPPED means the stage doesn't apply (e.g., no retryable for Core proposals)
+  // Check if the expected final stage is COMPLETED
   const finalStage = stages.find((s) => s.type === expectedFinalStage);
-  if (finalStage?.status === "COMPLETED" || finalStage?.status === "SKIPPED") {
+  if (finalStage?.status === "COMPLETED") {
     return "completed";
   }
 
-  // Check if there's a SKIPPED stage in the middle of the sequence
-  // This indicates the remaining flow doesn't apply (e.g., L2-only execution)
-  // Find the last COMPLETED stage as the effective completion point
+  // Check if any stage is SKIPPED in the sequence
+  // SKIPPED means that stage doesn't apply, and subsequent stages won't happen
+  // In this case, find the last COMPLETED stage as the effective completion point
+  // This handles:
+  // - Final stage SKIPPED (e.g., no retryable needed)
+  // - Mid-sequence SKIPPED (e.g., L2-only execution skipping L1 stages)
+  // - Any other SKIPPED stage indicating a shortened execution path
   const hasSkippedStage = stages.some((s) => s.status === "SKIPPED");
   if (hasSkippedStage) {
-    // Find the last COMPLETED stage before the skipped flow
+    // Find the last COMPLETED stage - this is where execution actually ended
     for (let i = stages.length - 1; i >= 0; i--) {
       if (stages[i].status === "COMPLETED") {
         return "completed";
