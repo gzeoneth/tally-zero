@@ -165,6 +165,19 @@ describe("stages-cache", () => {
       );
     });
 
+    it("returns true for defeated proposal with NOT_STARTED stages after FAILED", () => {
+      // Bug fix: defeated proposals can have NOT_STARTED stages after the FAILED stage
+      const stages: ProposalStage[] = [
+        createStage("PROPOSAL_CREATED", "COMPLETED"),
+        createStage("VOTING_ACTIVE", "FAILED"),
+        createStage("PROPOSAL_QUEUED", "NOT_STARTED"),
+      ];
+      expect(hasReachedFinalStage(stages, CORE_GOVERNOR_ADDRESS)).toBe(true);
+      expect(hasReachedFinalStage(stages, TREASURY_GOVERNOR_ADDRESS)).toBe(
+        true
+      );
+    });
+
     it("handles unknown governor with basic completion", () => {
       const unknownGovernor = "0x1234567890123456789012345678901234567890";
       const stages: ProposalStage[] = [
