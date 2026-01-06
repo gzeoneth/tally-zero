@@ -83,19 +83,10 @@ export function getCompletionStatus(
     return lastStage.status === "COMPLETED" ? "completed" : "incomplete";
   }
 
-  // Check if the expected final stage exists and is COMPLETED or READY
-  // READY is considered complete for background refresh purposes
-  // (e.g., partial retryable redemptions won't change without manual intervention)
+  // Check if the expected final stage exists and is COMPLETED
   const finalStage = stages.find((s) => s.type === expectedFinalStage);
-  if (finalStage) {
-    if (finalStage.status === "COMPLETED") {
-      return "completed";
-    }
-    // If final stage exists but is READY, consider it complete
-    // to stop background refresh (e.g., 2/4 retryables redeemed)
-    if (finalStage.status === "READY") {
-      return "completed";
-    }
+  if (finalStage?.status === "COMPLETED") {
+    return "completed";
   }
 
   return "incomplete";

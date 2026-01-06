@@ -218,7 +218,13 @@ export function useProposalStages({
         // Track by transaction hash
         const results = await tracker.trackByTxHash(creationTxHash);
 
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted) {
+          // Clear background refresh flag on abort
+          trackerManager.updateSession(proposalId, governorAddress, {
+            isBackgroundRefreshing: false,
+          });
+          return;
+        }
 
         // Use first result (governor proposals return single result)
         const trackingResult = results[0];
@@ -271,7 +277,13 @@ export function useProposalStages({
           }
         }
       } catch (err) {
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted) {
+          // Clear background refresh flag on abort
+          trackerManager.updateSession(proposalId, governorAddress, {
+            isBackgroundRefreshing: false,
+          });
+          return;
+        }
         trackerManager.trackingFinished(proposalId, governorAddress);
 
         trackerManager.updateSession(proposalId, governorAddress, {
