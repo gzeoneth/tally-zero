@@ -148,7 +148,7 @@ export function useUrlState(): UseUrlStateResult {
         if (options?.replace) {
           // Replace current history entry (for closing modals - back button goes to previous page)
           window.history.replaceState(
-            null,
+            {},
             "",
             newHash ? baseUrl + newHash : baseUrl
           );
@@ -157,7 +157,7 @@ export function useUrlState(): UseUrlStateResult {
           window.location.hash = newHash;
         } else {
           // When clearing hash without replace option, use replaceState to avoid double back
-          window.history.replaceState(null, "", baseUrl);
+          window.history.replaceState({}, "", baseUrl);
         }
       }
 

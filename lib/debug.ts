@@ -92,10 +92,10 @@ function createWrappedLogger(namespace: string): DebugLogger {
   // In browser, wrap to check our settings on each call
   const wrappedLogger = (formatter: string, ...args: unknown[]) => {
     if (isBrowserDebugEnabled()) {
-      // Temporarily enable this namespace for logging
+      // Temporarily enable this namespace and gov-tracker for logging
       const prevEnabled = createDebug.enabled(namespace);
       if (!prevEnabled) {
-        createDebug.enable(namespace);
+        createDebug.enable("gov-tracker:*,tally:*");
       }
       baseLogger(formatter, ...args);
       if (!prevEnabled) {
@@ -158,9 +158,12 @@ export function enableDebugLogging(): void {
 
   try {
     localStorage.setItem(STORAGE_KEYS.DEBUG_LOGGING, "true");
+    // Enable gov-tracker debugging
+    createDebug.enable("gov-tracker:*,tally:*");
     console.log(
       "[TallyZero] Debug logging enabled. Namespaces:",
-      Object.keys(debug).join(", ")
+      Object.keys(debug).join(", "),
+      "+ gov-tracker:*"
     );
   } catch {
     // Storage unavailable
@@ -175,6 +178,8 @@ export function disableDebugLogging(): void {
 
   try {
     localStorage.removeItem(STORAGE_KEYS.DEBUG_LOGGING);
+    // Disable all debug namespaces
+    createDebug.disable();
     console.log("[TallyZero] Debug logging disabled.");
   } catch {
     // Storage unavailable

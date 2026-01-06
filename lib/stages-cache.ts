@@ -9,6 +9,7 @@ import {
   DEFAULT_CACHE_TTL_MS,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
+import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import type {
   ProposalStage,
   ProposalTrackingResult,
@@ -16,7 +17,6 @@ import type {
 } from "@/types/proposal-stage";
 import { MS_PER_DAY } from "./date-utils";
 import { debug, isBrowser } from "./debug";
-import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import { seedTimelockFromCache } from "./unified-cache";
 
 /** Maximum age for tracking (60 days after proposal creation) */
@@ -83,10 +83,19 @@ export function getCompletionStatus(
     return lastStage.status === "COMPLETED" ? "completed" : "incomplete";
   }
 
-  // Check if the expected final stage exists and is COMPLETED
+  // Check if the expected final stage exists and is COMPLETED or READY
+  // READY is considered complete for background refresh purposes
+  // (e.g., partial retryable redemptions won't change without manual intervention)
   const finalStage = stages.find((s) => s.type === expectedFinalStage);
-  if (finalStage?.status === "COMPLETED") {
-    return "completed";
+  if (finalStage) {
+    if (finalStage.status === "COMPLETED") {
+      return "completed";
+    }
+    // If final stage exists but is READY, consider it complete
+    // to stop background refresh (e.g., 2/4 retryables redeemed)
+    if (finalStage.status === "READY") {
+      return "completed";
+    }
   }
 
   return "incomplete";
