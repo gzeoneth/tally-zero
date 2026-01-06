@@ -199,7 +199,7 @@ describe("calldata-decoder", () => {
     });
 
     it("handles undefined", () => {
-      expect(formatDecodedValue(undefined, "uint256")).toBe("null");
+      expect(formatDecodedValue(undefined, "uint256")).toBe("undefined");
     });
 
     it("converts other types to string", () => {

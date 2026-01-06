@@ -18,6 +18,11 @@ export {
   simulateTransaction,
 } from "./simulation";
 export { simulateTimelockBatch } from "./timelock-simulation";
+// New: Export gov-tracker based simulation
+export {
+  getSimulationData,
+  simulateDecodedCalldata,
+} from "./gov-tracker-simulation";
 export type {
   ChainType,
   SimulationResult,
