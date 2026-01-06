@@ -142,6 +142,22 @@ describe("stages-cache", () => {
         ];
         expect(hasReachedFinalStage(stages, CORE_GOVERNOR_ADDRESS)).toBe(true);
       });
+
+      it("returns true for L2-only proposal when L2_TO_L1_MESSAGE is SKIPPED", () => {
+        // L2-only executions have L2_TO_L1_MESSAGE marked as SKIPPED
+        // Subsequent stages (L1_TIMELOCK, RETRYABLE_EXECUTED) may be NOT_STARTED
+        // Should be considered complete at L2_TIMELOCK
+        const stages: ProposalStage[] = [
+          createStage("PROPOSAL_CREATED", "COMPLETED"),
+          createStage("VOTING_ACTIVE", "COMPLETED"),
+          createStage("PROPOSAL_QUEUED", "COMPLETED"),
+          createStage("L2_TIMELOCK", "COMPLETED"),
+          createStage("L2_TO_L1_MESSAGE", "SKIPPED"),
+          createStage("L1_TIMELOCK", "NOT_STARTED"),
+          createStage("RETRYABLE_EXECUTED", "NOT_STARTED"),
+        ];
+        expect(hasReachedFinalStage(stages, CORE_GOVERNOR_ADDRESS)).toBe(true);
+      });
     });
 
     describe("Treasury Governor", () => {
