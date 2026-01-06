@@ -1,21 +1,26 @@
+/**
+ * Tests for @gzeoneth/gov-tracker integration
+ * Verifies that gov-tracker functions work correctly in our environment
+ */
+
 import { ethers } from "ethers";
 import { describe, expect, it } from "vitest";
 import {
   decodeRetryableTicket,
   formatDecodedValue,
+  getAddressExplorerUrl,
   getAddressLabel,
   getChainLabel,
   isLikelyCalldata,
   isRetryableTicketMagic,
   lookupLocalSignature,
-} from "./calldata-decoder";
-import { getAddressExplorerUrl } from "./explorer-utils";
+} from "@gzeoneth/gov-tracker";
 
 const RETRYABLE_TICKET_MAGIC = "0xa723c008e76e379c55599d2e4d93879beafda79c";
 const ARB1_INBOX = "0x4dbd4fc535ac27206064b68ffcf827b0a60bab3f";
 const NOVA_INBOX = "0xc4448b71118c9071bcb9734a0eac55d18a153949";
 
-describe("calldata-decoder", () => {
+describe("gov-tracker integration", () => {
   describe("getAddressExplorerUrl", () => {
     it("returns arbiscan URL for arb1", () => {
       const address = "0x1234567890123456789012345678901234567890";
@@ -199,7 +204,8 @@ describe("calldata-decoder", () => {
     });
 
     it("handles undefined", () => {
-      expect(formatDecodedValue(undefined, "uint256")).toBe("null");
+      // gov-tracker returns "undefined" for undefined values
+      expect(formatDecodedValue(undefined, "uint256")).toBe("undefined");
     });
 
     it("converts other types to string", () => {

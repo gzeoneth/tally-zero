@@ -254,28 +254,23 @@ export function useProposalStages({
 
         saveCachedStages(proposalId, governorAddress, proposalResult);
 
-        // gov-tracker stores votes as strings, emit vote update
+        // Emit vote update using raw values from gov-tracker
         const votingStage = proposalResult.stages.find(
           (s) => s.type === "VOTING_ACTIVE"
         );
-        const forVotesStr = votingStage?.data?.forVotes as string | undefined;
-        if (forVotesStr) {
-          try {
-            const { ethers } = await import("ethers");
-            const againstVotesStr =
-              (votingStage?.data?.againstVotes as string) || "0";
-            const abstainVotesStr =
-              (votingStage?.data?.abstainVotes as string) || "0";
-            emitVoteUpdate({
-              proposalId,
-              governorAddress,
-              forVotes: ethers.utils.parseEther(forVotesStr).toString(),
-              againstVotes: ethers.utils.parseEther(againstVotesStr).toString(),
-              abstainVotes: ethers.utils.parseEther(abstainVotesStr).toString(),
-            });
-          } catch {
-            // If conversion fails, skip the update
-          }
+        const forVotesRaw = votingStage?.data?.forVotesRaw as
+          | string
+          | undefined;
+        if (forVotesRaw) {
+          emitVoteUpdate({
+            proposalId,
+            governorAddress,
+            forVotes: forVotesRaw,
+            againstVotes:
+              (votingStage?.data?.againstVotesRaw as string) || "0",
+            abstainVotes:
+              (votingStage?.data?.abstainVotesRaw as string) || "0",
+          });
         }
       } catch (err) {
         if (abortController.signal.aborted) {

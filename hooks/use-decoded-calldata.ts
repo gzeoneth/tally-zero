@@ -3,8 +3,9 @@
  * Parses calldata into human-readable function calls and parameters
  */
 
+import type { DecodedCalldata } from "@gzeoneth/gov-tracker";
+import { decodeCalldata } from "@gzeoneth/gov-tracker";
 import { getErrorMessage } from "@/lib/error-utils";
-import { decodeCalldata, type DecodedCalldata } from "@lib/calldata-decoder";
 import { useCallback, useEffect, useState } from "react";
 
 /** Options for configuring calldata decoding */
