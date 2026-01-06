@@ -42,7 +42,7 @@ export const DEFAULT_TENDERLY_ORG = "ORG";
 export const DEFAULT_TENDERLY_PROJECT = "PROJECT";
 
 /** Current cache schema version for migration detection */
-export const CACHE_VERSION = 1;
+export const CACHE_VERSION = 2;
 
 /** Default cache time-to-live in milliseconds */
 export const DEFAULT_CACHE_TTL_MS = MS_PER_HOUR;
