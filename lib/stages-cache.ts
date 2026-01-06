@@ -68,12 +68,14 @@ export function getCompletionStatus(
 ): CompletionStatus {
   if (!stages || stages.length === 0) return "pending";
 
-  const lastStage = stages[stages.length - 1];
-
-  // Failed proposals are complete (defeated, canceled, expired)
-  if (lastStage.status === "FAILED") {
+  // Check if any stage has failed (defeated, canceled, expired)
+  // A failed stage can appear anywhere in the stages array, not just at the end
+  const hasFailedStage = stages.some((s) => s.status === "FAILED");
+  if (hasFailedStage) {
     return "failed";
   }
+
+  const lastStage = stages[stages.length - 1];
 
   // Check if we've reached the expected final stage for this governor
   const expectedFinalStage = getFinalStageForGovernor(governorAddress);
