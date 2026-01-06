@@ -14,12 +14,21 @@ import type { ProposalStage } from "@/types/proposal-stage";
 
 /**
  * Format a stage name from UPPER_SNAKE_CASE to Title Case
- * Uses gov-tracker's formatStageTitle for consistent formatting
+ * Uses gov-tracker's formatStageTitle for known stage types
+ * Falls back to basic formatting for UI strings like "Starting..."
  * @param stageName - The stage name in UPPER_SNAKE_CASE (e.g., "VOTING_ACTIVE")
  * @returns Formatted stage name (e.g., "Voting Active")
  */
 export function formatStageName(stageName: string): string {
-  return formatStageTitle(stageName as StageType);
+  try {
+    return formatStageTitle(stageName as StageType);
+  } catch {
+    // Fallback for UI strings that aren't valid stage types (e.g., "Starting...")
+    return stageName
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
 }
 
 /**
