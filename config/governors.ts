@@ -46,7 +46,7 @@ const CORE_GOVERNOR_CONFIG: GovernorConfig = {
   l1TimelockAddress: "0xE6841D92B0C345144506576eC13ECf5103aC7f49",
   l1TimelockDelay: "3 days",
   hasL1Timelock: true,
-  finalStage: "RETRYABLE_REDEEMED",
+  finalStage: "RETRYABLE_EXECUTED",
 };
 
 const TREASURY_GOVERNOR_CONFIG: GovernorConfig = {
@@ -60,7 +60,7 @@ const TREASURY_GOVERNOR_CONFIG: GovernorConfig = {
   l1TimelockAddress: null,
   l1TimelockDelay: null,
   hasL1Timelock: false,
-  finalStage: "L2_TIMELOCK_EXECUTED",
+  finalStage: "L2_TIMELOCK",
 };
 
 export const GOVERNORS: Record<GovernorType, GovernorConfig> = {

@@ -3,7 +3,7 @@
  *
  * This module provides a unified view of proposal stages by combining:
  * - Proposal cache: stages 1-3 (PROPOSAL_CREATED, VOTING_ACTIVE, PROPOSAL_QUEUED)
- * - Timelock cache: stages 4-10 (L2_TIMELOCK_EXECUTED through RETRYABLE_REDEEMED)
+ * - Timelock cache: stages 4-10 (L2_TIMELOCK through RETRYABLE_EXECUTED)
  *
  * When a proposal reaches PROPOSAL_QUEUED, a timelockLink is created that
  * references the timelock operation cache. This allows:
@@ -18,16 +18,17 @@ import {
   DEFAULT_CACHE_TTL_MS,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
+import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import type {
   ProposalStage,
   ProposalTrackingResult,
   TimelockLink,
 } from "@/types/proposal-stage";
 import { debug, isBrowser } from "./debug";
-import { type TimelockTrackingResult } from "./stage-tracker/timelock-operation-tracker";
 import {
   getCacheKey,
   getCompletionStatus,
+  trimCachedStagesFromIndex,
   type CachedStagesResult,
   type CompletionStatus,
 } from "./stages-cache";
@@ -401,3 +402,126 @@ export function hasTimelockCache(txHash: string, operationId: string): boolean {
  * Re-exported for convenience
  */
 export { getFinalStageForGovernor };
+
+/**
+ * Trim timelock cached stages from a specific index onwards
+ *
+ * @param txHash - The queue transaction hash
+ * @param operationId - The timelock operation ID
+ * @param fromIndex - Index to start trimming from (inclusive, relative to timelock stages)
+ * @returns True if stages were trimmed, false if nothing to trim
+ */
+export function trimTimelockCacheFromIndex(
+  txHash: string,
+  operationId: string,
+  fromIndex: number
+): boolean {
+  if (!isBrowser) return false;
+
+  try {
+    const key = getTimelockCacheKey(txHash, operationId);
+    const cached = localStorage.getItem(key);
+    if (!cached) return false;
+
+    const parsed: CachedTimelockResult = JSON.parse(cached);
+    if (parsed.version !== CACHE_VERSION) return false;
+
+    // Trim stages from the specified index
+    const trimmedStages = parsed.result.stages.slice(0, fromIndex);
+
+    // If no stages left, clear the cache entirely
+    if (trimmedStages.length === 0) {
+      clearCachedTimelockResult(txHash, operationId);
+      return true;
+    }
+
+    // Update the cached result with trimmed stages
+    const updatedResult: TimelockTrackingResult = {
+      ...parsed.result,
+      stages: trimmedStages,
+    };
+
+    // Save back to localStorage
+    const updatedCache: CachedTimelockResult = {
+      version: CACHE_VERSION,
+      timestamp: Date.now(), // Update timestamp to mark as fresh
+      result: updatedResult,
+    };
+
+    localStorage.setItem(key, JSON.stringify(updatedCache));
+    debug.cache(
+      "trimmed timelock stages from index %d for %s",
+      fromIndex,
+      txHash
+    );
+    return true;
+  } catch (err) {
+    debug.cache("failed to trim timelock stages for %s: %O", txHash, err);
+    return false;
+  }
+}
+
+/**
+ * Trim unified cache from a specific stage index
+ *
+ * This handles trimming across both proposal and timelock caches.
+ * The stageIndex is relative to the unified stages array.
+ *
+ * Stage mapping:
+ * - Indices 0-2: Proposal cache (PROPOSAL_CREATED, VOTING_ACTIVE, PROPOSAL_QUEUED)
+ * - Indices 3+: Timelock cache (L2_TIMELOCK onwards)
+ *
+ * @param proposalId - The proposal ID
+ * @param governorAddress - The governor contract address
+ * @param unifiedStageIndex - Index in the unified stages array to trim from (inclusive)
+ * @returns True if any cache was trimmed
+ */
+export function trimUnifiedCacheFromIndex(
+  proposalId: string,
+  governorAddress: string,
+  unifiedStageIndex: number
+): boolean {
+  if (!isBrowser) return false;
+
+  // Load current unified cache to get timelockLink
+  const unifiedResult = loadUnifiedStages(proposalId, governorAddress);
+
+  let trimmed = false;
+
+  // Determine which cache(s) to trim based on the index
+  // Proposal cache has stages 0-2 (PROPOSAL_CREATED, VOTING_ACTIVE, PROPOSAL_QUEUED)
+  const PROPOSAL_STAGES_COUNT = 3;
+
+  if (unifiedStageIndex < PROPOSAL_STAGES_COUNT) {
+    // Trimming within proposal cache - also clear timelock cache
+    trimmed =
+      trimCachedStagesFromIndex(
+        proposalId,
+        governorAddress,
+        unifiedStageIndex
+      ) || trimmed;
+
+    // Clear timelock cache completely since we're before it
+    if (unifiedResult.timelockLink) {
+      clearCachedTimelockResult(
+        unifiedResult.timelockLink.txHash,
+        unifiedResult.timelockLink.operationId
+      );
+      trimmed = true;
+    }
+  } else {
+    // Trimming within timelock cache - keep proposal cache intact
+    const timelockIndex = unifiedStageIndex - PROPOSAL_STAGES_COUNT;
+
+    if (unifiedResult.timelockLink) {
+      trimmed =
+        trimTimelockCacheFromIndex(
+          unifiedResult.timelockLink.txHash,
+          unifiedResult.timelockLink.operationId,
+          timelockIndex
+        ) || trimmed;
+    }
+  }
+
+  return trimmed;
+}

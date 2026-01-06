@@ -1,97 +1,53 @@
 /**
  * Types for Arbitrum Governance Proposal Stage Tracking
- */
-
-/**
- * Configuration for block range chunking when searching for events
- */
-export interface ChunkingConfig {
-  /** Maximum blocks per query for L2 (Arbitrum) */
-  l2ChunkSize: number;
-  /** Maximum blocks per query for L1 (Ethereum) */
-  l1ChunkSize: number;
-  /** Delay between chunk queries (ms) to avoid rate limiting */
-  delayBetweenChunks: number;
-}
-
-/**
- * Status of a proposal stage
- */
-export type StageStatus = "NOT_STARTED" | "PENDING" | "COMPLETED" | "FAILED";
-
-/**
- * Types of proposal stages in Arbitrum governance lifecycle
- */
-export type StageType =
-  | "PROPOSAL_CREATED"
-  | "VOTING_ACTIVE"
-  | "PROPOSAL_QUEUED"
-  | "L2_TIMELOCK_EXECUTED"
-  | "L2_TO_L1_MESSAGE_SENT"
-  | "L2_TO_L1_MESSAGE_CONFIRMED"
-  | "L1_TIMELOCK_QUEUED"
-  | "L1_TIMELOCK_EXECUTED"
-  | "RETRYABLE_CREATED"
-  | "RETRYABLE_REDEEMED";
-
-/**
- * Chain identifier
- */
-export type ChainType = "L1" | "L2";
-
-/**
- * Represents a transaction associated with a stage
- */
-export interface StageTransaction {
-  hash: string;
-  blockNumber: number;
-  timestamp?: number;
-  chain: ChainType;
-  /** Target L2 chain for retryable tickets (Arb1 or Nova) */
-  targetChain?: "Arb1" | "Nova";
-}
-
-/**
- * Represents a single stage in the proposal lifecycle
- */
-export interface ProposalStage {
-  type: StageType;
-  status: StageStatus;
-  transactions: StageTransaction[];
-  /** Additional stage-specific data */
-  data?: Record<string, unknown>;
-}
-
-/**
- * Link from proposal cache to timelock operation cache
  *
- * When a proposal is queued in the L2 timelock, we extract the timelock
- * operation info and store it as a link. Stages 4-10 are then stored in
- * the timelock cache and resolved at read time.
+ * These types are aligned with @gzeoneth/gov-tracker package.
+ * The stage types are consolidated:
+ * - L2_TIMELOCK: consolidated L2 timelock stage
+ * - L2_TO_L1_MESSAGE: consolidated cross-chain message stage
+ * - L1_TIMELOCK: consolidated L1 timelock stage
+ * - RETRYABLE_EXECUTED: consolidated retryable ticket stage
  */
-export interface TimelockLink {
-  /** The L2 queue transaction hash (contains CallScheduled/ProposalQueued) */
-  txHash: string;
-  /** The operation ID (keccak256 of proposal parameters) */
-  operationId: string;
-  /** The L2 timelock address */
-  timelockAddress: string;
-  /** Block number where the operation was queued */
-  queueBlockNumber: number;
-}
+
+// Re-export types from @gzeoneth/gov-tracker for consistency
+export type {
+  ChunkingConfig,
+  StageStatus,
+  StageType,
+  ChainType,
+  TrackedStage as ProposalStage,
+  StageTransaction,
+  StageTiming,
+  TrackedStageData as StageData,
+  TimelockLink,
+  TrackingResult,
+  TrackingCheckpoint,
+  TrackerOptions,
+  OnProgressCallback,
+} from "@gzeoneth/gov-tracker";
+
+/**
+ * Target chain for retryable tickets
+ */
+export type TargetChainType = "Arb1" | "Nova";
 
 /**
  * Complete proposal tracking result
+ * Extended from gov-tracker TrackingResult for UI compatibility
  */
 export interface ProposalTrackingResult {
   proposalId: string;
   creationTxHash: string;
   governorAddress: string;
-  stages: ProposalStage[];
+  stages: import("@gzeoneth/gov-tracker").TrackedStage[];
   /** Current overall proposal state from governor contract */
   currentState?: string;
-  /** Link to timelock cache for stages 4-10 (present after PROPOSAL_QUEUED completes) */
-  timelockLink?: TimelockLink;
+  /** Link to timelock cache for stages 4-7 (present after PROPOSAL_QUEUED completes) */
+  timelockLink?: import("@gzeoneth/gov-tracker").TimelockLink;
+  /** Whether tracking is complete */
+  isComplete?: boolean;
+  /** Proposal type (constitutional, non-constitutional, election) */
+  proposalType?: import("@gzeoneth/gov-tracker").ProposalType;
 }
 
 /**
@@ -105,5 +61,5 @@ export interface TrackProposalParams {
   governorAddress?: string;
   l2TimelockAddress?: string;
   l1TimelockAddress?: string;
-  chunkingConfig?: Partial<ChunkingConfig>;
+  chunkingConfig?: Partial<import("@gzeoneth/gov-tracker").ChunkingConfig>;
 }

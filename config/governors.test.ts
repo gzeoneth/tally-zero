@@ -25,7 +25,7 @@ describe("governors config", () => {
       expect(core.name).toBe("Core Governor");
       expect(core.hasL1Timelock).toBe(true);
       expect(core.l1TimelockAddress).not.toBeNull();
-      expect(core.finalStage).toBe("RETRYABLE_REDEEMED");
+      expect(core.finalStage).toBe("RETRYABLE_EXECUTED");
     });
 
     it("treasury governor has correct properties", () => {
@@ -34,7 +34,7 @@ describe("governors config", () => {
       expect(treasury.name).toBe("Treasury Governor");
       expect(treasury.hasL1Timelock).toBe(false);
       expect(treasury.l1TimelockAddress).toBeNull();
-      expect(treasury.finalStage).toBe("L2_TIMELOCK_EXECUTED");
+      expect(treasury.finalStage).toBe("L2_TIMELOCK");
     });
   });
 
@@ -143,15 +143,15 @@ describe("governors config", () => {
   });
 
   describe("getFinalStageForGovernor", () => {
-    it("returns RETRYABLE_REDEEMED for core governor", () => {
+    it("returns RETRYABLE_EXECUTED for core governor", () => {
       expect(getFinalStageForGovernor(GOVERNORS.core.address)).toBe(
-        "RETRYABLE_REDEEMED"
+        "RETRYABLE_EXECUTED"
       );
     });
 
-    it("returns L2_TIMELOCK_EXECUTED for treasury governor", () => {
+    it("returns L2_TIMELOCK for treasury governor", () => {
       expect(getFinalStageForGovernor(GOVERNORS.treasury.address)).toBe(
-        "L2_TIMELOCK_EXECUTED"
+        "L2_TIMELOCK"
       );
     });
 

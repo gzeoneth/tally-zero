@@ -2,12 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CACHE_VERSION, STORAGE_KEYS } from "@/config/storage-keys";
 import { MS_PER_HOUR, MS_PER_SECOND } from "@/lib/date-utils";
-import type { ProposalStage, TimelockLink } from "@/types/proposal-stage";
-
 import type {
   TimelockOperationInfo,
   TimelockTrackingResult,
-} from "./stage-tracker/timelock-operation-tracker";
+} from "@/hooks/use-timelock-operation";
+import type { ProposalStage, TimelockLink } from "@/types/proposal-stage";
 import {
   clearCachedTimelockResult,
   getRefreshNeeds,
@@ -26,7 +25,7 @@ function createMockStage(
   type: ProposalStage["type"],
   status: ProposalStage["status"]
 ): ProposalStage {
-  return { type, status, transactions: [] };
+  return { type, status, chain: "L2", data: {}, transactions: [] };
 }
 
 // Helper to create minimal mock operation info
@@ -119,7 +118,7 @@ describe("unified-cache", () => {
   describe("saveCachedTimelockResult", () => {
     it("saves result to localStorage", () => {
       const result = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+        createMockStage("L2_TIMELOCK", "COMPLETED"),
       ]);
 
       saveCachedTimelockResult("0x123", "0x456", result);
@@ -144,7 +143,7 @@ describe("unified-cache", () => {
 
     it("loads cached result", () => {
       const cachedResult = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+        createMockStage("L2_TIMELOCK", "COMPLETED"),
       ]);
       const cached = {
         version: CACHE_VERSION,
@@ -232,7 +231,7 @@ describe("unified-cache", () => {
         version: CACHE_VERSION,
         timestamp: Date.now(),
         result: createMockTimelockResult([
-          createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+          createMockStage("L2_TIMELOCK", "COMPLETED"),
         ]),
       };
       const key = getTimelockCacheKey("0x123", "0x456");
@@ -246,7 +245,7 @@ describe("unified-cache", () => {
         version: CACHE_VERSION - 1,
         timestamp: Date.now(),
         result: createMockTimelockResult([
-          createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+          createMockStage("L2_TIMELOCK", "COMPLETED"),
         ]),
       };
       const key = getTimelockCacheKey("0x123", "0x456");
@@ -259,7 +258,7 @@ describe("unified-cache", () => {
   describe("seedTimelockFromCache", () => {
     it("seeds cache when empty", () => {
       const result = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+        createMockStage("L2_TIMELOCK", "COMPLETED"),
       ]);
 
       const seeded = seedTimelockFromCache("0x123", "0x456", result);
@@ -273,15 +272,15 @@ describe("unified-cache", () => {
         version: CACHE_VERSION,
         timestamp: Date.now(),
         result: createMockTimelockResult([
-          createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
-          createMockStage("L2_TO_L1_MESSAGE_SENT", "COMPLETED"),
+          createMockStage("L2_TIMELOCK", "COMPLETED"),
+          createMockStage("L2_TO_L1_MESSAGE", "COMPLETED"),
         ]),
       };
       const key = getTimelockCacheKey("0x123", "0x456");
       mockStorage[key] = JSON.stringify(existing);
 
       const newResult = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+        createMockStage("L2_TIMELOCK", "COMPLETED"),
       ]);
 
       const seeded = seedTimelockFromCache("0x123", "0x456", newResult);
@@ -291,7 +290,7 @@ describe("unified-cache", () => {
 
     it("uses provided trackedAt timestamp", () => {
       const result = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
+        createMockStage("L2_TIMELOCK", "COMPLETED"),
       ]);
 
       seedTimelockFromCache(
@@ -508,8 +507,8 @@ describe("unified-cache", () => {
         version: CACHE_VERSION,
         timestamp: Date.now(),
         result: createMockTimelockResult([
-          createMockStage("L2_TIMELOCK_EXECUTED", "COMPLETED"),
-          createMockStage("L2_TO_L1_MESSAGE_SENT", "PENDING"),
+          createMockStage("L2_TIMELOCK", "COMPLETED"),
+          createMockStage("L2_TO_L1_MESSAGE", "PENDING"),
         ]),
       };
       mockStorage[timelockKey] = JSON.stringify(timelockCache);
@@ -518,7 +517,7 @@ describe("unified-cache", () => {
 
       expect(result.stages).toHaveLength(5);
       expect(result.stages[0].type).toBe("PROPOSAL_CREATED");
-      expect(result.stages[3].type).toBe("L2_TIMELOCK_EXECUTED");
+      expect(result.stages[3].type).toBe("L2_TIMELOCK");
       expect(result.timelockLink).toEqual(timelockLink);
       expect(result.proposalResult).toBeDefined();
       expect(result.timelockResult).toBeDefined();
