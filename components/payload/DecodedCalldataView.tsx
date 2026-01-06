@@ -4,6 +4,7 @@ import {
   getAddressExplorerUrl,
   getAddressLabel,
   getChainLabel,
+  NETWORK_IDS,
 } from "@gzeoneth/gov-tracker";
 import { Badge } from "@components/ui/Badge";
 import { CopyableText } from "@components/ui/CopyableText";
@@ -12,7 +13,6 @@ import {
   simulateCall,
   simulateRetryableTicket,
   simulateTimelockBatch,
-  type ChainType,
 } from "@lib/tenderly";
 import { truncateMiddle } from "@lib/text-utils";
 import { cn } from "@lib/utils";
@@ -44,22 +44,6 @@ interface DecodedCalldata {
 function truncateValue(value: string, maxLength = 50): string {
   if (value.length <= maxLength) return value;
   return truncateMiddle(value, 24, 20);
-}
-
-// Chain ID mapping for timelock simulations
-const TIMELOCK_CHAIN_IDS: Record<string, string> = {
-  L1: "1",
-  Arb1: "42161",
-  Nova: "42170",
-};
-
-function getChainTypeFromLabel(chainLabel?: string): ChainType {
-  if (!chainLabel) return "unknown";
-  const label = chainLabel.toLowerCase();
-  if (label === "l1" || label === "ethereum") return "L1";
-  if (label === "arb1" || label === "arbitrum one") return "Arb1";
-  if (label === "nova" || label === "arbitrum nova") return "Nova";
-  return "unknown";
 }
 
 function parseAddressArray(value: string): string[] {
@@ -181,12 +165,6 @@ export function ParameterView({
                 (p) => p.type === "address"
               );
               if (!targetParam || !param.value) return null;
-              // Use chainContext to determine network
-              const chain = getChainTypeFromLabel(
-                getChainLabel(chainContext)
-              );
-              const networkId =
-                TIMELOCK_CHAIN_IDS[chain] || TIMELOCK_CHAIN_IDS.L1;
               return (
                 <div className="mt-2">
                   <SimulationButton
@@ -195,7 +173,7 @@ export function ParameterView({
                       simulateTimelockBatch({
                         timelockAddress: targetParam.value,
                         calldata: param.value,
-                        networkId,
+                        networkId: NETWORK_IDS[chainContext],
                       })
                     }
                   />
