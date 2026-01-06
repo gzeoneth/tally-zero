@@ -92,6 +92,19 @@ export function getCompletionStatus(
     return "completed";
   }
 
+  // Check if there's a SKIPPED stage in the middle of the sequence
+  // This indicates the remaining flow doesn't apply (e.g., L2-only execution)
+  // Find the last COMPLETED stage as the effective completion point
+  const hasSkippedStage = stages.some((s) => s.status === "SKIPPED");
+  if (hasSkippedStage) {
+    // Find the last COMPLETED stage before the skipped flow
+    for (let i = stages.length - 1; i >= 0; i--) {
+      if (stages[i].status === "COMPLETED") {
+        return "completed";
+      }
+    }
+  }
+
   return "incomplete";
 }
 
