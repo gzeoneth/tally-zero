@@ -1,19 +1,15 @@
 "use client";
 
+import { Badge } from "@components/ui/Badge";
+import { CopyableText } from "@components/ui/CopyableText";
+import { SimulationButton } from "@components/ui/SimulationButton";
 import type {
   ChainContext,
   DecodedCalldata,
   DecodedParameter,
 } from "@gzeoneth/gov-tracker";
-import {
-  getAddressExplorerUrl,
-  getAddressLabel,
-  getChainLabel,
-  NETWORK_IDS,
-} from "@gzeoneth/gov-tracker";
-import { Badge } from "@components/ui/Badge";
-import { CopyableText } from "@components/ui/CopyableText";
-import { SimulationButton } from "@components/ui/SimulationButton";
+import { getAddressLabel, NETWORK_IDS } from "@gzeoneth/gov-tracker";
+import { getAddressExplorerUrl, getChainLabel } from "@lib/explorer-utils";
 import {
   simulateCall,
   simulateRetryableTicket,
@@ -25,6 +21,24 @@ import { cn } from "@lib/utils";
 function truncateValue(value: string, maxLength = 50): string {
   if (value.length <= maxLength) return value;
   return truncateMiddle(value, 24, 20);
+}
+
+/**
+ * Get function name from decoded calldata
+ * For regular calldata, extracts function name from signature
+ * For retryable tickets, returns "Retryable Ticket"
+ */
+function getFunctionName(decoded: DecodedCalldata): string | null {
+  if (decoded.isRetryable) {
+    return `Retryable Ticket (${decoded.targetChain})`;
+  }
+  // Regular calldata - extract function name from signature
+  if (decoded.signature) {
+    const match = decoded.signature.match(/^([^(]+)/);
+    return match ? match[1] : decoded.signature;
+  }
+  // No signature available - use selector
+  return decoded.selector || null;
 }
 
 export interface ParameterViewProps {
@@ -45,7 +59,7 @@ export function ParameterView({
 }: ParameterViewProps) {
   // Check if this is a bytes[] with decoded nested array
   const hasNestedArray = param.nestedArray && param.nestedArray.length > 0;
-  const hasNestedSingle = param.nested && param.nested.functionName;
+  const hasNestedSingle = param.nested && getFunctionName(param.nested);
 
   // Compute UI metadata for addresses using gov-tracker
   const isAddress = param.type === "address";
@@ -131,7 +145,7 @@ export function ParameterView({
             isDecoding={false}
             chainContext={param.nested!.chainContext || chainContext}
           />
-          {param.nested!.functionName?.match(/^schedule(Batch)?$/) &&
+          {getFunctionName(param.nested!)?.match(/^schedule(Batch)?$/) &&
             (() => {
               const targetParam = siblingParams?.find(
                 (p) => p.type === "address"
@@ -163,7 +177,7 @@ export function ParameterView({
               key={nestedIdx}
               className={cn(
                 "pl-2 sm:pl-3 border-l-2 glass-subtle rounded-lg p-2 sm:p-3 transition-all duration-200 hover:shadow-sm",
-                nestedCall.functionName?.startsWith("Retryable Ticket")
+                getFunctionName(nestedCall)?.startsWith("Retryable Ticket")
                   ? "border-l-amber-500/50"
                   : "border-l-violet-500/50"
               )}
@@ -171,21 +185,23 @@ export function ParameterView({
               <span
                 className={cn(
                   "text-[10px] font-medium block mb-2 uppercase tracking-wide",
-                  nestedCall.functionName?.startsWith("Retryable Ticket")
+                  getFunctionName(nestedCall)?.startsWith("Retryable Ticket")
                     ? "text-amber-600 dark:text-amber-400"
                     : "text-violet-600 dark:text-violet-400"
                 )}
               >
                 Batch action [{nestedIdx}]
               </span>
-              {nestedCall.functionName ? (
+              {getFunctionName(nestedCall) ? (
                 <>
                   <DecodedCalldataView
                     decoded={nestedCall}
                     isDecoding={false}
                     chainContext={nestedCall.chainContext || chainContext}
                   />
-                  {nestedCall.functionName?.startsWith("Retryable Ticket") &&
+                  {getFunctionName(nestedCall)?.startsWith(
+                    "Retryable Ticket"
+                  ) &&
                     nestedCall.parameters &&
                     (() => {
                       const l2TargetParam = nestedCall.parameters.find(
@@ -217,7 +233,9 @@ export function ParameterView({
                       }
                       return null;
                     })()}
-                  {!nestedCall.functionName?.startsWith("Retryable Ticket") &&
+                  {!getFunctionName(nestedCall)?.startsWith(
+                    "Retryable Ticket"
+                  ) &&
                     (() => {
                       const addressArrayParam = siblingParams?.find(
                         (p) => p.type === "address[]"
@@ -302,7 +320,7 @@ export function DecodedCalldataView({
           variant="secondary"
           className="font-mono text-xs px-2.5 py-1 bg-primary/10 text-primary border-0"
         >
-          {decoded.functionName}()
+          {getFunctionName(decoded)}()
         </Badge>
         <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/50">
           {decoded.decodingSource === "local" ? "local" : "4byte"}

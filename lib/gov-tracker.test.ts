@@ -3,18 +3,17 @@
  * Verifies that gov-tracker functions work correctly in our environment
  */
 
-import { ethers } from "ethers";
-import { describe, expect, it } from "vitest";
 import {
   decodeRetryableTicket,
   formatDecodedValue,
-  getAddressExplorerUrl,
   getAddressLabel,
-  getChainLabel,
   isLikelyCalldata,
   isRetryableTicketMagic,
   lookupLocalSignature,
 } from "@gzeoneth/gov-tracker";
+import { getAddressExplorerUrl, getChainLabel } from "@lib/explorer-utils";
+import { ethers } from "ethers";
+import { describe, expect, it } from "vitest";
 
 const RETRYABLE_TICKET_MAGIC = "0xa723c008e76e379c55599d2e4d93879beafda79c";
 const ARB1_INBOX = "0x4dbd4fc535ac27206064b68ffcf827b0a60bab3f";
@@ -286,9 +285,10 @@ describe("gov-tracker integration", () => {
     });
 
     it("returns null for invalid data", () => {
-      expect(decodeRetryableTicket("0x")).toBeNull();
-      expect(decodeRetryableTicket("invalid")).toBeNull();
-      expect(decodeRetryableTicket("0x1234")).toBeNull();
+      // The new version throws errors for invalid data instead of returning null
+      expect(() => decodeRetryableTicket("0x")).toThrow();
+      expect(() => decodeRetryableTicket("invalid")).toThrow();
+      expect(() => decodeRetryableTicket("0x1234")).toThrow();
     });
 
     it("handles large uint256 values", () => {

@@ -61,3 +61,19 @@ export function getExplorerName(chain: ChainId): string {
       return "Nova Explorer";
   }
 }
+
+/**
+ * Get human-readable chain label
+ * @param chain - The chain identifier
+ * @returns Human-readable chain label
+ */
+export function getChainLabel(chain: ChainId): string {
+  switch (chain) {
+    case "ethereum":
+      return "L1";
+    case "arb1":
+      return "Arb1";
+    case "nova":
+      return "Nova";
+  }
+}
