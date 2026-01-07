@@ -50,8 +50,9 @@ function getFunctionName(decoded: DecodedCalldata): string {
   if (!decoded.signature) {
     return "Unknown";
   }
+  // Extract function name before opening parenthesis
   const match = decoded.signature.match(/^([^(]+)/);
-  return match ? match[1] : decoded.signature;
+  return match?.[1] || decoded.signature;
 }
 
 export interface ParameterViewProps {
@@ -72,7 +73,7 @@ export function ParameterView({
 }: ParameterViewProps) {
   // Check if this is a bytes[] with decoded nested array
   const hasNestedArray = param.nestedArray && param.nestedArray.length > 0;
-  const hasNestedSingle = param.nested && param.nested.signature !== null;
+  const hasNestedSingle = param.nested && param.nested.signature != null;
 
   // Compute UI metadata for addresses using gov-tracker
   const isAddress = param.type === "address";
@@ -208,7 +209,7 @@ export function ParameterView({
                 >
                   Batch action [{nestedIdx}]
                 </span>
-                {nestedCall.signature !== null || isRetryableTicket ? (
+                {nestedCall.signature != null || isRetryableTicket ? (
                   <>
                     <DecodedCalldataView
                       decoded={nestedCall}
