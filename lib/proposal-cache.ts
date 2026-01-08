@@ -7,13 +7,16 @@
  */
 
 import { STORAGE_KEYS } from "@/config/storage-keys";
+import type { TimelockOperationInfo } from "@/hooks/use-timelock-operation";
 import type { ParsedProposal } from "@/types/proposal";
 import type { ProposalStage } from "@/types/proposal-stage";
 import { debug, isBrowser } from "./debug";
 import { formatCacheAge } from "./format-utils";
-import type { TimelockOperationInfo } from "@/hooks/use-timelock-operation";
 import { seedStagesFromProposal } from "./stages-cache";
-import { getStoredValue } from "./storage-utils";
+import {
+  checkAndInvalidateCacheVersion,
+  getStoredValue,
+} from "./storage-utils";
 import { seedTimelockFromCache } from "./unified-cache";
 
 // Re-export stages cache functions for convenience
@@ -131,6 +134,16 @@ export async function loadProposalCache(): Promise<ProposalCache | null> {
   if (getSkipPreloadCacheSetting()) {
     debug.proposals("skipping preload cache (setting enabled)");
     return null;
+  }
+
+  // Check cache version and invalidate if changed (before seeding)
+  const versionCheck = checkAndInvalidateCacheVersion();
+  if (versionCheck.wasInvalidated) {
+    debug.proposals(
+      "cache invalidated due to version change: %d -> %d",
+      versionCheck.previousVersion,
+      versionCheck.currentVersion
+    );
   }
 
   if (cacheValidated) {

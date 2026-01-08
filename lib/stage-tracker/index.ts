@@ -7,6 +7,7 @@
 
 import {
   createTracker as createGovTracker,
+  type CacheAdapter,
   type ChunkingConfig,
   type TrackerOptions,
   type TrackingResult,
@@ -28,7 +29,7 @@ import type { ProposalTrackingResult } from "@/types/proposal-stage";
  *
  * @param l2RpcUrl - Arbitrum One RPC URL (defaults to ARBITRUM_RPC_URL)
  * @param l1RpcUrl - Ethereum mainnet RPC URL (defaults to ETHEREUM_RPC_URL)
- * @param options - Additional tracker options (onProgress, chunkingConfig, etc)
+ * @param options - Additional tracker options (onProgress, chunkingConfig, cache, etc)
  * @returns A configured ProposalStageTracker instance from gov-tracker
  */
 export function createProposalTracker(
@@ -36,12 +37,17 @@ export function createProposalTracker(
   l1RpcUrl: string = ETHEREUM_RPC_URL,
   options?: Omit<Partial<TrackerOptions>, "chunkingConfig"> & {
     chunkingConfig?: Partial<ChunkingConfig>;
+    cache?: CacheAdapter;
   }
 ) {
   const l2Provider = new ethers.providers.JsonRpcProvider(l2RpcUrl);
   const l1Provider = new ethers.providers.JsonRpcProvider(l1RpcUrl);
 
-  const { chunkingConfig: userChunkingConfig, ...restOptions } = options || {};
+  const {
+    chunkingConfig: userChunkingConfig,
+    cache,
+    ...restOptions
+  } = options || {};
 
   const chunkingConfig: ChunkingConfig = {
     ...DEFAULT_CHUNKING_CONFIG,
@@ -52,6 +58,7 @@ export function createProposalTracker(
     l2Provider,
     l1Provider,
     chunkingConfig,
+    cache,
     ...restOptions,
   });
 }
