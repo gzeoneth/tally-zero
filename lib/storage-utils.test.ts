@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
+import {
+  CACHE_VERSION,
+  DEFAULT_CACHE_TTL_MS,
+  STORAGE_KEYS,
+} from "@/config/storage-keys";
 
 import {
+  checkAndInvalidateCacheVersion,
+  clearAllCaches,
   getStoredCacheTtlMs,
   getStoredJsonString,
   getStoredNumber,
@@ -24,6 +30,10 @@ describe("storage-utils", () => {
     removeItem: vi.fn((key: string) => {
       delete mockStorage[key];
     }),
+    get length() {
+      return Object.keys(mockStorage).length;
+    },
+    key: vi.fn((index: number) => Object.keys(mockStorage)[index] ?? null),
   };
 
   beforeEach(() => {
@@ -209,6 +219,201 @@ describe("storage-utils", () => {
     it("returns default for negative value", () => {
       mockStorage[STORAGE_KEYS.CACHE_TTL] = JSON.stringify(-100);
       expect(getStoredCacheTtlMs()).toBe(DEFAULT_CACHE_TTL_MS);
+    });
+  });
+
+  describe("clearAllCaches", () => {
+    it("clears all stage cache entries", () => {
+      // #given
+      mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`] = "data1";
+      mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x456-2`] = "data2";
+      mockStorage[STORAGE_KEYS.L1_RPC] = "https://rpc.example.com";
+
+      // #when
+      const count = clearAllCaches();
+
+      // #then
+      expect(count).toBe(2);
+      expect(
+        mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`]
+      ).toBeUndefined();
+      expect(
+        mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x456-2`]
+      ).toBeUndefined();
+      expect(mockStorage[STORAGE_KEYS.L1_RPC]).toBe("https://rpc.example.com");
+    });
+
+    it("clears all timelock cache entries", () => {
+      // #given
+      mockStorage[`${STORAGE_KEYS.TIMELOCK_OP_CACHE_PREFIX}0xabc-op1`] =
+        "data1";
+      mockStorage[`${STORAGE_KEYS.TIMELOCK_OP_CACHE_PREFIX}0xdef-op2`] =
+        "data2";
+
+      // #when
+      const count = clearAllCaches();
+
+      // #then
+      expect(count).toBe(2);
+      expect(
+        mockStorage[`${STORAGE_KEYS.TIMELOCK_OP_CACHE_PREFIX}0xabc-op1`]
+      ).toBeUndefined();
+    });
+
+    it("clears all checkpoint cache entries", () => {
+      // #given
+      mockStorage[`${STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX}proposal:0x123:1`] =
+        "checkpoint1";
+      mockStorage[`${STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX}proposal:0x456:2`] =
+        "checkpoint2";
+
+      // #when
+      const count = clearAllCaches();
+
+      // #then
+      expect(count).toBe(2);
+      expect(
+        mockStorage[`${STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX}proposal:0x123:1`]
+      ).toBeUndefined();
+    });
+
+    it("clears stage, timelock, and checkpoint caches", () => {
+      // #given
+      mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`] = "stage";
+      mockStorage[`${STORAGE_KEYS.TIMELOCK_OP_CACHE_PREFIX}0xabc-op1`] =
+        "timelock";
+      mockStorage[`${STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX}proposal:0x123:1`] =
+        "checkpoint";
+
+      // #when
+      const count = clearAllCaches();
+
+      // #then
+      expect(count).toBe(3);
+    });
+
+    it("returns 0 when no caches exist", () => {
+      // #given
+      mockStorage[STORAGE_KEYS.L1_RPC] = "https://rpc.example.com";
+
+      // #when
+      const count = clearAllCaches();
+
+      // #then
+      expect(count).toBe(0);
+    });
+  });
+
+  describe("checkAndInvalidateCacheVersion", () => {
+    it("does not invalidate when version matches", () => {
+      // #given
+      mockStorage[STORAGE_KEYS.LAST_CACHE_VERSION] =
+        JSON.stringify(CACHE_VERSION);
+      mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`] = "data";
+
+      // #when
+      const result = checkAndInvalidateCacheVersion();
+
+      // #then
+      expect(result.wasInvalidated).toBe(false);
+      expect(result.currentVersion).toBe(CACHE_VERSION);
+      expect(mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`]).toBe(
+        "data"
+      );
+    });
+
+    it("invalidates caches when version is older", () => {
+      // #given
+      const oldVersion = CACHE_VERSION - 1;
+      mockStorage[STORAGE_KEYS.LAST_CACHE_VERSION] = JSON.stringify(oldVersion);
+      mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`] = "data";
+      mockStorage[`${STORAGE_KEYS.TIMELOCK_OP_CACHE_PREFIX}0xabc-op1`] = "data";
+      mockStorage[`${STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX}proposal:0x123:1`] =
+        "checkpoint";
+
+      // #when
+      const result = checkAndInvalidateCacheVersion();
+
+      // #then
+      expect(result.wasInvalidated).toBe(true);
+      expect(result.previousVersion).toBe(oldVersion);
+      expect(result.currentVersion).toBe(CACHE_VERSION);
+      expect(
+        mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`]
+      ).toBeUndefined();
+      expect(
+        mockStorage[`${STORAGE_KEYS.TIMELOCK_OP_CACHE_PREFIX}0xabc-op1`]
+      ).toBeUndefined();
+      expect(
+        mockStorage[`${STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX}proposal:0x123:1`]
+      ).toBeUndefined();
+    });
+
+    it("invalidates when no version is stored (fresh install)", () => {
+      // #given
+      mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`] = "data";
+
+      // #when
+      const result = checkAndInvalidateCacheVersion();
+
+      // #then
+      expect(result.wasInvalidated).toBe(true);
+      expect(result.previousVersion).toBe(null);
+      expect(result.currentVersion).toBe(CACHE_VERSION);
+    });
+
+    it("stores current version after invalidation", () => {
+      // #given - no version stored
+
+      // #when
+      checkAndInvalidateCacheVersion();
+
+      // #then
+      expect(mockStorage[STORAGE_KEYS.LAST_CACHE_VERSION]).toBe(
+        JSON.stringify(CACHE_VERSION)
+      );
+    });
+
+    it("preserves non-cache settings during invalidation", () => {
+      // #given
+      mockStorage[STORAGE_KEYS.L1_RPC] = "https://rpc.example.com";
+      mockStorage[STORAGE_KEYS.NERD_MODE] = "true";
+      mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`] = "data";
+
+      // #when
+      checkAndInvalidateCacheVersion();
+
+      // #then
+      expect(mockStorage[STORAGE_KEYS.L1_RPC]).toBe("https://rpc.example.com");
+      expect(mockStorage[STORAGE_KEYS.NERD_MODE]).toBe("true");
+      expect(
+        mockStorage[`${STORAGE_KEYS.STAGES_CACHE_PREFIX}0x123-1`]
+      ).toBeUndefined();
+    });
+  });
+
+  describe("checkAndInvalidateCacheVersion SSR safety", () => {
+    beforeEach(() => {
+      vi.stubGlobal("window", undefined);
+    });
+
+    it("returns not invalidated in SSR", () => {
+      // #when
+      const result = checkAndInvalidateCacheVersion();
+
+      // #then
+      expect(result.wasInvalidated).toBe(false);
+      expect(result.previousVersion).toBe(null);
+    });
+  });
+
+  describe("clearAllCaches SSR safety", () => {
+    beforeEach(() => {
+      vi.stubGlobal("window", undefined);
+    });
+
+    it("returns 0 in SSR", () => {
+      expect(clearAllCaches()).toBe(0);
     });
   });
 });

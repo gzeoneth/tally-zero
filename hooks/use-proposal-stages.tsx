@@ -8,6 +8,11 @@ import {
 } from "@/config/storage-keys";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
+  clearProposalCheckpoint,
+  getCacheAdapter,
+  seedCheckpointFromStages,
+} from "@/lib/gov-tracker-cache";
+import {
   emitVoteUpdate,
   trackerManager,
   type TrackingSession,
@@ -207,7 +212,28 @@ export function useProposalStages({
           });
         };
 
-        // Create tracker using gov-tracker package
+        // Get cache adapter for zero-RPC resume
+        const cache = getCacheAdapter();
+
+        // Seed checkpoint from existing cached stages before tracking
+        // This enables gov-tracker to resume from where we left off
+        const cacheTtlMs = getStoredCacheTtlMs();
+        const unifiedResult = loadUnifiedStages(
+          proposalId,
+          governorAddress,
+          cacheTtlMs
+        );
+        if (unifiedResult.stages.length > 0) {
+          await seedCheckpointFromStages(
+            cache,
+            proposalId,
+            governorAddress,
+            creationTxHash,
+            unifiedResult.stages
+          );
+        }
+
+        // Create tracker using gov-tracker package with cache for resume
         const tracker = createProposalTracker(
           effectiveL2RpcUrl || undefined,
           effectiveL1RpcUrl || undefined,
@@ -223,6 +249,7 @@ export function useProposalStages({
               l1ChunkSize,
               l2ChunkSize,
             },
+            cache,
           }
         );
 
@@ -335,6 +362,10 @@ export function useProposalStages({
           );
         }
       }
+
+      // Clear gov-tracker checkpoint so it re-tracks with fresh cache
+      const cache = getCacheAdapter();
+      clearProposalCheckpoint(cache, governorAddress, proposalId);
 
       // Abort any existing tracking
       trackerManager.abortTracking(proposalId, governorAddress);

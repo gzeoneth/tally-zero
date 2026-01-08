@@ -23,6 +23,7 @@ export const STORAGE_KEYS = {
   L1_BLOCK_RANGE: "tally-zero-l1-block-range",
   STAGES_CACHE_PREFIX: "tally-zero-stages-",
   TIMELOCK_OP_CACHE_PREFIX: "tally-zero-timelock-op-",
+  CHECKPOINT_CACHE_PREFIX: "tally-zero-checkpoint-",
   DAYS_TO_SEARCH: "tally-zero-days-to-search",
   NERD_MODE: "tally-zero-nerd-mode",
   DEBUG_LOGGING: "tally-zero-debug-logging",
@@ -33,6 +34,7 @@ export const STORAGE_KEYS = {
   TENDERLY_ORG: "tally-zero-tenderly-org",
   TENDERLY_PROJECT: "tally-zero-tenderly-project",
   TENDERLY_ACCESS_TOKEN: "tally-zero-tenderly-access-token",
+  LAST_CACHE_VERSION: "tally-zero-last-cache-version",
 } as const;
 
 /** Default Tenderly organization placeholder */
