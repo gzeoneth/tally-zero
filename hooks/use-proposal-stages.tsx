@@ -121,7 +121,13 @@ export function useProposalStages({
   l1RpcUrl,
   l2RpcUrl,
 }: UseProposalStagesOptions): UseProposalStagesResult {
-  const { l1Rpc, l2Rpc, isHydrated: rpcHydrated } = useRpcSettings();
+  const {
+    l1Rpc,
+    l2Rpc,
+    l1ChunkSize,
+    l2ChunkSize,
+    isHydrated: rpcHydrated,
+  } = useRpcSettings();
 
   const effectiveL1RpcUrl = l1RpcUrl || l1Rpc;
   const effectiveL2RpcUrl = l2RpcUrl || l2Rpc;
@@ -213,6 +219,10 @@ export function useProposalStages({
                 progress.isComplete
               );
             },
+            chunkingConfig: {
+              l1ChunkSize,
+              l2ChunkSize,
+            },
           }
         );
 
@@ -295,6 +305,8 @@ export function useProposalStages({
       governorAddress,
       effectiveL1RpcUrl,
       effectiveL2RpcUrl,
+      l1ChunkSize,
+      l2ChunkSize,
     ]
   );
 

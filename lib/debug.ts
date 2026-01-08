@@ -90,17 +90,10 @@ function createWrappedLogger(namespace: string): DebugLogger {
   }
 
   // In browser, wrap to check our settings on each call
+  // Namespaces are enabled once at initialization, not per-call
   const wrappedLogger = (formatter: string, ...args: unknown[]) => {
     if (isBrowserDebugEnabled()) {
-      // Temporarily enable this namespace and gov-tracker for logging
-      const prevEnabled = createDebug.enabled(namespace);
-      if (!prevEnabled) {
-        createDebug.enable("gov-tracker:*,tally:*");
-      }
       baseLogger(formatter, ...args);
-      if (!prevEnabled) {
-        createDebug.disable();
-      }
     }
   };
 
@@ -187,10 +180,15 @@ export function disableDebugLogging(): void {
 }
 
 // ============================================================================
-// Browser Console API
+// Browser Console API & Initialization
 // ============================================================================
 
 if (IS_BROWSER) {
+  // Initialize debug namespaces on page load if debug mode is already enabled
+  if (isBrowserDebugEnabled()) {
+    createDebug.enable("gov-tracker:*,tally:*");
+  }
+
   Object.assign(window, {
     TallyZeroDebug: {
       enable: enableDebugLogging,

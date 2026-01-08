@@ -95,7 +95,13 @@ export function useTimelockOperation({
   l1RpcUrl,
   l2RpcUrl,
 }: UseTimelockOperationOptions): UseTimelockOperationResult {
-  const { l1Rpc, l2Rpc, isHydrated: rpcHydrated } = useRpcSettings();
+  const {
+    l1Rpc,
+    l2Rpc,
+    l1ChunkSize,
+    l2ChunkSize,
+    isHydrated: rpcHydrated,
+  } = useRpcSettings();
 
   const effectiveL1RpcUrl = l1RpcUrl || l1Rpc;
   const effectiveL2RpcUrl = l2RpcUrl || l2Rpc;
@@ -229,6 +235,10 @@ export function useTimelockOperation({
                 return newStages;
               });
             },
+            chunkingConfig: {
+              l1ChunkSize,
+              l2ChunkSize,
+            },
           }
         );
 
@@ -283,6 +293,8 @@ export function useTimelockOperation({
       rpcHydrated,
       effectiveL1RpcUrl,
       effectiveL2RpcUrl,
+      l1ChunkSize,
+      l2ChunkSize,
     ]
   );
 
