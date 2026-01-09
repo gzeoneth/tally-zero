@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useRpcHealth } from "@/hooks/use-rpc-health";
@@ -12,6 +12,7 @@ import {
   ReloadIcon,
 } from "@radix-ui/react-icons";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { toast } from "sonner";
 
 const STATUS_CONFIG = {
   checking: {
@@ -43,7 +44,7 @@ function getStatusLabel(result: RpcHealthResult): string {
     case "healthy":
       return result.latencyMs ? `${result.latencyMs}ms` : "OK";
     case "degraded":
-      return result.latencyMs ? `${result.latencyMs}ms (slow)` : "Slow";
+      return result.latencyMs ? `${result.latencyMs}ms (degraded)` : "Degraded";
     case "down":
       return "Down";
   }
@@ -95,6 +96,7 @@ export default function RpcStatus({
   });
   const isMobile = useMediaQuery("(max-width: 639px)");
   const [isExpanded, setIsExpanded] = useState(false);
+  const shownToastRef = useRef(false);
 
   // Notify parent when health check completes - use useEffect to avoid setState during render
   useEffect(() => {
@@ -107,6 +109,32 @@ export default function RpcStatus({
   const totalCount = results.length;
   const hasIssues =
     summary && (!summary.allHealthy || !summary.requiredHealthy);
+  
+  // Check for degraded RPCs (e.g., lack of archive data support)
+  const degradedRpcs = results.filter((r) => r.status === "degraded");
+  const hasDegradedRpcs = degradedRpcs.length > 0;
+
+  // Show toast notification for degraded RPCs (only once)
+  useEffect(() => {
+    if (hasDegradedRpcs && !isChecking && !shownToastRef.current) {
+      shownToastRef.current = true;
+      
+      const rpcNames = degradedRpcs.map((rpc) => rpc.name).join(", ");
+      const hasArchiveIssue = degradedRpcs.some(r => !r.archiveDataSupported);
+      
+      toast.warning("⚠️ Degraded RPC Detected", {
+        description: `${rpcNames} ${degradedRpcs.length === 1 ? "has" : "have"} limited capabilities${hasArchiveIssue ? " (no archive data support)" : ""}. Consider providing an alternative RPC URL in settings.`,
+        duration: 8000,
+        action: {
+          label: "Settings",
+          onClick: () => {
+            // Open settings sheet - we'll need to trigger this via context or event
+            document.querySelector<HTMLButtonElement>('[aria-label="Settings"]')?.click();
+          },
+        },
+      });
+    }
+  }, [hasDegradedRpcs, degradedRpcs, isChecking]);
 
   return (
     <div className="glass rounded-xl p-4 space-y-3">
@@ -175,6 +203,19 @@ export default function RpcStatus({
             <p className="text-xs text-yellow-700 dark:text-yellow-400 glass-subtle rounded-md px-3 py-2 bg-yellow-500/10 dark:bg-yellow-500/15">
               Some RPCs are unavailable. Lifecycle tracking may be incomplete.
             </p>
+          )}
+
+          {hasDegradedRpcs && (
+            <div className="text-xs glass-subtle rounded-md px-3 py-2 bg-orange-500/10 dark:bg-orange-500/15 space-y-1">
+              <p className="text-orange-700 dark:text-orange-400 font-medium">
+                ⚠️ Degraded RPC detected
+              </p>
+              <p className="text-orange-700/90 dark:text-orange-400/90">
+                {degradedRpcs.map((rpc) => rpc.name).join(", ")} {degradedRpcs.length === 1 ? "has" : "have"} limited capabilities
+                {degradedRpcs.some(r => !r.archiveDataSupported) && " (no archive data support)"}.
+                Consider providing an alternative RPC URL in settings.
+              </p>
+            </div>
           )}
         </>
       )}
