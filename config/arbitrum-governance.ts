@@ -15,7 +15,7 @@ export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
 export const ARBITRUM_NOVA_RPC_URL = "https://nova.arbitrum.io/rpc";
 
 /** Default Ethereum Mainnet RPC URL */
-export const ETHEREUM_RPC_URL = "https://1rpc.io/eth";
+export const ETHEREUM_RPC_URL = "https://eth.llamarpc.com/";
 
 /**
  * Core Governor Contract (Constitutional Proposals)
@@ -221,12 +221,12 @@ export const OLD_CHALLENGE_PERIOD_L1_BLOCKS = 45818;
 export const MAX_VOTING_PERIOD_BLOCKS_L2 = 6_500_000;
 
 export {
-  BLOCKS_PER_DAY,
   BLOCK_TIMES,
-  L1_SECONDS_PER_BLOCK,
+  BLOCKS_PER_DAY,
   blocksToTime as blocksToTimeByChainId,
-  getBlockTime,
   getBlocksPerDay,
+  getBlockTime,
+  L1_SECONDS_PER_BLOCK,
   timeToBlocks as timeToBlocksByChainId,
 } from "@/config/block-times";
 
