@@ -13,7 +13,7 @@
  * Environment variables:
  *   START_BLOCK - Override the starting block (default depends on mode)
  *   RPC_URL - Override the RPC URL (default: https://arb1.arbitrum.io/rpc)
- *   L1_RPC_URL - Override the L1 RPC URL (default: https://1rpc.io/eth)
+ *   L1_RPC_URL - Override the L1 RPC URL (default: https://eth.llamarpc.com/)
  *   L1_CHUNK_SIZE - Override L1 block range per query (default: 100000)
  *   SKIP_STAGES - Set to "true" to skip stage tracking (faster builds)
  *   DEBUG_STAGE_TRACKER - Set to "false" to disable verbose debug logging
@@ -52,7 +52,7 @@ import type { Address } from "../types/search";
 // Configuration
 const ARBITRUM_CHAIN_ID = 42161;
 const ARBITRUM_RPC_URL = process.env.RPC_URL || "https://arb1.arbitrum.io/rpc";
-const ETHEREUM_RPC_URL = process.env.L1_RPC_URL || "https://1rpc.io/eth";
+const ETHEREUM_RPC_URL = process.env.L1_RPC_URL || "https://eth.llamarpc.com/";
 const SKIP_STAGES = process.env.SKIP_STAGES === "true";
 const L1_CHUNK_SIZE = process.env.L1_CHUNK_SIZE
   ? parseInt(process.env.L1_CHUNK_SIZE, 10)
