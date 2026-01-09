@@ -326,7 +326,7 @@ async function testLogSearch(
 }
 
 /**
- * Test if the RPC supports archive data by querying an old transaction
+ * Test if the RPC supports archive data by querying an old transaction receipt
  *
  * @param provider - The ethers JSON-RPC provider
  * @param endpointId - The endpoint identifier to get the test transaction hash
@@ -346,17 +346,17 @@ async function testArchiveData(
       );
     });
 
-    // Try to fetch an old transaction (~1 year ago)
-    const tx = await Promise.race([
-      provider.getTransaction(txHash),
+    // Try to fetch an old transaction receipt (~1 year ago)
+    const receipt = await Promise.race([
+      provider.getTransactionReceipt(txHash),
       timeoutPromise,
     ]);
 
     // If we get null, the RPC doesn't have archive data
-    if (tx === null) {
+    if (receipt === null) {
       return {
         supported: false,
-        error: "RPC does not support archive data - old transaction not found",
+        error: "RPC does not support archive data - old receipt not found",
       };
     }
 
