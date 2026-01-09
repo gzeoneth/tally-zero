@@ -93,17 +93,15 @@ const HEALTH_CACHE_TTL = MS_PER_MINUTE; // 60 seconds cache for health results
  * Used to verify if the RPC endpoint supports historical data queries.
  *
  * Note: Each network requires its own transaction hash from that specific network.
- * Current values:
- * - arb1: Real Arbitrum One transaction from August 2023
- * - nova: Placeholder - should be replaced with real Nova transaction
- * - l1: Placeholder - should be replaced with real Ethereum mainnet transaction from ~1 year ago
- *
- * TODO: Update l1 and nova hashes with actual transaction hashes from their respective networks
+ * All hashes sourced from the timelock operations cache:
+ * - arb1: Arbitrum One transaction from August 2023
+ * - nova: Arbitrum Nova transaction from September 2023
+ * - l1: Ethereum mainnet transaction from July 2023
  */
 const ARCHIVE_TEST_TX_HASHES: Record<RpcId, string> = {
   arb1: "0xd44606396ab621bb8e389b04cc8d53d8765a836030f9cc553e7efb59af85fc87", // Arbitrum One, August 2023
-  nova: "0x0000000000000000000000000000000000000000000000000000000000000000", // Placeholder - needs real Nova tx
-  l1: "0x0000000000000000000000000000000000000000000000000000000000000000", // Placeholder - needs real L1 tx
+  nova: "0x5d9320f2d00324f3cef70f6d9bf54b0a5fe1b0b0ebae25f0d459596c2c739cdd", // Arbitrum Nova, September 2023
+  l1: "0x9911ad5fdb37d003becbb74450defdc88f47ebc96a5ab2453ced7e2b3d29a9e5", // Ethereum L1, July 2023
 };
 
 // Cache for health check results to avoid redundant RPC calls
@@ -339,17 +337,6 @@ async function testArchiveData(
   endpointId: RpcId
 ): Promise<{ supported: boolean; error?: string }> {
   const txHash = ARCHIVE_TEST_TX_HASHES[endpointId];
-
-  // Skip archive test if we don't have a real transaction hash (placeholder)
-  if (
-    txHash ===
-    "0x0000000000000000000000000000000000000000000000000000000000000000"
-  ) {
-    return {
-      supported: true, // Assume supported, don't fail the check with placeholder
-      error: undefined,
-    };
-  }
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) => {
