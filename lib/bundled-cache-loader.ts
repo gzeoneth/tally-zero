@@ -3,6 +3,11 @@
  *
  * Loads the pre-built proposal cache included in gov-tracker package
  * and initializes localStorage with TrackingCheckpoints on first run.
+ *
+ * Note: In static export builds (Next.js output: "export"), the bundled cache
+ * from node_modules is not available at runtime. This function will gracefully
+ * fail and the app will work normally by making RPC calls for stage discovery.
+ * The bundled cache is primarily beneficial for server-side or CLI usage.
  */
 
 import type { CacheAdapter } from "@gzeoneth/gov-tracker";
@@ -42,7 +47,7 @@ export async function initializeBundledCache(
     }
 
     // Dynamically import the bundled cache
-    // This is bundled with the npm package at build time
+    // This will work in development but may not be available in static export builds
     const bundledCache = await import(
       "@gzeoneth/gov-tracker/dist/data/bundled-cache.json"
     );
@@ -57,9 +62,12 @@ export async function initializeBundledCache(
     debug.cache("initialized cache with %d bundled checkpoints", count);
     bundledCacheInitialized = true;
   } catch (err) {
-    // If bundled cache is not available, just log and continue
+    // Expected to fail in production static export builds
     // The app will work fine without it, just with more RPC calls
-    debug.cache("could not load bundled cache: %O", err);
+    debug.cache(
+      "bundled cache not available (expected in static builds): %O",
+      err
+    );
     bundledCacheInitialized = true; // Don't try again
   }
 }
