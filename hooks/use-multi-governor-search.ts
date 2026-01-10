@@ -2,28 +2,20 @@
 
 /**
  * Hook for searching proposals across multiple governors
- * Combines cached and fresh proposals with state refresh for active ones
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { debug } from "@/lib/debug";
 import {
   calculateSearchRanges,
   parseProposals,
-  refreshProposalStates,
   searchGovernor,
   type CacheHitInfo,
   type UseMultiGovernorSearchOptions,
   type UseMultiGovernorSearchResult,
 } from "@/lib/governor-search";
-import {
-  loadProposalCache,
-  mergeProposals,
-  needsStateRefresh,
-  sortProposals,
-  type ProposalCache,
-} from "@/lib/proposal-cache";
+import { sortProposals } from "@/lib/proposal-cache";
 import {
   subscribeToVoteUpdates,
   type VoteUpdate,
@@ -49,7 +41,6 @@ export function useMultiGovernorSearch({
   enabled,
   customRpcUrl,
   blockRange = DEFAULT_BLOCK_RANGE,
-  skipCache = false,
 }: UseMultiGovernorSearchOptions): UseMultiGovernorSearchResult {
   const [progress, setProgress] = useState(0);
   const [proposals, setProposals] = useState<ParsedProposal[]>([]);
@@ -57,40 +48,8 @@ export function useMultiGovernorSearch({
   const [isSearching, setIsSearching] = useState(false);
   const [providerReady, setProviderReady] = useState(false);
   const [cacheInfo, setCacheInfo] = useState<CacheHitInfo>();
-  const [cache, setCache] = useState<ProposalCache | null>(null);
 
   const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
-
-  // Load cache on mount (unless skipping)
-  useEffect(() => {
-    if (skipCache) {
-      setCache(null);
-      return;
-    }
-
-    loadProposalCache().then((loaded) => {
-      if (loaded) {
-        setCache(loaded);
-        // Show cached proposals immediately (sorted)
-        setProposals(sortProposals(loaded.proposals));
-        setCacheInfo({
-          loaded: true,
-          snapshotBlock: loaded.snapshotBlock,
-          cacheStartBlock: loaded.startBlock,
-          cachedCount: loaded.proposals.length,
-          freshCount: 0,
-          cacheUsed: true,
-          rangeInfo: `Cache loaded: blocks ${loaded.startBlock.toLocaleString()}-${loaded.snapshotBlock.toLocaleString()}`,
-        });
-        debug.search(
-          "cache loaded: %d proposals (blocks %d-%d)",
-          loaded.proposals.length,
-          loaded.startBlock,
-          loaded.snapshotBlock
-        );
-      }
-    });
-  }, [skipCache]);
 
   // Initialize provider using cached factory
   useEffect(() => {
@@ -121,20 +80,14 @@ export function useMultiGovernorSearch({
         const userStartBlock = Math.max(currentBlock - blocksToSearch, 0);
         const userEndBlock = currentBlock;
 
-        // Determine what needs to be fetched from RPC vs cache
-        const searchPlan = calculateSearchRanges(
-          userStartBlock,
-          userEndBlock,
-          cache,
-          skipCache
-        );
+        // Determine what needs to be fetched from RPC
+        const searchPlan = calculateSearchRanges(userStartBlock, userEndBlock);
 
         debug.search("search plan: %s", searchPlan.rangeInfo);
 
         let rpcProposals: ParsedProposal[] = [];
-        let cachedProposals: ParsedProposal[] = [];
 
-        // Fetch from RPC if needed
+        // Fetch from RPC
         if (searchPlan.rpcRanges.length > 0) {
           const totalRanges =
             searchPlan.rpcRanges.length * ARBITRUM_GOVERNORS.length;
@@ -142,7 +95,7 @@ export function useMultiGovernorSearch({
 
           const updateProgress = () => {
             if (cancelled) return;
-            const searchProgress = (completedQueries / totalRanges) * 70;
+            const searchProgress = (completedQueries / totalRanges) * 90;
             setProgress(searchProgress);
           };
 
@@ -179,52 +132,18 @@ export function useMultiGovernorSearch({
           }
         }
 
-        setProgress(70);
-        if (cancelled || abortController.signal.aborted) return;
-
-        if (searchPlan.useCache && cache) {
-          cachedProposals = cache.proposals;
-          debug.search("using %d cached proposals", cachedProposals.length);
-        }
-
-        // Refresh state for pending/active cached proposals
-        setProgress(80);
-        const proposalsToRefresh = cachedProposals.filter((p) =>
-          needsStateRefresh(p.state)
-        );
-
-        if (proposalsToRefresh.length > 0) {
-          debug.search(
-            "refreshing %d pending/active proposals",
-            proposalsToRefresh.length
-          );
-          const refreshed = await refreshProposalStates(
-            provider,
-            proposalsToRefresh
-          );
-
-          // Replace with refreshed versions
-          cachedProposals = cachedProposals.map((p) => {
-            const updated = refreshed.find((r) => r.id === p.id);
-            return updated ?? p;
-          });
-        }
-
         setProgress(90);
         if (cancelled || abortController.signal.aborted) return;
 
-        // Merge cached and fresh proposals
-        const allProposals = mergeProposals(cachedProposals, rpcProposals);
-
         // Sort: active first, then by startBlock descending
-        setProposals(sortProposals(allProposals));
+        setProposals(sortProposals(rpcProposals));
         setCacheInfo({
-          loaded: cache !== null,
-          snapshotBlock: cache?.snapshotBlock ?? 0,
-          cacheStartBlock: cache?.startBlock ?? 0,
-          cachedCount: cachedProposals.length,
+          loaded: false,
+          snapshotBlock: 0,
+          cacheStartBlock: 0,
+          cachedCount: 0,
           freshCount: rpcProposals.length,
-          cacheUsed: searchPlan.useCache,
+          cacheUsed: false,
           rangeInfo: searchPlan.rangeInfo,
         });
         setProgress(100);
@@ -243,50 +162,38 @@ export function useMultiGovernorSearch({
       cancelled = true;
       abortController.abort();
     };
-  }, [
-    enabled,
-    providerReady,
-    daysToSearch,
-    rpcUrl,
-    blockRange,
-    skipCache,
-    cache,
-  ]);
+  }, [enabled, providerReady, daysToSearch, rpcUrl, blockRange]);
 
-  // Handle vote updates from lifecycle tracking
-  const handleVoteUpdate = useCallback((update: VoteUpdate) => {
-    setProposals((currentProposals) => {
-      const proposalIndex = currentProposals.findIndex(
-        (p) =>
-          p.id === update.proposalId &&
-          p.contractAddress.toLowerCase() ===
-            update.governorAddress.toLowerCase()
+  // Subscribe to vote updates and update proposals when votes change
+  useEffect(() => {
+    return subscribeToVoteUpdates((update: VoteUpdate) => {
+      setProposals((prev) =>
+        prev.map((p) => {
+          if (
+            p.id === update.proposalId &&
+            p.contractAddress === update.governorAddress
+          ) {
+            debug.search(
+              "updating votes for proposal %s: for=%s, against=%s",
+              p.id,
+              update.forVotes,
+              update.againstVotes
+            );
+            return {
+              ...p,
+              votes: {
+                forVotes: update.forVotes,
+                againstVotes: update.againstVotes,
+                abstainVotes: update.abstainVotes,
+                quorum: p.votes?.quorum || "0",
+              },
+            };
+          }
+          return p;
+        })
       );
-
-      if (proposalIndex === -1) return currentProposals;
-
-      const updatedProposals = [...currentProposals];
-      const proposal = updatedProposals[proposalIndex];
-
-      updatedProposals[proposalIndex] = {
-        ...proposal,
-        votes: {
-          forVotes: update.forVotes,
-          againstVotes: update.againstVotes,
-          abstainVotes: update.abstainVotes,
-          quorum: proposal.votes?.quorum,
-        },
-      };
-
-      return updatedProposals;
     });
   }, []);
-
-  // Subscribe to vote updates from lifecycle tracking
-  useEffect(() => {
-    const unsubscribe = subscribeToVoteUpdates(handleVoteUpdate);
-    return () => unsubscribe();
-  }, [handleVoteUpdate]);
 
   return {
     proposals,

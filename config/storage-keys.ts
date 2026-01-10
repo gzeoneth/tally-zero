@@ -28,7 +28,6 @@ export const STORAGE_KEYS = {
   NERD_MODE: "tally-zero-nerd-mode",
   DEBUG_LOGGING: "tally-zero-debug-logging",
   CACHE_TTL: "tally-zero-cache-ttl",
-  SKIP_PRELOAD_CACHE: "tally-zero-skip-preload-cache",
   SKIP_DELEGATE_CACHE: "tally-zero-skip-delegate-cache",
   DELEGATE_MIN_POWER: "tally-zero-delegate-min-power",
   TENDERLY_ORG: "tally-zero-tenderly-org",
@@ -44,7 +43,7 @@ export const DEFAULT_TENDERLY_ORG = "ORG";
 export const DEFAULT_TENDERLY_PROJECT = "PROJECT";
 
 /** Current cache schema version for migration detection */
-export const CACHE_VERSION = 2;
+export const CACHE_VERSION = 3;
 
 /** Default cache time-to-live in milliseconds */
 export const DEFAULT_CACHE_TTL_MS = MS_PER_HOUR;

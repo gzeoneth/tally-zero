@@ -49,7 +49,6 @@ export interface StoredSettings {
   l1BlockRange: number;
   daysToSearch: number;
   cacheTtl: number;
-  skipPreloadCache: boolean;
   tenderlyOrg: string;
   tenderlyProject: string;
   tenderlyAccessToken: string;
