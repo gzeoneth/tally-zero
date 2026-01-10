@@ -275,7 +275,7 @@ export function useProposalStages({
           throw new Error("No tracking result returned");
         }
 
-        // Convert to ProposalTrackingResult for backwards compatibility
+        // Add proposal metadata for UI display
         const proposalResult = toProposalTrackingResult(
           trackingResult,
           proposalId,

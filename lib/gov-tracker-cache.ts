@@ -14,17 +14,6 @@ import type {
 import { debug, isBrowser } from "./debug";
 
 /**
- * Build gov-tracker cache key for a proposal
- * @deprecated Use buildTxHashCacheKey instead - gov-tracker uses tx hash as primary key
- */
-export function buildProposalCacheKey(
-  governorAddress: string,
-  proposalId: string
-): string {
-  return `proposal:${governorAddress.toLowerCase()}:${proposalId}`;
-}
-
-/**
  * Build gov-tracker cache key from transaction hash
  * This matches gov-tracker's internal txHashCacheKey() format
  */

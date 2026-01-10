@@ -326,55 +326,6 @@ export function getRefreshNeeds(unifiedResult: UnifiedCacheResult): {
 }
 
 /**
- * Seed timelock cache from prebuilt cache data
- *
- * Used during app initialization to populate localStorage from
- * the prebuilt timelock operations cache.
- *
- * @param txHash - The queue transaction hash
- * @param operationId - The timelock operation ID
- * @param result - The timelock tracking result to seed
- * @param trackedAt - Optional ISO timestamp of when stages were tracked
- * @returns True if seeded, false if skipped
- */
-export function seedTimelockFromCache(
-  txHash: string,
-  operationId: string,
-  result: TimelockTrackingResult,
-  trackedAt?: string
-): boolean {
-  if (!isBrowser) return false;
-
-  const key = getTimelockCacheKey(txHash, operationId);
-
-  try {
-    // Check if we already have cached data with same or more stages
-    const existing = localStorage.getItem(key);
-    if (existing) {
-      const parsed: CachedTimelockResult = JSON.parse(existing);
-      if (
-        parsed.version === CACHE_VERSION &&
-        parsed.result.stages.length >= result.stages.length
-      ) {
-        return false;
-      }
-    }
-
-    const cached: CachedTimelockResult = {
-      version: CACHE_VERSION,
-      timestamp: trackedAt ? new Date(trackedAt).getTime() : Date.now(),
-      result,
-    };
-
-    localStorage.setItem(key, JSON.stringify(cached));
-    return true;
-  } catch (err) {
-    debug.cache("failed to seed timelock cache for %s: %O", txHash, err);
-    return false;
-  }
-}
-
-/**
  * Check if timelock cache exists and is valid
  *
  * @param txHash - The queue transaction hash

@@ -16,7 +16,6 @@ import {
   loadUnifiedStages,
   needsRefresh,
   saveCachedTimelockResult,
-  seedTimelockFromCache,
   type UnifiedCacheResult,
 } from "./unified-cache";
 
@@ -259,58 +258,6 @@ describe("unified-cache", () => {
       mockStorage[key] = JSON.stringify(cached);
 
       expect(hasTimelockCache("0x123", "0x456")).toBe(false);
-    });
-  });
-
-  describe("seedTimelockFromCache", () => {
-    it("seeds cache when empty", () => {
-      const result = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK", "COMPLETED"),
-      ]);
-
-      const seeded = seedTimelockFromCache("0x123", "0x456", result);
-
-      expect(seeded).toBe(true);
-      expect(mockLocalStorage.setItem).toHaveBeenCalled();
-    });
-
-    it("skips seeding when existing has more stages", () => {
-      const existing = {
-        version: CACHE_VERSION,
-        timestamp: Date.now(),
-        result: createMockTimelockResult([
-          createMockStage("L2_TIMELOCK", "COMPLETED"),
-          createMockStage("L2_TO_L1_MESSAGE", "COMPLETED"),
-        ]),
-      };
-      const key = getTimelockCacheKey("0x123", "0x456");
-      mockStorage[key] = JSON.stringify(existing);
-
-      const newResult = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK", "COMPLETED"),
-      ]);
-
-      const seeded = seedTimelockFromCache("0x123", "0x456", newResult);
-
-      expect(seeded).toBe(false);
-    });
-
-    it("uses provided trackedAt timestamp", () => {
-      const result = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK", "COMPLETED"),
-      ]);
-
-      seedTimelockFromCache(
-        "0x123",
-        "0x456",
-        result,
-        "2024-01-15T12:00:00.000Z"
-      );
-
-      const savedValue = JSON.parse(mockLocalStorage.setItem.mock.calls[0][1]);
-      expect(savedValue.timestamp).toBe(
-        new Date("2024-01-15T12:00:00.000Z").getTime()
-      );
     });
   });
 

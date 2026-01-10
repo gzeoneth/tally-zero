@@ -70,6 +70,10 @@ export function SettingsSheet() {
     STORAGE_KEYS.CACHE_TTL,
     DEFAULT_CACHE_TTL_MS / 1000
   );
+  const [skipBundledCache, setSkipBundledCache] = useLocalStorage<boolean>(
+    STORAGE_KEYS.SKIP_BUNDLED_CACHE,
+    false
+  );
   const [tenderlyOrg, setTenderlyOrg] = useLocalStorage<string>(
     STORAGE_KEYS.TENDERLY_ORG,
     DEFAULT_TENDERLY_ORG
@@ -315,6 +319,8 @@ export function SettingsSheet() {
                 setTtlInput={setTtlInput}
                 ttlCustomInput={ttlCustomInput}
                 setTtlCustomInput={setTtlCustomInput}
+                skipBundledCache={skipBundledCache}
+                setSkipBundledCache={setSkipBundledCache}
                 tenderlyOrgInput={tenderlyOrgInput}
                 setTenderlyOrgInput={setTenderlyOrgInput}
                 tenderlyProjectInput={tenderlyProjectInput}
@@ -336,6 +342,7 @@ export function SettingsSheet() {
                   l1BlockRange,
                   daysToSearch,
                   cacheTtl,
+                  skipBundledCache,
                   tenderlyOrg,
                   tenderlyProject,
                   tenderlyAccessToken,

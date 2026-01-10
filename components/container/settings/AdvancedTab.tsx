@@ -15,6 +15,7 @@ import { CacheManagementSection } from "./CacheManagementSection";
 import { DebugInfoSection } from "./DebugInfoSection";
 import { DebugLoggingToggle } from "./DebugLoggingToggle";
 import { formatTtl } from "./settings-utils";
+import { SettingsToggle } from "./SettingsToggle";
 import { TenderlyConfigSection } from "./TenderlyConfigSection";
 import type { StoredSettings } from "./types";
 
@@ -24,6 +25,9 @@ interface AdvancedTabProps {
   setTtlInput: (value: number) => void;
   ttlCustomInput: string;
   setTtlCustomInput: (value: string) => void;
+  // Skip bundled cache
+  skipBundledCache: boolean;
+  setSkipBundledCache: (value: boolean) => void;
   // Tenderly settings
   tenderlyOrgInput: string;
   setTenderlyOrgInput: (value: string) => void;
@@ -53,6 +57,8 @@ export function AdvancedTab({
   setTtlInput,
   ttlCustomInput,
   setTtlCustomInput,
+  skipBundledCache,
+  setSkipBundledCache,
   tenderlyOrgInput,
   setTenderlyOrgInput,
   tenderlyProjectInput,
@@ -115,6 +121,14 @@ export function AdvancedTab({
           (current: {formatTtl(ttlInput)})
         </p>
       </div>
+
+      {/* Skip Bundled Cache */}
+      <SettingsToggle
+        label="Skip Bundled Cache"
+        description="Bypass bundled stage checkpoints and discover fresh data via RPC"
+        enabled={skipBundledCache}
+        onToggle={() => setSkipBundledCache(!skipBundledCache)}
+      />
 
       {/* Tenderly Configuration */}
       <TenderlyConfigSection

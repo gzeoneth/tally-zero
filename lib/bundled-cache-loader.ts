@@ -11,7 +11,11 @@
  */
 
 import type { CacheAdapter } from "@gzeoneth/gov-tracker";
+
+import { STORAGE_KEYS } from "@/config/storage-keys";
+
 import { debug } from "./debug";
+import { getStoredValue } from "./storage-utils";
 
 // Flag to track if we've already initialized the bundled cache
 let bundledCacheInitialized = false;
@@ -30,6 +34,17 @@ export async function initializeBundledCache(
 ): Promise<void> {
   // Skip if already initialized in this session
   if (bundledCacheInitialized) {
+    return;
+  }
+
+  // Check if user has disabled bundled cache via settings
+  const skipBundledCache = getStoredValue<boolean>(
+    STORAGE_KEYS.SKIP_BUNDLED_CACHE,
+    false
+  );
+  if (skipBundledCache) {
+    debug.cache("bundled cache disabled via settings");
+    bundledCacheInitialized = true;
     return;
   }
 

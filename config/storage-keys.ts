@@ -28,6 +28,7 @@ export const STORAGE_KEYS = {
   NERD_MODE: "tally-zero-nerd-mode",
   DEBUG_LOGGING: "tally-zero-debug-logging",
   CACHE_TTL: "tally-zero-cache-ttl",
+  SKIP_BUNDLED_CACHE: "tally-zero-skip-bundled-cache",
   SKIP_DELEGATE_CACHE: "tally-zero-skip-delegate-cache",
   DELEGATE_MIN_POWER: "tally-zero-delegate-min-power",
   TENDERLY_ORG: "tally-zero-tenderly-org",
