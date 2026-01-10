@@ -35,3 +35,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# old cache files (replaced by gov-tracker bundled cache)
+/data/proposal-cache.json
+/data/timelock-operations-cache.json

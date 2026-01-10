@@ -9,15 +9,12 @@ import {
   DEFAULT_CACHE_TTL_MS,
   STORAGE_KEYS,
 } from "@/config/storage-keys";
-import type { TimelockTrackingResult } from "@/hooks/use-timelock-operation";
 import type {
   ProposalStage,
   ProposalTrackingResult,
-  TimelockLink,
 } from "@/types/proposal-stage";
 import { MS_PER_DAY } from "./date-utils";
 import { debug, isBrowser } from "./debug";
-import { seedTimelockFromCache } from "./unified-cache";
 
 /** Maximum age for tracking (60 days after proposal creation) */
 export const MAX_TRACKING_AGE_MS = 60 * MS_PER_DAY;
@@ -284,177 +281,6 @@ export function clearCachedStages(
     localStorage.removeItem(key);
   } catch (err) {
     debug.cache("failed to clear stages for %s: %O", proposalId, err);
-  }
-}
-
-/**
- * Seed localStorage with stages from a preloaded proposal
- *
- * Used by proposal-cache.ts to populate localStorage from the static cache.
- * This function now handles the split caching architecture:
- * - Proposal cache: stages 1-3 + timelockLink
- * - Timelock cache: stages 4-10 (if timelockLink is present)
- *
- * Only seeds if the proposal has more stages than what's currently cached.
- *
- * @param proposal - The proposal with stages to seed
- * @returns True if stages were seeded, false if skipped
- */
-export function seedStagesFromProposal(proposal: {
-  id: string;
-  contractAddress: string;
-  creationTxHash?: string;
-  stages?: ProposalStage[];
-  state: string;
-  stagesTrackedAt?: string;
-  timelockLink?: TimelockLink;
-}): boolean {
-  if (!isBrowser) return false;
-  if (!proposal.stages || proposal.stages.length === 0) return false;
-  if (!proposal.creationTxHash) return false;
-
-  const key = getCacheKey(proposal.id, proposal.contractAddress);
-  let seeded = false;
-
-  try {
-    // Split stages: 1-3 go to proposal cache, 4-10 go to timelock cache
-    const proposalStages = proposal.stages.filter((s) =>
-      ["PROPOSAL_CREATED", "VOTING_ACTIVE", "PROPOSAL_QUEUED"].includes(s.type)
-    );
-
-    const timelockStages = proposal.stages.filter(
-      (s) =>
-        !["PROPOSAL_CREATED", "VOTING_ACTIVE", "PROPOSAL_QUEUED"].includes(
-          s.type
-        )
-    );
-
-    // Check if we already have cached stages with same or more data
-    const existing = localStorage.getItem(key);
-    if (existing) {
-      const parsed: CachedStagesResult = JSON.parse(existing);
-      if (parsed.version === CACHE_VERSION && parsed.result.stages) {
-        // Compare the total stages (proposal + timelock stages)
-        if (parsed.result.stages.length >= proposalStages.length) {
-          // Still need to check if we should seed timelock cache
-          if (!proposal.timelockLink || timelockStages.length === 0) {
-            return false;
-          }
-        }
-      }
-    }
-
-    // Seed proposal cache with stages 1-3 + timelockLink
-    const cachedResult: CachedStagesResult = {
-      version: CACHE_VERSION,
-      timestamp: proposal.stagesTrackedAt
-        ? new Date(proposal.stagesTrackedAt).getTime()
-        : Date.now(),
-      result: {
-        proposalId: proposal.id,
-        creationTxHash: proposal.creationTxHash,
-        governorAddress: proposal.contractAddress,
-        stages: proposalStages,
-        currentState: proposal.state,
-        timelockLink: proposal.timelockLink,
-      },
-    };
-
-    localStorage.setItem(key, JSON.stringify(cachedResult));
-    seeded = true;
-
-    // If there's a timelockLink and timelock stages, seed the timelock cache
-    if (proposal.timelockLink && timelockStages.length > 0) {
-      const queueStage = proposal.stages.find(
-        (s) => s.type === "PROPOSAL_QUEUED"
-      );
-      const timelockResult: TimelockTrackingResult = {
-        operationInfo: {
-          operationId: proposal.timelockLink.operationId,
-          target: "",
-          value: "0",
-          data: "0x",
-          predecessor:
-            "0x0000000000000000000000000000000000000000000000000000000000000000",
-          delay: "0",
-          txHash: proposal.timelockLink.txHash,
-          blockNumber: proposal.timelockLink.queueBlockNumber,
-          timestamp: queueStage?.transactions[0]?.timestamp || 0,
-          timelockAddress: proposal.timelockLink.timelockAddress,
-        },
-        stages: timelockStages,
-      };
-
-      seedTimelockFromCache(
-        proposal.timelockLink.txHash,
-        proposal.timelockLink.operationId,
-        timelockResult,
-        proposal.stagesTrackedAt
-      );
-    }
-
-    return seeded;
-  } catch (err) {
-    debug.cache("failed to seed stages for %s: %O", proposal.id, err);
-    return false;
-  }
-}
-
-/**
- * Check if a proposal has preloaded stages in localStorage
- *
- * @param proposalId - The proposal ID
- * @param governorAddress - The governor contract address
- * @returns True if cached stages exist for this proposal
- */
-export function hasPreloadedStages(
-  proposalId: string,
-  governorAddress: string
-): boolean {
-  if (!isBrowser) return false;
-
-  const key = getCacheKey(proposalId, governorAddress);
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return false;
-
-    const parsed: CachedStagesResult = JSON.parse(cached);
-    return (
-      parsed.version === CACHE_VERSION &&
-      parsed.result.stages &&
-      parsed.result.stages.length > 0
-    );
-  } catch (err) {
-    debug.cache("failed to check preloaded stages for %s: %O", proposalId, err);
-    return false;
-  }
-}
-
-/**
- * Get preloaded stages from localStorage
- *
- * @param proposalId - The proposal ID
- * @param governorAddress - The governor contract address
- * @returns The cached tracking result, or null if not found
- */
-export function getPreloadedStages(
-  proposalId: string,
-  governorAddress: string
-): ProposalTrackingResult | null {
-  if (!isBrowser) return null;
-
-  const key = getCacheKey(proposalId, governorAddress);
-  try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return null;
-
-    const parsed: CachedStagesResult = JSON.parse(cached);
-    if (parsed.version !== CACHE_VERSION) return null;
-
-    return parsed.result;
-  } catch (err) {
-    debug.cache("failed to get preloaded stages for %s: %O", proposalId, err);
-    return null;
   }
 }
 
