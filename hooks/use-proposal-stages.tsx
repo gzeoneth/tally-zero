@@ -37,6 +37,7 @@ import {
   type StageType,
   type TrackingCheckpoint,
   type TrackingProgress,
+  type VotingActiveData,
 } from "@gzeoneth/gov-tracker";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
@@ -145,10 +146,7 @@ function checkpointToResult(
 
   // Determine current state from voting stage
   const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
-  interface VotingData {
-    proposalState?: string;
-  }
-  const votingData = votingStage?.data as VotingData | undefined;
+  const votingData = votingStage?.data as VotingActiveData | undefined;
   const currentState = votingData?.proposalState
     ? votingData.proposalState.charAt(0).toUpperCase() +
       votingData.proposalState.slice(1)
