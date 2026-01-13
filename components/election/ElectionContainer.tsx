@@ -4,11 +4,13 @@ import { AlertCircle } from "lucide-react";
 
 import { useElectionStatus } from "@/hooks/use-election-status";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
+import { useSecurityCouncilMembers } from "@/hooks/use-security-council-members";
 import type { ElectionPhase } from "@/types/election";
 import { ElectionPhaseTimeline } from "./ElectionPhaseTimeline";
 import { ElectionSelector } from "./ElectionSelector";
 import { ElectionStatusCard } from "./ElectionStatusCard";
 import { NomineeList } from "./NomineeList";
+import { SecurityCouncilMembersCard } from "./SecurityCouncilMembers";
 
 export function ElectionContainer(): React.ReactElement {
   const { l2Rpc, l1Rpc } = useRpcSettings();
@@ -30,6 +32,9 @@ export function ElectionContainer(): React.ReactElement {
     l1RpcUrl: l1Rpc || undefined,
     refreshInterval: 60000,
   });
+
+  const { members: scMembers, isLoading: scLoading } =
+    useSecurityCouncilMembers();
 
   const currentPhase: ElectionPhase = selectedElection?.phase ?? "NOT_STARTED";
 
@@ -73,6 +78,8 @@ export function ElectionContainer(): React.ReactElement {
           phase={currentPhase}
         />
       </div>
+
+      <SecurityCouncilMembersCard members={scMembers} isLoading={scLoading} />
     </div>
   );
 }
