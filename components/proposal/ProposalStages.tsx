@@ -126,7 +126,7 @@ export default function ProposalStages({
   }
 
   if (stages.length === 0 && isLoading) {
-    return <LoadingSkeleton />;
+    return <LoadingSkeleton stageCount={isTreasuryProposal ? 4 : 7} />;
   }
 
   return (

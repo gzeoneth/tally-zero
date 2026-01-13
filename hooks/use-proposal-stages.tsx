@@ -6,7 +6,6 @@ import {
   L1_BLOCK_CACHE_FRESHNESS_MS,
   L1_BLOCK_REFRESH_INTERVAL_MS,
 } from "@/config/storage-keys";
-import { initializeBundledCache } from "@/lib/bundled-cache-loader";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
   clearProposalCheckpoint,
@@ -215,10 +214,6 @@ export function useProposalStages({
 
         // Get cache adapter for zero-RPC resume
         const cache = getCacheAdapter();
-
-        // Initialize cache with gov-tracker's bundled cache on first run
-        // This eliminates the need for initial RPC discovery calls
-        await initializeBundledCache(cache);
 
         // Seed checkpoint from existing cached stages before tracking
         // This enables gov-tracker to resume from where we left off

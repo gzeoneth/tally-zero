@@ -2,10 +2,16 @@
 
 import { memo } from "react";
 
-export const LoadingSkeleton = memo(function LoadingSkeleton() {
+interface LoadingSkeletonProps {
+  stageCount?: number;
+}
+
+export const LoadingSkeleton = memo(function LoadingSkeleton({
+  stageCount = 7,
+}: LoadingSkeletonProps) {
   return (
     <div className="space-y-4 p-4">
-      {[1, 2, 3, 4, 5].map((i) => (
+      {Array.from({ length: stageCount }, (_, i) => i + 1).map((i) => (
         <div key={i} className="flex gap-4">
           <div className="relative w-7 h-7 rounded-full glass-subtle overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_1.5s_infinite]" />

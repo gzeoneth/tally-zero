@@ -1,7 +1,8 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
+import type { TimelockOperationInfo } from "@/hooks/use-timelock-operation";
 import {
   formatEstimatedCompletion,
   type EstimatedTimeRange,
@@ -11,11 +12,52 @@ import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import { getStageMetadata } from "@gzeoneth/gov-tracker";
 import { CalendarIcon, ReloadIcon } from "@radix-ui/react-icons";
 
+import { ExecuteTimelockButton } from "./ExecuteTimelockButton";
 import { createStageCalendarUrl, type VotingTimeRange } from "./stage-utils";
 import { StageDataDisplay } from "./StageDataDisplay";
 import { StatusIcon } from "./StatusIcon";
 import { TransactionsList } from "./TransactionsList";
 import { VotingStageContent } from "./VotingStageContent";
+
+function extractTimelockOperation(
+  stage: ProposalStage | undefined,
+  stageType: StageType
+): TimelockOperationInfo | null {
+  if (!stage || stage.status !== "READY") return null;
+  if (stageType !== "L2_TIMELOCK" && stageType !== "L1_TIMELOCK") return null;
+
+  const data = stage.data as {
+    operationId?: string;
+    timelockAddress?: string;
+    callScheduledData?: Array<{
+      operationId: string;
+      target: string;
+      value: string;
+      data: string;
+      predecessor: string;
+      delay: string;
+      txHash: string;
+      blockNumber: number;
+      timelockAddress: string;
+    }>;
+  };
+
+  if (!data.callScheduledData?.length) return null;
+
+  const call = data.callScheduledData[0];
+  return {
+    operationId: call.operationId,
+    target: call.target,
+    value: call.value,
+    data: call.data,
+    predecessor: call.predecessor,
+    delay: call.delay,
+    txHash: call.txHash,
+    blockNumber: call.blockNumber,
+    timestamp: 0,
+    timelockAddress: call.timelockAddress,
+  };
+}
 
 export interface StageItemProps {
   stage?: ProposalStage;
@@ -54,6 +96,11 @@ export const StageItem = memo(function StageItem({
   const status = stage?.status || "NOT_STARTED";
   const isActive = isTracking && !stage;
   const canRefresh = Boolean(stage && !isLoading);
+
+  const timelockOperation = useMemo(
+    () => extractTimelockOperation(stage, stageType),
+    [stage, stageType]
+  );
 
   return (
     <div className="relative flex gap-4">
@@ -141,6 +188,13 @@ export const StageItem = memo(function StageItem({
 
         {/* Stage data */}
         {stage?.data && <StageDataDisplay data={stage.data} />}
+
+        {/* Execute button for READY timelock stages */}
+        {timelockOperation && (
+          <div className="mt-3">
+            <ExecuteTimelockButton operation={timelockOperation} />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -87,17 +87,18 @@ export const VotingStageContent = memo(function VotingStageContent({
                 Extended
               </Badge>
             )}
-            {Boolean(
-              votingData?.extensionPossible !== false &&
-                !votingData?.wasExtended
-            ) && (
-              <Badge
-                variant="outline"
-                className="text-xs py-0 px-2 glass-subtle"
-              >
-                +2d extension possible
-              </Badge>
-            )}
+            {stage?.status !== "COMPLETED" &&
+              Boolean(
+                votingData?.extensionPossible !== false &&
+                  !votingData?.wasExtended
+              ) && (
+                <Badge
+                  variant="outline"
+                  className="text-xs py-0 px-2 glass-subtle"
+                >
+                  +2d extension possible
+                </Badge>
+              )}
           </div>
         </div>
       )}
