@@ -17,6 +17,7 @@ export function ElectionContainer(): React.ReactElement {
     status,
     allElections,
     selectedElection,
+    latestElection,
     nomineeDetails,
     memberDetails,
     isLoading,
@@ -50,6 +51,7 @@ export function ElectionContainer(): React.ReactElement {
         <ElectionSelector
           allElections={allElections}
           selectedElection={selectedElection}
+          latestElection={latestElection}
           onSelect={selectElection}
         />
       </div>

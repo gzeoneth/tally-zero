@@ -115,6 +115,7 @@ export interface UseElectionStatusResult {
   allElections: ElectionProposalStatus[];
   activeElections: ElectionProposalStatus[];
   selectedElection: ElectionProposalStatus | null;
+  latestElection: ElectionProposalStatus | null;
   nomineeDetails: NomineeElectionDetails;
   memberDetails: MemberElectionDetails;
   isLoading: boolean;
@@ -158,6 +159,16 @@ export function useElectionStatus({
     () => allElections.filter((e) => e.phase !== "COMPLETED"),
     [allElections]
   );
+
+  const latestElection = useMemo(() => {
+    if (activeElections.length > 0) {
+      return activeElections[activeElections.length - 1];
+    }
+    if (allElections.length > 0) {
+      return allElections[allElections.length - 1];
+    }
+    return null;
+  }, [allElections, activeElections]);
 
   const selectedElection = useMemo(() => {
     if (selectedIndex === null) {
@@ -300,6 +311,7 @@ export function useElectionStatus({
     allElections,
     activeElections,
     selectedElection,
+    latestElection,
     nomineeDetails,
     memberDetails,
     isLoading,

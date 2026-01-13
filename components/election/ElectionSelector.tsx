@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, History } from "lucide-react";
+import { ChevronDown, History, RotateCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -18,12 +18,14 @@ import type { ElectionProposalStatus } from "@gzeoneth/gov-tracker";
 interface ElectionSelectorProps {
   allElections: ElectionProposalStatus[];
   selectedElection: ElectionProposalStatus | null;
+  latestElection: ElectionProposalStatus | null;
   onSelect: (index: number | null) => void;
 }
 
 export function ElectionSelector({
   allElections,
   selectedElection,
+  latestElection,
   onSelect,
 }: ElectionSelectorProps): React.ReactElement | null {
   if (allElections.length <= 1) {
@@ -34,6 +36,11 @@ export function ElectionSelector({
   const completedElections = allElections.filter(
     (e) => e.phase === "COMPLETED"
   );
+
+  const isViewingPastElection =
+    selectedElection &&
+    latestElection &&
+    selectedElection.electionIndex !== latestElection.electionIndex;
 
   return (
     <DropdownMenu>
@@ -47,6 +54,19 @@ export function ElectionSelector({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
+        {isViewingPastElection && latestElection && (
+          <>
+            <DropdownMenuItem
+              className="flex items-center gap-2 text-blue-500"
+              onSelect={() => onSelect(latestElection.electionIndex)}
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>View Latest Election</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+
         {activeElections.length > 0 && (
           <>
             <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
