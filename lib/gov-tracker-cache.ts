@@ -108,16 +108,11 @@ export async function trimCheckpointFromStage(
 }
 
 function getMaxBlockNumber(stages: ProposalStage[], chain: string): number {
-  let maxBlock = 0;
-  for (const stage of stages) {
-    if (stage.chain === chain && stage.transactions?.length) {
-      const lastTx = stage.transactions[stage.transactions.length - 1];
-      if (lastTx?.blockNumber) {
-        maxBlock = Math.max(maxBlock, lastTx.blockNumber);
-      }
-    }
-  }
-  return maxBlock;
+  return stages.reduce((max, stage) => {
+    if (stage.chain !== chain || !stage.transactions?.length) return max;
+    const lastTx = stage.transactions[stage.transactions.length - 1];
+    return lastTx?.blockNumber ? Math.max(max, lastTx.blockNumber) : max;
+  }, 0);
 }
 
 /**

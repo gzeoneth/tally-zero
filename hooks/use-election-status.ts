@@ -176,18 +176,24 @@ export function useElectionStatus({
   // Load bundled cache elections on first render (before RPC fetch)
   const [bundledLoaded, setBundledLoaded] = useState(false);
   useEffect(() => {
-    getBundledCacheElections().then((bundledElections) => {
-      if (bundledElections.length > 0) {
-        debug.app(
-          "Loaded %d elections from bundled cache",
-          bundledElections.length
-        );
-        setAllElections((current) =>
-          mergeElectionsByIndex(current, bundledElections)
-        );
-      }
-      setBundledLoaded(true);
-    });
+    getBundledCacheElections()
+      .then((bundledElections) => {
+        if (bundledElections.length > 0) {
+          debug.app(
+            "Loaded %d elections from bundled cache",
+            bundledElections.length
+          );
+          setAllElections((current) =>
+            mergeElectionsByIndex(current, bundledElections)
+          );
+        }
+      })
+      .catch((err) => {
+        debug.app("Failed to load bundled elections: %O", err);
+      })
+      .finally(() => {
+        setBundledLoaded(true);
+      });
   }, []);
 
   const fetchElectionData = useCallback(async () => {

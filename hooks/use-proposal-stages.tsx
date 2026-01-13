@@ -182,12 +182,16 @@ function isCheckpointComplete(
     if (finalStage?.status === "COMPLETED") return true;
   }
 
-  // Shortened execution path: any SKIPPED stage with a preceding COMPLETED
-  if (stages.some((s) => s.status === "SKIPPED")) {
-    return stages.some((s) => s.status === "COMPLETED");
-  }
+  // Shortened execution path: SKIPPED stage present with at least one COMPLETED
+  // and no stages still pending/not started
+  const hasSkipped = stages.some((s) => s.status === "SKIPPED");
+  if (!hasSkipped) return false;
 
-  return false;
+  const hasCompleted = stages.some((s) => s.status === "COMPLETED");
+  const hasIncomplete = stages.some(
+    (s) => s.status === "PENDING" || s.status === "NOT_STARTED"
+  );
+  return hasCompleted && !hasIncomplete;
 }
 
 /**
