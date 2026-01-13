@@ -49,6 +49,78 @@ export async function loadCheckpoint(
 }
 
 /**
+ * Save checkpoint to cache by tx hash
+ */
+export async function saveCheckpoint(
+  cache: CacheAdapter,
+  creationTxHash: string,
+  checkpoint: TrackingCheckpoint
+): Promise<void> {
+  const key = buildTxHashCacheKey(creationTxHash);
+  await cache.set(key, checkpoint);
+}
+
+/**
+ * Trim checkpoint stages from a specific index onwards.
+ * Keeps stages before the index and removes stages at and after,
+ * enabling gov-tracker to resume from where the cache was trimmed.
+ *
+ * @returns True if checkpoint was trimmed, false if nothing to trim
+ */
+export async function trimCheckpointFromStage(
+  cache: CacheAdapter,
+  creationTxHash: string,
+  fromIndex: number
+): Promise<boolean> {
+  const checkpoint = await loadCheckpoint(cache, creationTxHash);
+  if (!checkpoint) return false;
+
+  const stages = checkpoint.cachedData.completedStages ?? [];
+  if (stages.length === 0 || fromIndex >= stages.length) return false;
+
+  if (fromIndex === 0) {
+    await clearProposalCheckpoint(cache, creationTxHash);
+    return true;
+  }
+
+  const trimmedStages = stages.slice(0, fromIndex);
+
+  const updatedCheckpoint: TrackingCheckpoint = {
+    ...checkpoint,
+    createdAt: Date.now(),
+    lastProcessedStage: trimmedStages[trimmedStages.length - 1]?.type ?? null,
+    lastProcessedBlock: {
+      ...checkpoint.lastProcessedBlock,
+      l1: getMaxBlockNumber(trimmedStages, "ethereum"),
+      l2: Math.max(
+        getMaxBlockNumber(trimmedStages, "arb1"),
+        getMaxBlockNumber(trimmedStages, "nova")
+      ),
+    },
+    cachedData: {
+      ...checkpoint.cachedData,
+      completedStages: trimmedStages,
+    },
+  };
+
+  await saveCheckpoint(cache, creationTxHash, updatedCheckpoint);
+  return true;
+}
+
+function getMaxBlockNumber(stages: ProposalStage[], chain: string): number {
+  let maxBlock = 0;
+  for (const stage of stages) {
+    if (stage.chain === chain && stage.transactions?.length) {
+      const lastTx = stage.transactions[stage.transactions.length - 1];
+      if (lastTx?.blockNumber) {
+        maxBlock = Math.max(maxBlock, lastTx.blockNumber);
+      }
+    }
+  }
+  return maxBlock;
+}
+
+/**
  * Singleton cache adapter instance using gov-tracker's LocalStorageCache
  */
 let cacheAdapterInstance: LocalStorageCache | null = null;

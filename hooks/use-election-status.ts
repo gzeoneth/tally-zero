@@ -44,6 +44,23 @@ const MEMBER_DETAIL_PHASES = new Set([
   "COMPLETED",
 ]);
 
+/**
+ * Merge elections by index, keeping current over bundled for same index
+ */
+function mergeElectionsByIndex(
+  current: ElectionProposalStatus[],
+  bundled: ElectionProposalStatus[]
+): ElectionProposalStatus[] {
+  if (current.length === 0) return bundled;
+
+  const currentIndices = new Set(current.map((e) => e.electionIndex));
+  const merged = [
+    ...current,
+    ...bundled.filter((e) => !currentIndices.has(e.electionIndex)),
+  ];
+  return merged.sort((a, b) => a.electionIndex - b.electionIndex);
+}
+
 function loadElectionCache(): ElectionCacheData | null {
   if (!isBrowser) return null;
 
@@ -156,7 +173,8 @@ export function useElectionStatus({
     ? memberDetailsMap[selectedElection.electionIndex] ?? null
     : null;
 
-  // Load bundled cache elections on first render
+  // Load bundled cache elections on first render (before RPC fetch)
+  const [bundledLoaded, setBundledLoaded] = useState(false);
   useEffect(() => {
     getBundledCacheElections().then((bundledElections) => {
       if (bundledElections.length > 0) {
@@ -165,9 +183,10 @@ export function useElectionStatus({
           bundledElections.length
         );
         setAllElections((current) =>
-          current.length === 0 ? bundledElections : current
+          mergeElectionsByIndex(current, bundledElections)
         );
       }
+      setBundledLoaded(true);
     });
   }, []);
 
@@ -256,9 +275,12 @@ export function useElectionStatus({
     setSelectedIndex(index);
   }, []);
 
+  // Only fetch from RPC after bundled cache has been checked
+  // This ensures bundled data shows immediately while fresh data loads
   useEffect(() => {
+    if (!bundledLoaded) return;
     fetchElectionData();
-  }, [fetchElectionData, refreshTrigger]);
+  }, [bundledLoaded, fetchElectionData, refreshTrigger]);
 
   useEffect(() => {
     if (!enabled || refreshInterval <= 0) return;

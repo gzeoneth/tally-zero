@@ -14,6 +14,7 @@ import {
   clearProposalCheckpoint,
   getCacheAdapter,
   loadCheckpoint,
+  trimCheckpointFromStage,
 } from "@/lib/gov-tracker-cache";
 import {
   emitVoteUpdate,
@@ -173,23 +174,17 @@ function isCheckpointComplete(
   const stages = checkpoint.cachedData.completedStages ?? [];
   if (stages.length === 0) return false;
 
-  // Check if any stage failed
-  const hasFailed = stages.some((s) => s.status === "FAILED");
-  if (hasFailed) return true;
+  if (stages.some((s) => s.status === "FAILED")) return true;
 
-  // Check if reached final stage for this governor
   const expectedFinal = getFinalStageForGovernor(governorAddress);
-  if (!expectedFinal) return false;
+  if (expectedFinal) {
+    const finalStage = stages.find((s) => s.type === expectedFinal);
+    if (finalStage?.status === "COMPLETED") return true;
+  }
 
-  const finalStage = stages.find((s) => s.type === expectedFinal);
-  if (finalStage?.status === "COMPLETED") return true;
-
-  // Check for SKIPPED stages (shortened execution path)
-  const hasSkipped = stages.some((s) => s.status === "SKIPPED");
-  if (hasSkipped) {
-    for (let i = stages.length - 1; i >= 0; i--) {
-      if (stages[i].status === "COMPLETED") return true;
-    }
+  // Shortened execution path: any SKIPPED stage with a preceding COMPLETED
+  if (stages.some((s) => s.status === "SKIPPED")) {
+    return stages.some((s) => s.status === "COMPLETED");
   }
 
   return false;
@@ -393,29 +388,47 @@ export function useProposalStages({
     l2ChunkSize,
   ]);
 
-  // Refetch from a specific stage (stageIndex is kept for API compatibility but we always re-track fully)
+  // Refetch from a specific stage - trims cache and re-tracks
   const refetchFromStage = useCallback(
-    (_stageIndex: number) => {
+    async (stageIndex: number) => {
       if (!proposalId || !governorAddress || !creationTxHash) return;
 
-      // Clear the gov-tracker checkpoint so it re-tracks fresh
       const cache = getCacheAdapter();
-      clearProposalCheckpoint(cache, creationTxHash);
 
-      // Abort any existing tracking
       trackerManager.abortTracking(proposalId, governorAddress);
 
-      // Reset session to idle with no cached stages
+      const trimmed = await trimCheckpointFromStage(
+        cache,
+        creationTxHash,
+        stageIndex
+      );
+
+      if (!trimmed) {
+        await clearProposalCheckpoint(cache, creationTxHash);
+      }
+
+      const trimmedCheckpoint = await loadCheckpoint(cache, creationTxHash);
+      const trimmedStages = trimmedCheckpoint?.cachedData.completedStages ?? [];
+      const trimmedResult =
+        trimmedCheckpoint && trimmedStages.length > 0
+          ? checkpointToResult(
+              trimmedCheckpoint,
+              proposalId,
+              creationTxHash,
+              governorAddress
+            )
+          : null;
+
       trackerManager.updateSession(proposalId, governorAddress, {
-        stages: [],
-        currentStageIndex: -1,
+        stages: trimmedStages,
+        currentStageIndex: trimmedStages.length - 1,
         status: "idle",
-        result: null,
+        result: trimmedResult,
         error: null,
         queuePosition: null,
+        refreshingFromIndex: stageIndex,
       });
 
-      // Start fresh tracking
       trackerManager.requestTracking(proposalId, governorAddress, () =>
         startTracking()
       );

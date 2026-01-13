@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 
+import { addressesEqual } from "@/lib/address-utils";
 import {
   getBundledCacheMetadata,
   getBundledCacheProposals,
@@ -225,7 +226,7 @@ export function useMultiGovernorSearch({
         prev.map((p) => {
           if (
             p.id === update.proposalId &&
-            p.contractAddress === update.governorAddress
+            addressesEqual(p.contractAddress, update.governorAddress)
           ) {
             debug.search(
               "updating votes for proposal %s: for=%s, against=%s",
