@@ -10,6 +10,7 @@ import { getErrorMessage } from "@/lib/error-utils";
 import {
   loadCachedTimelockResult,
   saveCachedTimelockResult,
+  type TimelockTrackingResult,
 } from "@/lib/gov-tracker-cache";
 import { createProposalTracker } from "@/lib/stage-tracker";
 import { getStoredCacheTtlMs } from "@/lib/storage-utils";
@@ -35,13 +36,6 @@ export interface TimelockOperationInfo {
   blockNumber: number;
   timestamp: number;
   timelockAddress: string;
-}
-
-/** Result from tracking a timelock operation */
-export interface TimelockTrackingResult {
-  operationInfo: TimelockOperationInfo;
-  stages: ProposalStage[];
-  error?: string;
 }
 
 /** Options for configuring timelock operation tracking */
