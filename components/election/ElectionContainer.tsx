@@ -1,7 +1,8 @@
 "use client";
 
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
+import { Button } from "@/components/ui/Button";
 import { useElectionStatus } from "@/hooks/use-election-status";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { useSecurityCouncilMembers } from "@/hooks/use-security-council-members";
@@ -41,9 +42,15 @@ export function ElectionContainer(): React.ReactElement {
   if (error) {
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="h-5 w-5" />
-          <span className="font-medium">Failed to load election status</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <span className="font-medium">Failed to load election status</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={refresh}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
       </div>

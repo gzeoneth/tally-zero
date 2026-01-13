@@ -1,11 +1,8 @@
 "use client";
 
-/**
- * Hook for fetching current Security Council members
- */
-
 import { SC_CONTRACTS } from "@/config/security-council";
 import { debug } from "@/lib/debug";
+import { createRpcProvider } from "@/lib/rpc-utils";
 import { ARBITRUM_RPC_URL } from "@config/arbitrum-governance";
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
@@ -43,7 +40,7 @@ export function useSecurityCouncilMembers(): UseSecurityCouncilMembersResult {
     setError(null);
 
     try {
-      const provider = new ethers.providers.StaticJsonRpcProvider(l2Url);
+      const provider = await createRpcProvider(l2Url);
       const manager = new ethers.Contract(
         SC_CONTRACTS.SECURITY_COUNCIL_MANAGER,
         SECURITY_COUNCIL_MANAGER_ABI,

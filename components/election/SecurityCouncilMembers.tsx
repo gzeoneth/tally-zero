@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import type { SecurityCouncilMembers } from "@/hooks/use-security-council-members";
+import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 import { shortenAddress } from "@/lib/format-utils";
 
 interface SecurityCouncilMembersCardProps {
@@ -61,6 +62,17 @@ export function SecurityCouncilMembersCard({
   );
 }
 
+const COHORT_STYLES = {
+  first: {
+    container: "border-blue-500/30 bg-blue-500/10",
+    badge: "bg-blue-500",
+  },
+  second: {
+    container: "border-purple-500/30 bg-purple-500/10",
+    badge: "bg-purple-500",
+  },
+} as const;
+
 function CohortSection({
   title,
   members,
@@ -68,19 +80,15 @@ function CohortSection({
 }: {
   title: string;
   members: string[];
-  variant: "first" | "second";
+  variant: keyof typeof COHORT_STYLES;
 }): React.ReactElement {
-  const colorClass =
-    variant === "first"
-      ? "border-blue-500/30 bg-blue-500/10"
-      : "border-purple-500/30 bg-purple-500/10";
-  const badgeClass = variant === "first" ? "bg-blue-500" : "bg-purple-500";
+  const styles = COHORT_STYLES[variant];
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium">{title}</h4>
-        <Badge variant="secondary" className={badgeClass}>
+        <Badge variant="secondary" className={styles.badge}>
           {members.length} members
         </Badge>
       </div>
@@ -88,11 +96,11 @@ function CohortSection({
         {members.map((address) => (
           <div
             key={address}
-            className={`flex items-center gap-2 rounded-lg border p-2 ${colorClass}`}
+            className={`flex items-center gap-2 rounded-lg border p-2 ${styles.container}`}
           >
             <Users className="h-4 w-4 text-muted-foreground" />
             <a
-              href={`https://arbiscan.io/address/${address}`}
+              href={getAddressExplorerUrl(address)}
               target="_blank"
               rel="noopener noreferrer"
               className="font-mono text-sm hover:underline"
@@ -106,19 +114,22 @@ function CohortSection({
   );
 }
 
+const SKELETON_COHORTS = 2;
+const SKELETON_MEMBERS_PER_COHORT = 6;
+
 function SecurityCouncilMembersSkeleton(): React.ReactElement {
   return (
     <Card variant="glass">
       <CardHeader>
         <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-32 mt-2" />
+        <Skeleton className="mt-2 h-4 w-32" />
       </CardHeader>
       <CardContent className="space-y-4">
-        {[1, 2].map((cohort) => (
-          <div key={cohort} className="space-y-2">
+        {Array.from({ length: SKELETON_COHORTS }, (_, cohortIndex) => (
+          <div key={cohortIndex} className="space-y-2">
             <Skeleton className="h-5 w-24" />
             <div className="grid gap-2 sm:grid-cols-2">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
+              {Array.from({ length: SKELETON_MEMBERS_PER_COHORT }, (_, i) => (
                 <Skeleton key={i} className="h-10 w-full" />
               ))}
             </div>
