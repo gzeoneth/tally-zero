@@ -18,6 +18,18 @@ import {
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 
+/**
+ * Safely convert a string to BigInt, returning 0 if invalid
+ */
+function safeBigInt(value: string | undefined): bigint {
+  if (!value) return BigInt(0);
+  try {
+    return BigInt(value);
+  } catch {
+    return BigInt(0);
+  }
+}
+
 interface ExecuteTimelockButtonProps {
   operation: TimelockOperationInfo;
   onSuccess?: () => void;
@@ -42,7 +54,7 @@ export function ExecuteTimelockButton({
       functionName: "hashOperation",
       args: [
         operation.target as `0x${string}`,
-        BigInt(operation.value),
+        safeBigInt(operation.value),
         operation.data as `0x${string}`,
         operation.predecessor as `0x${string}`,
         ZERO_BYTES32 as `0x${string}`,
@@ -57,7 +69,7 @@ export function ExecuteTimelockButton({
       functionName: "hashOperation",
       args: [
         operation.target as `0x${string}`,
-        BigInt(operation.value),
+        safeBigInt(operation.value),
         operation.data as `0x${string}`,
         operation.predecessor as `0x${string}`,
         customSalt as `0x${string}`,
@@ -141,12 +153,12 @@ export function ExecuteTimelockButton({
     functionName: "execute",
     args: [
       operation.target as `0x${string}`,
-      BigInt(operation.value),
+      safeBigInt(operation.value),
       operation.data as `0x${string}`,
       operation.predecessor as `0x${string}`,
       effectiveSalt as `0x${string}`,
     ],
-    value: BigInt(operation.value),
+    value: safeBigInt(operation.value),
     query: {
       enabled: isConnected && effectiveSalt !== null,
     },

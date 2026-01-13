@@ -46,6 +46,7 @@ import { useRpcSettings } from "./use-rpc-settings";
 let sharedL1Block: { block: number; timestamp: number; rpcUrl: string } | null =
   null;
 let pendingL1BlockPromise: Promise<number | null> | null = null;
+let pendingL1BlockRpcUrl: string | null = null;
 
 /**
  * Fetch L1 block with deduplication - multiple callers share the same result
@@ -61,12 +62,13 @@ async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
     return sharedL1Block.block;
   }
 
-  // If a fetch is already in progress, wait for it
-  if (pendingL1BlockPromise) {
+  // If a fetch is already in progress for the same RPC, wait for it
+  if (pendingL1BlockPromise && pendingL1BlockRpcUrl === rpcUrl) {
     return pendingL1BlockPromise;
   }
 
   // Start a new fetch
+  pendingL1BlockRpcUrl = rpcUrl;
   pendingL1BlockPromise = (async () => {
     try {
       const response = await fetch(rpcUrl, {
@@ -90,6 +92,7 @@ async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
       return null;
     } finally {
       pendingL1BlockPromise = null;
+      pendingL1BlockRpcUrl = null;
     }
   })();
 
