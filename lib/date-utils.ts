@@ -51,6 +51,13 @@ export function formatRelativeTimestamp(timestamp?: number): string {
 }
 
 /**
+ * Minimum valid ETA timestamp (Jan 1, 2020 00:00:00 UTC)
+ * OpenZeppelin's TimelockController uses timestamp=1 for completed operations (_DONE_TIMESTAMP)
+ * Any ETA before 2020 is considered invalid for Arbitrum governance proposals
+ */
+export const MIN_VALID_ETA_TIMESTAMP = 1577836800;
+
+/**
  * Format an ETA timestamp string to a human-readable date/time
  *
  * @param eta - Unix timestamp as string (in seconds)
@@ -58,11 +65,14 @@ export function formatRelativeTimestamp(timestamp?: number): string {
  *
  * @example
  * formatEtaTimestamp("1735084800") // "Dec 25, 2024, 12:00 AM"
+ * formatEtaTimestamp("1") // "" (OpenZeppelin _DONE_TIMESTAMP)
  */
 export function formatEtaTimestamp(eta?: string): string {
   if (!eta) return "";
   const timestamp = parseInt(eta, 10);
   if (isNaN(timestamp)) return "";
+  // Filter out invalid timestamps (including OpenZeppelin's _DONE_TIMESTAMP = 1)
+  if (timestamp < MIN_VALID_ETA_TIMESTAMP) return "";
   const date = new Date(timestamp * MS_PER_SECOND);
   return date.toLocaleString(undefined, {
     month: "short",

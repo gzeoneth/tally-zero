@@ -126,6 +126,24 @@ describe("date-utils", () => {
       expect(formatEtaTimestamp("not-a-number")).toBe("");
     });
 
+    it("returns empty string for OpenZeppelin _DONE_TIMESTAMP (1)", () => {
+      // OpenZeppelin TimelockController uses timestamp=1 for completed operations
+      expect(formatEtaTimestamp("1")).toBe("");
+    });
+
+    it("returns empty string for timestamps before 2020", () => {
+      // Any timestamp before Jan 1, 2020 is invalid for Arbitrum governance
+      expect(formatEtaTimestamp("0")).toBe("");
+      expect(formatEtaTimestamp("1000000000")).toBe(""); // Sep 9, 2001
+      expect(formatEtaTimestamp("1577836799")).toBe(""); // Dec 31, 2019
+    });
+
+    it("formats valid timestamp at minimum boundary", () => {
+      // Jan 1, 2020 00:00:00 UTC - first valid timestamp
+      const result = formatEtaTimestamp("1577836800");
+      expect(result).toMatch(/Jan 1, 2020/);
+    });
+
     it("formats valid timestamp", () => {
       // Dec 25, 2024 00:00:00 UTC
       const result = formatEtaTimestamp("1735084800");
