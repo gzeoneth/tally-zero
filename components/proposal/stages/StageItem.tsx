@@ -19,6 +19,67 @@ import { StatusIcon } from "./StatusIcon";
 import { TransactionsList } from "./TransactionsList";
 import { VotingStageContent } from "./VotingStageContent";
 
+function getTimelineGradient(status: string): string {
+  switch (status) {
+    case "COMPLETED":
+      return "bg-gradient-to-b from-green-500 to-green-500/50";
+    case "READY":
+      return "bg-gradient-to-b from-blue-500 to-blue-500/50";
+    default:
+      return "bg-gradient-to-b from-muted to-muted/30";
+  }
+}
+
+function getStatusBackground(status: string): string {
+  switch (status) {
+    case "COMPLETED":
+      return "bg-green-500/20 dark:bg-green-500/25";
+    case "READY":
+      return "bg-blue-500/20 dark:bg-blue-500/25";
+    case "PENDING":
+      return "bg-yellow-500/20 dark:bg-yellow-500/25";
+    default:
+      return "glass-subtle";
+  }
+}
+
+function getStatusTextColor(status: string): string {
+  switch (status) {
+    case "COMPLETED":
+      return "text-foreground";
+    case "READY":
+      return "text-blue-600 dark:text-blue-400";
+    case "PENDING":
+      return "text-yellow-600 dark:text-yellow-400";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+function getChainBadgeStyle(chain: string | undefined): string {
+  switch (chain) {
+    case "ethereum":
+      return "bg-blue-500/20 dark:bg-blue-500/25 text-blue-700 dark:text-blue-300";
+    case "arb1":
+      return "bg-purple-500/20 dark:bg-purple-500/25 text-purple-700 dark:text-purple-300";
+    default:
+      return "bg-orange-500/20 dark:bg-orange-500/25 text-orange-700 dark:text-orange-300";
+  }
+}
+
+function getChainLabel(chain: string | undefined): string {
+  switch (chain) {
+    case "ethereum":
+      return "L1";
+    case "arb1":
+      return "Arb1";
+    case "nova":
+      return "Nova";
+    default:
+      return chain || "Unknown";
+  }
+}
+
 function extractTimelockOperation(
   stage: ProposalStage | undefined,
   stageType: StageType
@@ -109,29 +170,14 @@ export const StageItem = memo(function StageItem({
         <div
           className={cn(
             "absolute left-[14px] top-8 w-0.5 h-[calc(100%-16px)]",
-            status === "COMPLETED"
-              ? "bg-gradient-to-b from-green-500 to-green-500/50"
-              : status === "READY"
-                ? "bg-gradient-to-b from-blue-500 to-blue-500/50"
-                : "bg-gradient-to-b from-muted to-muted/30"
+            getTimelineGradient(status)
           )}
         />
       )}
 
       {/* Status icon */}
       <div className="relative z-10 flex-shrink-0 mt-0.5">
-        <div
-          className={cn(
-            "rounded-full p-1",
-            status === "COMPLETED"
-              ? "bg-green-500/20 dark:bg-green-500/25"
-              : status === "READY"
-                ? "bg-blue-500/20 dark:bg-blue-500/25"
-                : status === "PENDING"
-                  ? "bg-yellow-500/20 dark:bg-yellow-500/25"
-                  : "glass-subtle"
-          )}
-        >
+        <div className={cn("rounded-full p-1", getStatusBackground(status))}>
           {isActive || isRefreshing ? (
             <ReloadIcon className="h-5 w-5 text-blue-500 animate-spin" />
           ) : (
@@ -226,37 +272,16 @@ const StageHeader = memo(function StageHeader({
 }: StageHeaderProps) {
   return (
     <div className="flex items-center gap-2">
-      <h4
-        className={cn(
-          "text-sm font-medium",
-          status === "COMPLETED"
-            ? "text-foreground"
-            : status === "READY"
-              ? "text-blue-600 dark:text-blue-400"
-              : status === "PENDING"
-                ? "text-yellow-600 dark:text-yellow-400"
-                : "text-muted-foreground"
-        )}
-      >
+      <h4 className={cn("text-sm font-medium", getStatusTextColor(status))}>
         {metadata?.title || stageType}
       </h4>
       <span
         className={cn(
           "text-xs px-2 py-0.5 rounded-full font-medium",
-          metadata?.chain === "ethereum"
-            ? "bg-blue-500/20 dark:bg-blue-500/25 text-blue-700 dark:text-blue-300"
-            : metadata?.chain === "arb1"
-              ? "bg-purple-500/20 dark:bg-purple-500/25 text-purple-700 dark:text-purple-300"
-              : "bg-orange-500/20 dark:bg-orange-500/25 text-orange-700 dark:text-orange-300"
+          getChainBadgeStyle(metadata?.chain)
         )}
       >
-        {metadata?.chain === "ethereum"
-          ? "L1"
-          : metadata?.chain === "arb1"
-            ? "Arb1"
-            : metadata?.chain === "nova"
-              ? "Nova"
-              : metadata?.chain}
+        {getChainLabel(metadata?.chain)}
       </span>
       {isRefreshing && (
         <span className="text-xs text-blue-500 animate-pulse">

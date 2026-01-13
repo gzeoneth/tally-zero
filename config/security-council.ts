@@ -87,7 +87,7 @@ export function daysUntil(timestamp: number): number {
 }
 
 export function formatDuration(seconds: number): string {
-  if (seconds <= 0) return "Now";
+  if (!Number.isFinite(seconds) || seconds <= 0) return "Now";
 
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
