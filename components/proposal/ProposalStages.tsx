@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 
-import { Button } from "@/components/ui/Button";
 import { isTreasuryGovernor } from "@/config/governors";
 import {
   getAllStageTypes,
@@ -11,6 +10,7 @@ import {
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import { ReloadIcon } from "@radix-ui/react-icons";
 
+import ProposalStagesError from "./ProposalStagesError";
 import {
   calculateEstimatedCompletionTimes,
   LoadingSkeleton,
@@ -99,12 +99,11 @@ export default function ProposalStages({
 
   if (error) {
     return (
-      <div className="p-4 text-center glass-subtle rounded-xl">
-        <p className="text-sm text-red-500 mb-3">{error}</p>
-        <Button variant="outline" size="sm" onClick={() => refetchFromStage(0)}>
-          <ReloadIcon className="mr-2 h-4 w-4" />
-          Retry
-        </Button>
+      <div className="glass-subtle rounded-xl">
+        <ProposalStagesError
+          error={new Error(error)}
+          onReset={() => refetchFromStage(0)}
+        />
       </div>
     );
   }
