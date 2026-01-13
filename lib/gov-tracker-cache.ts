@@ -162,6 +162,31 @@ export async function seedCheckpointFromStages(
   const lastStage = stages[stages.length - 1];
   const lastTx = lastStage.transactions[lastStage.transactions.length - 1];
 
+  // Extract L1 block from ethereum chain stages
+  let l1Block = 0;
+  for (const stage of stages) {
+    if (stage.chain === "ethereum" && stage.transactions?.length) {
+      const l1Tx = stage.transactions[stage.transactions.length - 1];
+      if (l1Tx?.blockNumber && l1Tx.blockNumber > l1Block) {
+        l1Block = l1Tx.blockNumber;
+      }
+    }
+  }
+
+  // Extract L2 block from arb1/nova chain stages
+  let l2Block = lastTx?.blockNumber ?? 0;
+  for (const stage of stages) {
+    if (
+      (stage.chain === "arb1" || stage.chain === "nova") &&
+      stage.transactions?.length
+    ) {
+      const l2Tx = stage.transactions[stage.transactions.length - 1];
+      if (l2Tx?.blockNumber && l2Tx.blockNumber > l2Block) {
+        l2Block = l2Tx.blockNumber;
+      }
+    }
+  }
+
   const checkpoint: TrackingCheckpoint = {
     version: 1,
     createdAt: Date.now(),
@@ -173,8 +198,8 @@ export async function seedCheckpointFromStages(
     },
     lastProcessedStage: lastStage.type,
     lastProcessedBlock: {
-      l1: 0,
-      l2: lastTx?.blockNumber ?? 0,
+      l1: l1Block,
+      l2: l2Block,
     },
     cachedData: {
       completedStages: stages.filter((s) => s.status === "COMPLETED"),

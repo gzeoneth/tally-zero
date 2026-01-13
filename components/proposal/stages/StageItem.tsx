@@ -64,7 +64,9 @@ export const StageItem = memo(function StageItem({
             "absolute left-[14px] top-8 w-0.5 h-[calc(100%-16px)]",
             status === "COMPLETED"
               ? "bg-gradient-to-b from-green-500 to-green-500/50"
-              : "bg-gradient-to-b from-muted to-muted/30"
+              : status === "READY"
+                ? "bg-gradient-to-b from-blue-500 to-blue-500/50"
+                : "bg-gradient-to-b from-muted to-muted/30"
           )}
         />
       )}
@@ -76,9 +78,11 @@ export const StageItem = memo(function StageItem({
             "rounded-full p-1",
             status === "COMPLETED"
               ? "bg-green-500/20 dark:bg-green-500/25"
-              : status === "PENDING"
-                ? "bg-yellow-500/20 dark:bg-yellow-500/25"
-                : "glass-subtle"
+              : status === "READY"
+                ? "bg-blue-500/20 dark:bg-blue-500/25"
+                : status === "PENDING"
+                  ? "bg-yellow-500/20 dark:bg-yellow-500/25"
+                  : "glass-subtle"
           )}
         >
           {isActive || isRefreshing ? (
@@ -173,9 +177,11 @@ const StageHeader = memo(function StageHeader({
           "text-sm font-medium",
           status === "COMPLETED"
             ? "text-foreground"
-            : status === "PENDING"
-              ? "text-yellow-600 dark:text-yellow-400"
-              : "text-muted-foreground"
+            : status === "READY"
+              ? "text-blue-600 dark:text-blue-400"
+              : status === "PENDING"
+                ? "text-yellow-600 dark:text-yellow-400"
+                : "text-muted-foreground"
         )}
       >
         {metadata?.title || stageType}
