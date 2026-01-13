@@ -634,9 +634,7 @@ export interface StageMetadataWithType {
 /**
  * Get all stage metadata as an array with type included
  */
-export function getAllStageTypes(
-  _governorType: "core" | "treasury" = "core"
-): StageMetadataWithType[] {
+export function getAllStageTypes(): StageMetadataWithType[] {
   const metadata = getAllStageMetadata();
   return (
     Object.entries(metadata) as [StageType, (typeof metadata)[StageType]][]

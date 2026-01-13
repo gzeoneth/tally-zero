@@ -17,6 +17,8 @@ import {
   StageItem,
 } from "./stages";
 
+const ALL_STAGE_TYPES = getAllStageTypes();
+
 interface ProposalStagesProps {
   proposalId: string;
   creationTxHash: string;
@@ -59,7 +61,6 @@ export default function ProposalStages({
   const isTreasuryProposal = isTreasuryGovernor(governorAddress);
   const governorType = isTreasuryProposal ? "treasury" : "core";
 
-  const allStageTypes = getAllStageTypes(governorType);
   const stageMap = useMemo(() => {
     const map = new Map<StageType, ProposalStage>();
     for (const stage of stages) {
@@ -71,24 +72,28 @@ export default function ProposalStages({
   const isDefeated = result?.currentState?.toLowerCase() === "defeated";
 
   const relevantStageTypes = useMemo(() => {
-    return allStageTypes.filter((meta) => {
+    return ALL_STAGE_TYPES.filter((meta) => {
       if (isDefeated) {
-        const votingIdx = allStageTypes.findIndex(
+        const votingIdx = ALL_STAGE_TYPES.findIndex(
           (s) => s.type === "VOTING_ACTIVE"
         );
-        const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
+        const currentIdx = ALL_STAGE_TYPES.findIndex(
+          (s) => s.type === meta.type
+        );
         return currentIdx <= votingIdx;
       }
       if (isTreasuryProposal) {
-        const l2ExecutedIdx = allStageTypes.findIndex(
+        const l2ExecutedIdx = ALL_STAGE_TYPES.findIndex(
           (s) => s.type === "L2_TIMELOCK"
         );
-        const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
+        const currentIdx = ALL_STAGE_TYPES.findIndex(
+          (s) => s.type === meta.type
+        );
         return currentIdx <= l2ExecutedIdx;
       }
       return true;
     });
-  }, [allStageTypes, isDefeated, isTreasuryProposal]);
+  }, [isDefeated, isTreasuryProposal]);
 
   const { estimatedTimes, votingTimeRange } = calculateEstimatedCompletionTimes(
     relevantStageTypes,

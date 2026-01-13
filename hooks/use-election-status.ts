@@ -116,8 +116,8 @@ export interface UseElectionStatusResult {
   activeElections: ElectionProposalStatus[];
   selectedElection: ElectionProposalStatus | null;
   latestElection: ElectionProposalStatus | null;
-  nomineeDetails: NomineeElectionDetails;
-  memberDetails: MemberElectionDetails;
+  nomineeDetails: NomineeElectionDetails | null;
+  memberDetails: MemberElectionDetails | null;
   isLoading: boolean;
   error: Error | null;
   refresh: () => void;
