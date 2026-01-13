@@ -71,6 +71,7 @@ export function ElectionStatusCard({
             size="sm"
             onClick={onRefresh}
             disabled={isLoading}
+            aria-label="Refresh election status"
           >
             <RefreshCw
               className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
