@@ -109,26 +109,8 @@ export function getCompletionStatus(
 }
 
 /**
- * Check if stages are complete (have reached a terminal state)
- *
- * Terminal states:
- * - COMPLETED: Proposal successfully executed through all stages
- * - FAILED: Proposal was defeated, canceled, or expired during voting
- *
- * @deprecated Use getCompletionStatus() for more precise status
- * @param stages - Array of proposal stages
- * @returns True if the last stage is in a terminal state
- */
-export function areStagesComplete(stages: ProposalStage[]): boolean {
-  if (!stages || stages.length === 0) return false;
-  const lastStage = stages[stages.length - 1];
-  return lastStage.status === "COMPLETED" || lastStage.status === "FAILED";
-}
-
-/**
  * Check if stages have reached the final stage for a specific governor
  *
- * @deprecated Use getCompletionStatus() for more precise status
  * @param stages - Array of proposal stages
  * @param governorAddress - The governor contract address
  * @returns True if the proposal has reached its final stage
