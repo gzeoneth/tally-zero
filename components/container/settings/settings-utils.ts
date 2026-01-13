@@ -7,6 +7,14 @@ export const ALL_STORAGE_KEYS = Object.values(STORAGE_KEYS).filter(
 );
 
 /**
+ * Cache prefixes to track for stats and clearing
+ */
+const CACHE_PREFIXES = [
+  STORAGE_KEYS.STAGES_CACHE_PREFIX,
+  STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX,
+];
+
+/**
  * Get cache stats from localStorage
  */
 export function getCacheStats(): { count: number; size: string } {
@@ -14,7 +22,7 @@ export function getCacheStats(): { count: number; size: string } {
   let size = 0;
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith(STORAGE_KEYS.STAGES_CACHE_PREFIX)) {
+    if (key && CACHE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
       count++;
       const value = localStorage.getItem(key);
       if (value) size += value.length;
@@ -45,7 +53,7 @@ export function clearCache(): number {
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith(STORAGE_KEYS.STAGES_CACHE_PREFIX)) {
+    if (key && CACHE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
       keysToRemove.push(key);
     }
   }

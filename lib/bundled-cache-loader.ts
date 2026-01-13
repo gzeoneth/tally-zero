@@ -216,6 +216,10 @@ let bundledCacheInitialized = false;
  *
  * This seeds the cache adapter (e.g., LocalStorageCache) with checkpoints
  * from the bundled cache for zero-RPC resume of stage tracking.
+ *
+ * Bundled cache entries are merged with existing localStorage entries:
+ * - If bundled entry has more completed stages, it overwrites localStorage
+ * - User's fresh tracking data (not in bundled cache) is preserved
  */
 export async function initializeBundledCache(
   cache: CacheAdapter
@@ -235,26 +239,40 @@ export async function initializeBundledCache(
   }
 
   try {
-    const existingKeys = await cache.keys();
-    const keyCount = Array.isArray(existingKeys)
-      ? existingKeys.length
-      : Array.from(existingKeys).length;
-
-    if (keyCount > 0) {
-      debug.cache("cache already initialized with %d checkpoints", keyCount);
-      bundledCacheInitialized = true;
-      return;
-    }
-
     const bundledCache = await loadBundledCache();
 
-    let count = 0;
-    for (const [key, checkpoint] of Object.entries(bundledCache)) {
-      await cache.set(key, checkpoint);
-      count++;
+    let added = 0;
+    let upgraded = 0;
+    let skipped = 0;
+
+    for (const [key, bundledCheckpoint] of Object.entries(bundledCache)) {
+      const existing = await cache.get<TrackingCheckpoint>(key);
+      const bundledStages =
+        bundledCheckpoint.cachedData?.completedStages?.length ?? 0;
+
+      if (!existing) {
+        // No existing entry - add bundled
+        await cache.set(key, bundledCheckpoint);
+        added++;
+      } else {
+        // Compare stage counts - bundled cache may have more complete data
+        const existingStages =
+          existing.cachedData?.completedStages?.length ?? 0;
+        if (bundledStages > existingStages) {
+          await cache.set(key, bundledCheckpoint);
+          upgraded++;
+        } else {
+          skipped++;
+        }
+      }
     }
 
-    debug.cache("initialized cache with %d bundled checkpoints", count);
+    debug.cache(
+      "bundled cache: added=%d, upgraded=%d, skipped=%d",
+      added,
+      upgraded,
+      skipped
+    );
     bundledCacheInitialized = true;
   } catch (err) {
     debug.cache(
