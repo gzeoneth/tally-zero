@@ -69,7 +69,7 @@ function loadElectionCache(): ElectionCacheData | null {
     if (!data) return null;
 
     const cache = JSON.parse(data) as ElectionCacheData;
-    if (cache.version !== ELECTION_CACHE_VERSION) {
+    if (!cache || cache.version !== ELECTION_CACHE_VERSION) {
       localStorage.removeItem(STORAGE_KEYS.ELECTION_CACHE);
       return null;
     }

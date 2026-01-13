@@ -43,7 +43,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
 
 // Shared L1 block cache to avoid redundant RPC calls across hook instances
-let sharedL1Block: { block: number; timestamp: number } | null = null;
+let sharedL1Block: { block: number; timestamp: number; rpcUrl: string } | null =
+  null;
 let pendingL1BlockPromise: Promise<number | null> | null = null;
 
 /**
@@ -51,9 +52,10 @@ let pendingL1BlockPromise: Promise<number | null> | null = null;
  * within a short time window
  */
 async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
-  // Return cached value if fresh
+  // Return cached value if fresh and from the same RPC
   if (
     sharedL1Block &&
+    sharedL1Block.rpcUrl === rpcUrl &&
     Date.now() - sharedL1Block.timestamp < L1_BLOCK_CACHE_FRESHNESS_MS
   ) {
     return sharedL1Block.block;
@@ -80,7 +82,7 @@ async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
       const data = await response.json();
       if (data.result) {
         const block = parseInt(data.result, 16);
-        sharedL1Block = { block, timestamp: Date.now() };
+        sharedL1Block = { block, timestamp: Date.now(), rpcUrl };
         return block;
       }
       return null;

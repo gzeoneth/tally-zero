@@ -293,6 +293,7 @@ const StageHeader = memo(function StageHeader({
           onClick={() => onRefresh(stageIndex)}
           className="p-1 rounded-full glass-subtle hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all duration-200"
           title="Re-track from this stage"
+          aria-label="Re-track from this stage"
         >
           <ReloadIcon className="h-3.5 w-3.5" />
         </button>
