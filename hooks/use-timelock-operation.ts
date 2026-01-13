@@ -7,12 +7,12 @@
 
 import { isValidTxHash } from "@/lib/address-utils";
 import { getErrorMessage } from "@/lib/error-utils";
-import { createProposalTracker } from "@/lib/stage-tracker";
-import { getStoredCacheTtlMs } from "@/lib/storage-utils";
 import {
   loadCachedTimelockResult,
   saveCachedTimelockResult,
-} from "@/lib/unified-cache";
+} from "@/lib/gov-tracker-cache";
+import { createProposalTracker } from "@/lib/stage-tracker";
+import { getStoredCacheTtlMs } from "@/lib/storage-utils";
 import type { ProposalStage } from "@/types/proposal-stage";
 import {
   findCallScheduledByTxHash,

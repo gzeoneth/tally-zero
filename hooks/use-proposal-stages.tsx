@@ -1,6 +1,9 @@
 "use client";
 
-import { getGovernorByAddress } from "@/config/governors";
+import {
+  getFinalStageForGovernor,
+  getGovernorByAddress,
+} from "@/config/governors";
 import {
   CACHE_TTL_CHECK_INTERVAL_MS,
   L1_BLOCK_CACHE_FRESHNESS_MS,
@@ -10,7 +13,7 @@ import { getErrorMessage } from "@/lib/error-utils";
 import {
   clearProposalCheckpoint,
   getCacheAdapter,
-  seedCheckpointFromStages,
+  loadCheckpoint,
 } from "@/lib/gov-tracker-cache";
 import {
   emitVoteUpdate,
@@ -21,22 +24,17 @@ import {
   createProposalTracker,
   toProposalTrackingResult,
 } from "@/lib/stage-tracker";
-import { clearCachedStages, saveCachedStages } from "@/lib/stages-cache";
 import { getStoredCacheTtlMs } from "@/lib/storage-utils";
-import {
-  clearCachedTimelockResult,
-  loadUnifiedStages,
-  needsRefresh,
-  trimUnifiedCacheFromIndex,
-} from "@/lib/unified-cache";
 import type {
   ProposalStage,
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
 import {
   getAllStageMetadata,
+  type GovernorTrackingInput,
+  type ProposalQueuedData,
   type StageType,
-  type TrackedStage,
+  type TrackingCheckpoint,
   type TrackingProgress,
 } from "@gzeoneth/gov-tracker";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -118,6 +116,100 @@ interface UseProposalStagesResult {
   isBackgroundRefreshing: boolean;
 }
 
+/**
+ * Convert TrackingCheckpoint to ProposalTrackingResult
+ */
+function checkpointToResult(
+  checkpoint: TrackingCheckpoint,
+  proposalId: string,
+  creationTxHash: string,
+  governorAddress: string
+): ProposalTrackingResult {
+  const stages = checkpoint.cachedData.completedStages ?? [];
+  const input = checkpoint.input as GovernorTrackingInput;
+
+  // Extract timelockLink from PROPOSAL_QUEUED stage if present
+  const queuedStage = stages.find((s) => s.type === "PROPOSAL_QUEUED");
+  const queuedData = queuedStage?.data as ProposalQueuedData | undefined;
+  let timelockLink = undefined;
+  if (queuedData?.timelockAddress && queuedData?.operationId && queuedStage) {
+    const queueTx = queuedStage.transactions[0];
+    timelockLink = {
+      timelockAddress: queuedData.timelockAddress,
+      operationId: queuedData.operationId,
+      txHash: queueTx?.hash ?? "",
+      queueBlockNumber: queueTx?.blockNumber ?? 0,
+    };
+  }
+
+  // Determine current state from voting stage
+  const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
+  interface VotingData {
+    proposalState?: string;
+  }
+  const votingData = votingStage?.data as VotingData | undefined;
+  const currentState = votingData?.proposalState
+    ? votingData.proposalState.charAt(0).toUpperCase() +
+      votingData.proposalState.slice(1)
+    : undefined;
+
+  return {
+    proposalId: input.proposalId ?? proposalId,
+    creationTxHash: input.creationTxHash ?? creationTxHash,
+    governorAddress: input.governorAddress ?? governorAddress,
+    stages,
+    timelockLink,
+    currentState,
+  };
+}
+
+/**
+ * Check if checkpoint stages are complete for this governor
+ */
+function isCheckpointComplete(
+  checkpoint: TrackingCheckpoint,
+  governorAddress: string
+): boolean {
+  const stages = checkpoint.cachedData.completedStages ?? [];
+  if (stages.length === 0) return false;
+
+  // Check if any stage failed
+  const hasFailed = stages.some((s) => s.status === "FAILED");
+  if (hasFailed) return true;
+
+  // Check if reached final stage for this governor
+  const expectedFinal = getFinalStageForGovernor(governorAddress);
+  if (!expectedFinal) return false;
+
+  const finalStage = stages.find((s) => s.type === expectedFinal);
+  if (finalStage?.status === "COMPLETED") return true;
+
+  // Check for SKIPPED stages (shortened execution path)
+  const hasSkipped = stages.some((s) => s.status === "SKIPPED");
+  if (hasSkipped) {
+    for (let i = stages.length - 1; i >= 0; i--) {
+      if (stages[i].status === "COMPLETED") return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if checkpoint needs refresh based on TTL
+ */
+function checkpointNeedsRefresh(
+  checkpoint: TrackingCheckpoint,
+  governorAddress: string,
+  ttlMs: number
+): boolean {
+  if (isCheckpointComplete(checkpoint, governorAddress)) {
+    return false;
+  }
+  const age = Date.now() - checkpoint.createdAt;
+  return age > ttlMs;
+}
+
 export function useProposalStages({
   proposalId,
   creationTxHash,
@@ -133,6 +225,8 @@ export function useProposalStages({
     l2ChunkSize,
     isHydrated: rpcHydrated,
   } = useRpcSettings();
+
+  const cacheTtlMs = getStoredCacheTtlMs();
 
   const effectiveL1RpcUrl = l1RpcUrl || l1Rpc;
   const effectiveL2RpcUrl = l2RpcUrl || l2Rpc;
@@ -170,228 +264,158 @@ export function useProposalStages({
   }, []);
 
   // Start tracking function using gov-tracker
-  const startTracking = useCallback(
-    async (startFromStage?: number, existingStages?: ProposalStage[]) => {
-      if (!proposalId || !creationTxHash || !governorAddress) return;
+  const startTracking = useCallback(async () => {
+    if (!proposalId || !creationTxHash || !governorAddress) return;
 
-      const abortController = new AbortController();
+    const abortController = new AbortController();
 
-      trackerManager.updateSession(proposalId, governorAddress, {
-        status: "loading",
-        error: null,
-        abortController,
-        refreshingFromIndex: startFromStage ?? null,
-      });
+    trackerManager.updateSession(proposalId, governorAddress, {
+      status: "loading",
+      error: null,
+      abortController,
+      refreshingFromIndex: null,
+    });
 
-      try {
-        const governorConfig = getGovernorByAddress(governorAddress);
-        if (!governorConfig) {
-          throw new Error(`Unknown governor address: ${governorAddress}`);
-        }
-
-        // Create tracker with progress callback
-        const onProgress = (
-          stage: TrackedStage,
-          index: number,
-          isComplete: boolean
-        ) => {
-          if (abortController.signal.aborted) return;
-
-          const session = trackerManager.getSession(
-            proposalId,
-            governorAddress
-          );
-          if (!session) return;
-
-          const newStages = [...session.stages];
-          newStages[index] = stage;
-
-          trackerManager.updateSession(proposalId, governorAddress, {
-            stages: newStages,
-            currentStageIndex: index,
-          });
-        };
-
-        // Get cache adapter for zero-RPC resume
-        const cache = getCacheAdapter();
-
-        // Seed checkpoint from existing cached stages before tracking
-        // This enables gov-tracker to resume from where we left off
-        const cacheTtlMs = getStoredCacheTtlMs();
-        const unifiedResult = loadUnifiedStages(
-          proposalId,
-          governorAddress,
-          cacheTtlMs
-        );
-        if (unifiedResult.stages.length > 0) {
-          await seedCheckpointFromStages(
-            cache,
-            proposalId,
-            governorAddress,
-            creationTxHash,
-            unifiedResult.stages
-          );
-        }
-
-        // Create tracker using gov-tracker package with cache for resume
-        const tracker = createProposalTracker(
-          effectiveL2RpcUrl || undefined,
-          effectiveL1RpcUrl || undefined,
-          {
-            onProgress: (progress: TrackingProgress) => {
-              onProgress(
-                progress.stage,
-                progress.currentIndex,
-                progress.isComplete
-              );
-            },
-            chunkingConfig: {
-              l1ChunkSize,
-              l2ChunkSize,
-            },
-            cache,
-          }
-        );
-
-        // Track by transaction hash
-        const results = await tracker.trackByTxHash(creationTxHash);
-
-        if (abortController.signal.aborted) {
-          // Clear background refresh flag on abort
-          trackerManager.updateSession(proposalId, governorAddress, {
-            isBackgroundRefreshing: false,
-          });
-          return;
-        }
-
-        // Use first result (governor proposals return single result)
-        const trackingResult = results[0];
-        if (!trackingResult) {
-          throw new Error("No tracking result returned");
-        }
-
-        // Add proposal metadata for UI display
-        const proposalResult = toProposalTrackingResult(
-          trackingResult,
-          proposalId,
-          creationTxHash,
-          governorAddress
-        );
-
-        trackerManager.trackingFinished(proposalId, governorAddress);
-
-        trackerManager.updateSession(proposalId, governorAddress, {
-          result: proposalResult,
-          stages: proposalResult.stages,
-          status: "complete",
-          refreshingFromIndex: null,
-          abortController: null,
-          isBackgroundRefreshing: false,
-        });
-
-        saveCachedStages(proposalId, governorAddress, proposalResult);
-
-        // Emit vote update using raw values from gov-tracker
-        const votingStage = proposalResult.stages.find(
-          (s) => s.type === "VOTING_ACTIVE"
-        );
-        const forVotesRaw = votingStage?.data?.forVotesRaw as
-          | string
-          | undefined;
-        if (forVotesRaw) {
-          emitVoteUpdate({
-            proposalId,
-            governorAddress,
-            forVotes: forVotesRaw,
-            againstVotes: (votingStage?.data?.againstVotesRaw as string) || "0",
-            abstainVotes: (votingStage?.data?.abstainVotesRaw as string) || "0",
-          });
-        }
-      } catch (err) {
-        if (abortController.signal.aborted) {
-          // Clear background refresh flag on abort
-          trackerManager.updateSession(proposalId, governorAddress, {
-            isBackgroundRefreshing: false,
-          });
-          return;
-        }
-        trackerManager.trackingFinished(proposalId, governorAddress);
-
-        trackerManager.updateSession(proposalId, governorAddress, {
-          error: getErrorMessage(err, "track proposal stages"),
-          status: "error",
-          refreshingFromIndex: null,
-          abortController: null,
-          isBackgroundRefreshing: false,
-        });
+    try {
+      const governorConfig = getGovernorByAddress(governorAddress);
+      if (!governorConfig) {
+        throw new Error(`Unknown governor address: ${governorAddress}`);
       }
-    },
-    [
-      proposalId,
-      creationTxHash,
-      governorAddress,
-      effectiveL1RpcUrl,
-      effectiveL2RpcUrl,
-      l1ChunkSize,
-      l2ChunkSize,
-    ]
-  );
 
-  // Refetch from a specific stage
-  const refetchFromStage = useCallback(
-    (stageIndex: number) => {
-      if (!proposalId || !governorAddress) return;
+      // Create tracker with progress callback
+      const onProgress = (stage: ProposalStage, index: number) => {
+        if (abortController.signal.aborted) return;
 
-      // Trim cache from the specified stage index
-      // This removes all stages including and after stageIndex
-      const trimmed = trimUnifiedCacheFromIndex(
-        proposalId,
-        governorAddress,
-        stageIndex
+        const session = trackerManager.getSession(proposalId, governorAddress);
+        if (!session) return;
+
+        const newStages = [...session.stages];
+        newStages[index] = stage;
+
+        trackerManager.updateSession(proposalId, governorAddress, {
+          stages: newStages,
+          currentStageIndex: index,
+        });
+      };
+
+      // Get cache adapter - gov-tracker handles caching automatically
+      const cache = getCacheAdapter();
+
+      // Create tracker using gov-tracker package with cache for resume
+      const tracker = createProposalTracker(
+        effectiveL2RpcUrl || undefined,
+        effectiveL1RpcUrl || undefined,
+        {
+          onProgress: (progress: TrackingProgress) => {
+            onProgress(progress.stage, progress.currentIndex);
+          },
+          chunkingConfig: {
+            l1ChunkSize,
+            l2ChunkSize,
+          },
+          cache,
+        }
       );
 
-      // If nothing was trimmed (no cache), clear everything as fallback
-      if (!trimmed) {
-        clearCachedStages(proposalId, governorAddress);
-        const session = trackerManager.getSession(proposalId, governorAddress);
-        const existingResult = session?.result;
-        if (existingResult?.timelockLink) {
-          clearCachedTimelockResult(
-            existingResult.timelockLink.txHash,
-            existingResult.timelockLink.operationId
-          );
-        }
+      // Track by transaction hash
+      const results = await tracker.trackByTxHash(creationTxHash);
+
+      if (abortController.signal.aborted) {
+        trackerManager.updateSession(proposalId, governorAddress, {
+          isBackgroundRefreshing: false,
+        });
+        return;
       }
 
-      // Clear gov-tracker checkpoint so it re-tracks with fresh cache
+      // Use first result (governor proposals return single result)
+      const trackingResult = results[0];
+      if (!trackingResult) {
+        throw new Error("No tracking result returned");
+      }
+
+      // Add proposal metadata for UI display
+      const proposalResult = toProposalTrackingResult(
+        trackingResult,
+        proposalId,
+        creationTxHash,
+        governorAddress
+      );
+
+      trackerManager.trackingFinished(proposalId, governorAddress);
+
+      trackerManager.updateSession(proposalId, governorAddress, {
+        result: proposalResult,
+        stages: proposalResult.stages,
+        status: "complete",
+        refreshingFromIndex: null,
+        abortController: null,
+        isBackgroundRefreshing: false,
+      });
+
+      // Emit vote update using raw values from gov-tracker
+      const votingStage = proposalResult.stages.find(
+        (s) => s.type === "VOTING_ACTIVE"
+      );
+      const forVotesRaw = votingStage?.data?.forVotesRaw as string | undefined;
+      if (forVotesRaw) {
+        emitVoteUpdate({
+          proposalId,
+          governorAddress,
+          forVotes: forVotesRaw,
+          againstVotes: (votingStage?.data?.againstVotesRaw as string) || "0",
+          abstainVotes: (votingStage?.data?.abstainVotesRaw as string) || "0",
+        });
+      }
+    } catch (err) {
+      if (abortController.signal.aborted) {
+        trackerManager.updateSession(proposalId, governorAddress, {
+          isBackgroundRefreshing: false,
+        });
+        return;
+      }
+      trackerManager.trackingFinished(proposalId, governorAddress);
+
+      trackerManager.updateSession(proposalId, governorAddress, {
+        error: getErrorMessage(err, "track proposal stages"),
+        status: "error",
+        refreshingFromIndex: null,
+        abortController: null,
+        isBackgroundRefreshing: false,
+      });
+    }
+  }, [
+    proposalId,
+    creationTxHash,
+    governorAddress,
+    effectiveL1RpcUrl,
+    effectiveL2RpcUrl,
+    l1ChunkSize,
+    l2ChunkSize,
+  ]);
+
+  // Refetch from a specific stage (stageIndex is kept for API compatibility but we always re-track fully)
+  const refetchFromStage = useCallback(
+    (_stageIndex: number) => {
+      if (!proposalId || !governorAddress || !creationTxHash) return;
+
+      // Clear the gov-tracker checkpoint so it re-tracks fresh
       const cache = getCacheAdapter();
       clearProposalCheckpoint(cache, creationTxHash);
 
       // Abort any existing tracking
       trackerManager.abortTracking(proposalId, governorAddress);
 
-      // Load the trimmed cache to get the updated stages
-      const cacheTtlMs = getStoredCacheTtlMs();
-      const unifiedResult = loadUnifiedStages(
-        proposalId,
-        governorAddress,
-        cacheTtlMs
-      );
-
-      // Update session with trimmed stages (keep what we have)
+      // Reset session to idle with no cached stages
       trackerManager.updateSession(proposalId, governorAddress, {
-        stages: unifiedResult.stages,
-        currentStageIndex:
-          unifiedResult.stages.length > 0
-            ? unifiedResult.stages.length - 1
-            : -1,
+        stages: [],
+        currentStageIndex: -1,
         status: "idle",
-        result: unifiedResult.proposalResult,
+        result: null,
         error: null,
         queuePosition: null,
       });
 
-      // Start tracking to re-discover the removed stages
+      // Start fresh tracking
       trackerManager.requestTracking(proposalId, governorAddress, () =>
         startTracking()
       );
@@ -428,7 +452,6 @@ export function useProposalStages({
   }, [enabled, rpcHydrated, effectiveL1RpcUrl]);
 
   // Function to trigger background refresh
-  // Background refresh keeps cached stages visible while updating
   const triggerBackgroundRefresh = useCallback(() => {
     if (!proposalId || !governorAddress) return;
 
@@ -443,8 +466,7 @@ export function useProposalStages({
       return;
     }
 
-    // Mark as background refreshing without changing status
-    // This keeps cached stages visible during refresh
+    // Mark as background refreshing
     trackerManager.updateSession(proposalId, governorAddress, {
       isBackgroundRefreshing: true,
     });
@@ -477,41 +499,34 @@ export function useProposalStages({
     );
 
     // Check if we need to start tracking
-    const checkAndStartTracking = () => {
+    const checkAndStartTracking = async () => {
       // Already tracking or queued
       if (session.status === "loading" || session.status === "queued") {
         return;
       }
 
-      // Check for cached result using unified cache
-      const cacheTtlMs = getStoredCacheTtlMs();
-      const unifiedResult = loadUnifiedStages(
-        proposalId,
-        governorAddress,
-        cacheTtlMs
-      );
+      // Check for cached checkpoint
+      const cache = getCacheAdapter();
+      const checkpoint = await loadCheckpoint(cache, creationTxHash);
 
-      if (unifiedResult.stages.length > 0) {
-        // Construct a ProposalTrackingResult from unified cache
-        const cachedResult: ProposalTrackingResult = {
+      if (checkpoint && checkpoint.cachedData.completedStages?.length) {
+        // Load cached stages into session
+        const cachedResult = checkpointToResult(
+          checkpoint,
           proposalId,
           creationTxHash,
-          governorAddress,
-          stages: unifiedResult.stages,
-          timelockLink: unifiedResult.timelockLink,
-          currentState: unifiedResult.proposalResult?.currentState,
-        };
+          governorAddress
+        );
 
-        // Always load the cached data first
         trackerManager.updateSession(proposalId, governorAddress, {
-          stages: unifiedResult.stages,
-          currentStageIndex: unifiedResult.stages.length - 1,
+          stages: cachedResult.stages,
+          currentStageIndex: cachedResult.stages.length - 1,
           result: cachedResult,
           status: "complete",
         });
 
-        // If any cache is expired and not all stages are completed, do a background refresh
-        if (needsRefresh(unifiedResult)) {
+        // Check if needs background refresh
+        if (checkpointNeedsRefresh(checkpoint, governorAddress, cacheTtlMs)) {
           triggerBackgroundRefresh();
         }
         return;
@@ -539,38 +554,41 @@ export function useProposalStages({
     syncFromSession,
     startTracking,
     triggerBackgroundRefresh,
+    cacheTtlMs,
   ]);
 
-  // Periodic TTL check - continuously check for expiration while user is on page
+  // Periodic TTL check
   useEffect(() => {
-    if (!enabled || !proposalId || !governorAddress) return;
+    if (!enabled || !proposalId || !governorAddress || !creationTxHash) return;
 
-    const checkTtlExpiration = () => {
+    const checkTtlExpiration = async () => {
       const session = trackerManager.getSession(proposalId, governorAddress);
       if (!session || session.status !== "complete") return;
       if (session.isBackgroundRefreshing) return;
 
-      const cacheTtlMs = getStoredCacheTtlMs();
-      const unifiedResult = loadUnifiedStages(
-        proposalId,
-        governorAddress,
-        cacheTtlMs
-      );
+      const cache = getCacheAdapter();
+      const checkpoint = await loadCheckpoint(cache, creationTxHash);
+      if (!checkpoint) return;
 
-      // Check if any cache needs refresh
-      if (needsRefresh(unifiedResult)) {
+      if (checkpointNeedsRefresh(checkpoint, governorAddress, cacheTtlMs)) {
         triggerBackgroundRefresh();
       }
     };
 
-    // Check periodically for expired cache
     const interval = setInterval(
       checkTtlExpiration,
       CACHE_TTL_CHECK_INTERVAL_MS
     );
 
     return () => clearInterval(interval);
-  }, [enabled, proposalId, governorAddress, triggerBackgroundRefresh]);
+  }, [
+    enabled,
+    proposalId,
+    governorAddress,
+    creationTxHash,
+    triggerBackgroundRefresh,
+    cacheTtlMs,
+  ]);
 
   return {
     stages,
@@ -600,11 +618,9 @@ export interface StageMetadataWithType {
 
 /**
  * Get all stage metadata as an array with type included
- * gov-tracker's getAllStageMetadata() returns a Record<StageType, StageMetadata>
- * This function converts it to an array with the type key included
  */
 export function getAllStageTypes(
-  governorType: "core" | "treasury" = "core"
+  _governorType: "core" | "treasury" = "core"
 ): StageMetadataWithType[] {
   const metadata = getAllStageMetadata();
   return (
