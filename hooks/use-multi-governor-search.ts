@@ -10,12 +10,20 @@ import { debug } from "@/lib/debug";
 import {
   calculateSearchRanges,
   parseProposals,
+  refreshProposalStates,
   searchGovernor,
   type CacheHitInfo,
   type UseMultiGovernorSearchOptions,
   type UseMultiGovernorSearchResult,
 } from "@/lib/governor-search";
-import { sortProposals } from "@/lib/proposal-cache";
+import {
+  getCachedProposals,
+  getCacheSnapshotBlock,
+  getCacheStartBlock,
+  mergeProposals,
+  needsStateRefresh,
+  sortProposals,
+} from "@/lib/proposal-cache";
 import {
   subscribeToVoteUpdates,
   type VoteUpdate,
@@ -80,14 +88,39 @@ export function useMultiGovernorSearch({
         const userStartBlock = Math.max(currentBlock - blocksToSearch, 0);
         const userEndBlock = currentBlock;
 
+        // Load cache metadata
+        const [cacheSnapshotBlock, cacheStartBlock] = await Promise.all([
+          getCacheSnapshotBlock(),
+          getCacheStartBlock(),
+        ]);
+
         // Determine what needs to be fetched from RPC
-        const searchPlan = calculateSearchRanges(userStartBlock, userEndBlock);
+        const searchPlan = calculateSearchRanges(
+          userStartBlock,
+          userEndBlock,
+          cacheSnapshotBlock,
+          cacheStartBlock
+        );
 
         debug.search("search plan: %s", searchPlan.rangeInfo);
 
+        let cachedProposals: ParsedProposal[] = [];
         let rpcProposals: ParsedProposal[] = [];
 
-        // Fetch from RPC
+        // Load all proposals from cache
+        if (cacheSnapshotBlock && cacheStartBlock) {
+          setProgress(5);
+          const cached = await getCachedProposals();
+          if (cached) {
+            cachedProposals = cached;
+            debug.search("loaded %d proposals from cache", cached.length);
+          }
+        }
+
+        setProgress(10);
+        if (cancelled || abortController.signal.aborted) return;
+
+        // Fetch from RPC for any uncached ranges
         if (searchPlan.rpcRanges.length > 0) {
           const totalRanges =
             searchPlan.rpcRanges.length * ARBITRUM_GOVERNORS.length;
@@ -95,7 +128,7 @@ export function useMultiGovernorSearch({
 
           const updateProgress = () => {
             if (cancelled) return;
-            const searchProgress = (completedQueries / totalRanges) * 90;
+            const searchProgress = 10 + (completedQueries / totalRanges) * 60;
             setProgress(searchProgress);
           };
 
@@ -111,9 +144,7 @@ export function useMultiGovernorSearch({
                 range.start,
                 range.end,
                 blockRange,
-                () => {
-                  // Individual query progress
-                }
+                () => {}
               );
 
               completedQueries++;
@@ -132,18 +163,45 @@ export function useMultiGovernorSearch({
           }
         }
 
+        setProgress(70);
+        if (cancelled || abortController.signal.aborted) return;
+
+        // Merge cached and fresh proposals
+        let allProposals =
+          cachedProposals.length > 0
+            ? mergeProposals(cachedProposals, rpcProposals)
+            : rpcProposals;
+
+        // Refresh state for pending/active cached proposals
+        const proposalsToRefresh = cachedProposals.filter((p) =>
+          needsStateRefresh(p.state)
+        );
+        if (proposalsToRefresh.length > 0) {
+          setProgress(80);
+          debug.search(
+            "refreshing %d active proposals",
+            proposalsToRefresh.length
+          );
+          const refreshed = await refreshProposalStates(
+            provider,
+            proposalsToRefresh
+          );
+          const refreshedMap = new Map(refreshed.map((p) => [p.id, p]));
+          allProposals = allProposals.map((p) => refreshedMap.get(p.id) ?? p);
+        }
+
         setProgress(90);
         if (cancelled || abortController.signal.aborted) return;
 
         // Sort: active first, then by startBlock descending
-        setProposals(sortProposals(rpcProposals));
+        setProposals(sortProposals(allProposals));
         setCacheInfo({
-          loaded: false,
-          snapshotBlock: 0,
-          cacheStartBlock: 0,
-          cachedCount: 0,
+          loaded: cachedProposals.length > 0,
+          snapshotBlock: cacheSnapshotBlock ?? 0,
+          cacheStartBlock: cacheStartBlock ?? 0,
+          cachedCount: cachedProposals.length,
           freshCount: rpcProposals.length,
-          cacheUsed: false,
+          cacheUsed: cachedProposals.length > 0,
           rangeInfo: searchPlan.rangeInfo,
         });
         setProgress(100);

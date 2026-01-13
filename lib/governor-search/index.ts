@@ -1,4 +1,5 @@
 export { calculateSearchRanges } from "./cache-utils";
+export type { CacheLoadResult } from "./cache-utils";
 export {
   fetchProposalStateAndVotes,
   parseProposals,
