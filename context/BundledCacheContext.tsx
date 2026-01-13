@@ -2,7 +2,7 @@
 
 import { CACHE_VERSION, STORAGE_KEYS } from "@/config/storage-keys";
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
-import { isBrowser } from "@/lib/debug";
+import { debug, isBrowser } from "@/lib/debug";
 import { getCacheAdapter } from "@/lib/gov-tracker-cache";
 import { createContext, useContext, useEffect, useState } from "react";
 
@@ -59,11 +59,9 @@ export function BundledCacheProvider({ children }: BundledCacheProviderProps) {
 
   useEffect(() => {
     migrateCache();
-
-    const cache = getCacheAdapter();
-    initializeBundledCache(cache).then(() => {
-      setIsInitialized(true);
-    });
+    initializeBundledCache(getCacheAdapter())
+      .catch((err) => debug.cache("Bundled cache init failed: %O", err))
+      .finally(() => setIsInitialized(true));
   }, []);
 
   return (
