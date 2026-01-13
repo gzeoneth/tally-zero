@@ -8,7 +8,6 @@ import type { ParsedProposal, Proposal } from "@/types/proposal";
 import {
   ARBITRUM_CHAIN_ID,
   ARBITRUM_GOVERNORS,
-  BLOCKS_PER_DAY,
 } from "@config/arbitrum-governance";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
@@ -29,7 +28,7 @@ function createContractCache(provider: ethers.providers.Provider) {
   };
 }
 
-export interface ProposalStateData {
+interface ProposalStateData {
   state: number;
   votes: {
     forVotes: string;
@@ -43,7 +42,7 @@ export interface ProposalStateData {
  * Fetches proposal state, votes, and quorum from the governor contract.
  * Consolidates the common pattern used across multiple functions.
  */
-export async function fetchProposalStateAndVotes(
+async function fetchProposalStateAndVotes(
   contract: ethers.Contract,
   proposalId: string,
   startBlock: string
@@ -171,30 +170,6 @@ export async function searchGovernor(
   }
 
   return proposals;
-}
-
-/**
- * Search a governor contract for proposals within a day range
- */
-export async function searchGovernorByDays(
-  provider: ethers.providers.Provider,
-  contractAddress: string,
-  daysToSearch: number,
-  blockRange: number,
-  onProgress: (progress: number) => void
-): Promise<Proposal[]> {
-  const currentBlock = await provider.getBlockNumber();
-  const blocksToSearch = BLOCKS_PER_DAY.arbitrum * daysToSearch;
-  const startBlock = Math.max(currentBlock - blocksToSearch, 0);
-
-  return searchGovernor(
-    provider,
-    contractAddress,
-    startBlock,
-    currentBlock,
-    blockRange,
-    onProgress
-  );
 }
 
 /**

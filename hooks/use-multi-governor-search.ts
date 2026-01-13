@@ -2,13 +2,19 @@
 
 /**
  * Hook for searching proposals across multiple governors
+ *
+ * Uses gov-tracker bundled cache for instant display of historical proposals,
+ * then fetches new proposals from RPC.
  */
 
 import { useEffect, useState } from "react";
 
+import {
+  getBundledCacheMetadata,
+  getBundledCacheProposals,
+} from "@/lib/bundled-cache-loader";
 import { debug } from "@/lib/debug";
 import {
-  calculateSearchRanges,
   parseProposals,
   refreshProposalStates,
   searchGovernor,
@@ -17,9 +23,6 @@ import {
   type UseMultiGovernorSearchResult,
 } from "@/lib/governor-search";
 import {
-  getCachedProposals,
-  getCacheSnapshotBlock,
-  getCacheStartBlock,
   mergeProposals,
   needsStateRefresh,
   sortProposals,
@@ -72,7 +75,7 @@ export function useMultiGovernorSearch({
     if (!enabled || !providerReady) return;
 
     const abortController = new AbortController();
-    let cancelled = false;
+    const { signal } = abortController;
 
     const search = async () => {
       setIsSearching(true);
@@ -88,83 +91,75 @@ export function useMultiGovernorSearch({
         const userStartBlock = Math.max(currentBlock - blocksToSearch, 0);
         const userEndBlock = currentBlock;
 
-        // Load cache metadata
-        const [cacheSnapshotBlock, cacheStartBlock] = await Promise.all([
-          getCacheSnapshotBlock(),
-          getCacheStartBlock(),
+        // Load proposals from bundled cache
+        setProgress(5);
+        const [cachedProposals, cacheMetadata] = await Promise.all([
+          getBundledCacheProposals(),
+          getBundledCacheMetadata(),
         ]);
 
-        // Determine what needs to be fetched from RPC
-        const searchPlan = calculateSearchRanges(
-          userStartBlock,
-          userEndBlock,
-          cacheSnapshotBlock,
-          cacheStartBlock
+        const cacheSnapshotBlock = cacheMetadata?.snapshotBlock ?? 0;
+        debug.search(
+          "Loaded %d proposals from bundled cache (snapshot block: %d)",
+          cachedProposals.length,
+          cacheSnapshotBlock
         );
 
-        debug.search("search plan: %s", searchPlan.rangeInfo);
+        setProgress(10);
+        if (signal.aborted) return;
 
-        let cachedProposals: ParsedProposal[] = [];
+        // Determine what blocks need to be fetched from RPC
+        // If we have cached proposals, only fetch from after the cache snapshot
+        const rpcStartBlock =
+          cacheSnapshotBlock > 0
+            ? Math.max(userStartBlock, cacheSnapshotBlock + 1)
+            : userStartBlock;
+
         let rpcProposals: ParsedProposal[] = [];
 
-        // Load all proposals from cache
-        if (cacheSnapshotBlock && cacheStartBlock) {
-          setProgress(5);
-          const cached = await getCachedProposals();
-          if (cached) {
-            cachedProposals = cached;
-            debug.search("loaded %d proposals from cache", cached.length);
-          }
-        }
+        // Only fetch from RPC if there's a gap to fill
+        if (rpcStartBlock <= userEndBlock) {
+          const rangeInfo = `Searching blocks ${rpcStartBlock.toLocaleString()}-${userEndBlock.toLocaleString()}`;
+          debug.search("RPC search: %s", rangeInfo);
 
-        setProgress(10);
-        if (cancelled || abortController.signal.aborted) return;
-
-        // Fetch from RPC for any uncached ranges
-        if (searchPlan.rpcRanges.length > 0) {
-          const totalRanges =
-            searchPlan.rpcRanges.length * ARBITRUM_GOVERNORS.length;
+          const totalGovernors = ARBITRUM_GOVERNORS.length;
           let completedQueries = 0;
 
           const updateProgress = () => {
-            if (cancelled) return;
-            const searchProgress = 10 + (completedQueries / totalRanges) * 60;
+            if (signal.aborted) return;
+            const searchProgress =
+              10 + (completedQueries / totalGovernors) * 60;
             setProgress(searchProgress);
           };
 
-          for (const range of searchPlan.rpcRanges) {
-            if (abortController.signal.aborted) break;
+          const searchPromises = ARBITRUM_GOVERNORS.map(async (governor) => {
+            if (signal.aborted) return [];
 
-            const searchPromises = ARBITRUM_GOVERNORS.map(async (governor) => {
-              if (abortController.signal.aborted) return [];
+            const rawProposals = await searchGovernor(
+              provider,
+              governor.address,
+              rpcStartBlock,
+              userEndBlock,
+              blockRange,
+              () => {}
+            );
 
-              const rawProposals = await searchGovernor(
-                provider,
-                governor.address,
-                range.start,
-                range.end,
-                blockRange,
-                () => {}
-              );
+            completedQueries++;
+            updateProgress();
+            return rawProposals;
+          });
 
-              completedQueries++;
-              updateProgress();
-              return rawProposals;
-            });
+          const results = await Promise.all(searchPromises);
+          if (signal.aborted) return;
 
-            const results = await Promise.all(searchPromises);
-            if (cancelled || abortController.signal.aborted) return;
-
-            const rawProposals = results.flat();
-            if (rawProposals.length > 0) {
-              const parsed = await parseProposals(provider, rawProposals);
-              rpcProposals.push(...parsed);
-            }
+          const rawProposals = results.flat();
+          if (rawProposals.length > 0) {
+            rpcProposals = await parseProposals(provider, rawProposals);
           }
         }
 
         setProgress(70);
-        if (cancelled || abortController.signal.aborted) return;
+        if (signal.aborted) return;
 
         // Merge cached and fresh proposals
         let allProposals =
@@ -179,7 +174,7 @@ export function useMultiGovernorSearch({
         if (proposalsToRefresh.length > 0) {
           setProgress(80);
           debug.search(
-            "refreshing %d active proposals",
+            "Refreshing %d active proposals",
             proposalsToRefresh.length
           );
           const refreshed = await refreshProposalStates(
@@ -191,23 +186,25 @@ export function useMultiGovernorSearch({
         }
 
         setProgress(90);
-        if (cancelled || abortController.signal.aborted) return;
+        if (signal.aborted) return;
 
         // Sort: active first, then by startBlock descending
         setProposals(sortProposals(allProposals));
         setCacheInfo({
           loaded: cachedProposals.length > 0,
-          snapshotBlock: cacheSnapshotBlock ?? 0,
-          cacheStartBlock: cacheStartBlock ?? 0,
+          snapshotBlock: cacheSnapshotBlock,
           cachedCount: cachedProposals.length,
           freshCount: rpcProposals.length,
           cacheUsed: cachedProposals.length > 0,
-          rangeInfo: searchPlan.rangeInfo,
+          rangeInfo:
+            rpcStartBlock <= userEndBlock
+              ? `Loaded ${cachedProposals.length} from cache, fetched ${rpcProposals.length} new proposals`
+              : `Loaded ${cachedProposals.length} proposals from bundled cache`,
         });
         setProgress(100);
         setIsSearching(false);
       } catch (err) {
-        if (!cancelled && !abortController.signal.aborted) {
+        if (!signal.aborted) {
           setError(err as Error);
           setIsSearching(false);
         }
@@ -217,7 +214,6 @@ export function useMultiGovernorSearch({
     search();
 
     return () => {
-      cancelled = true;
       abortController.abort();
     };
   }, [enabled, providerReady, daysToSearch, rpcUrl, blockRange]);

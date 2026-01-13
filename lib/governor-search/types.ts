@@ -5,7 +5,7 @@
  * search options, cache information, results, and search planning.
  */
 
-import type { ParsedProposal, Proposal } from "@/types/proposal";
+import type { ParsedProposal } from "@/types/proposal";
 
 /**
  * Options for multi-governor search hook
@@ -29,8 +29,6 @@ export interface CacheHitInfo {
   loaded: boolean;
   /** Block number when cache was generated */
   snapshotBlock: number;
-  /** Starting block of cached data */
-  cacheStartBlock: number;
   /** Number of proposals loaded from cache */
   cachedCount: number;
   /** Number of proposals fetched fresh from RPC */
@@ -58,25 +56,3 @@ export interface UseMultiGovernorSearchResult {
   /** Information about cache usage */
   cacheInfo?: CacheHitInfo;
 }
-
-/**
- * Range of blocks to search
- */
-export interface BlockRange {
-  /** Starting block number */
-  start: number;
-  /** Ending block number */
-  end: number;
-}
-
-/**
- * Search plan with RPC ranges
- */
-export interface SearchPlan {
-  /** Block ranges to query via RPC */
-  rpcRanges: BlockRange[];
-  /** Human-readable description of search range */
-  rangeInfo: string;
-}
-
-export type { ParsedProposal, Proposal };

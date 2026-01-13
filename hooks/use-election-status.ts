@@ -12,6 +12,7 @@ import {
 } from "@gzeoneth/gov-tracker";
 
 import { STORAGE_KEYS } from "@/config/storage-keys";
+import { getBundledCacheElections } from "@/lib/bundled-cache-loader";
 import { debug, isBrowser } from "@/lib/debug";
 import { createRpcProvider } from "@/lib/rpc-utils";
 import {
@@ -37,6 +38,11 @@ interface ElectionCacheData {
 
 const ELECTION_CACHE_VERSION = 1;
 const ELECTION_CACHE_TTL_MS = 5 * 60 * 1000;
+const MEMBER_DETAIL_PHASES = new Set([
+  "MEMBER_ELECTION",
+  "PENDING_EXECUTION",
+  "COMPLETED",
+]);
 
 function loadElectionCache(): ElectionCacheData | null {
   if (!isBrowser) return null;
@@ -150,6 +156,21 @@ export function useElectionStatus({
     ? memberDetailsMap[selectedElection.electionIndex] ?? null
     : null;
 
+  // Load bundled cache elections on first render
+  useEffect(() => {
+    getBundledCacheElections().then((bundledElections) => {
+      if (bundledElections.length > 0) {
+        debug.app(
+          "Loaded %d elections from bundled cache",
+          bundledElections.length
+        );
+        setAllElections((current) =>
+          current.length === 0 ? bundledElections : current
+        );
+      }
+    });
+  }, []);
+
   const fetchElectionData = useCallback(async () => {
     if (!enabled) return;
 
@@ -192,12 +213,7 @@ export function useElectionStatus({
             );
             newNomineeDetails[election.electionIndex] = nominee;
 
-            // Fetch member details if in member phase or later
-            if (
-              election.phase === "MEMBER_ELECTION" ||
-              election.phase === "PENDING_EXECUTION" ||
-              election.phase === "COMPLETED"
-            ) {
+            if (MEMBER_DETAIL_PHASES.has(election.phase)) {
               const member = await getMemberElectionDetails(
                 election.electionIndex,
                 l2Provider
