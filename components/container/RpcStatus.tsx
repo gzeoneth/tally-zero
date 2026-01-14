@@ -109,7 +109,7 @@ export default function RpcStatus({
   const totalCount = results.length;
   const hasIssues =
     summary && (!summary.allHealthy || !summary.requiredHealthy);
-  
+
   // Check for degraded RPCs (e.g., lack of archive data support)
   const degradedRpcs = results.filter((r) => r.status === "degraded");
   const hasDegradedRpcs = degradedRpcs.length > 0;
@@ -118,10 +118,10 @@ export default function RpcStatus({
   useEffect(() => {
     if (hasDegradedRpcs && !isChecking && !shownToastRef.current) {
       shownToastRef.current = true;
-      
+
       const rpcNames = degradedRpcs.map((rpc) => rpc.name).join(", ");
-      const hasArchiveIssue = degradedRpcs.some(r => !r.archiveDataSupported);
-      
+      const hasArchiveIssue = degradedRpcs.some((r) => !r.archiveDataSupported);
+
       toast.warning("⚠️ Degraded RPC Detected", {
         description: `${rpcNames} ${degradedRpcs.length === 1 ? "has" : "have"} limited capabilities${hasArchiveIssue ? " (no archive data support)" : ""}. Consider providing an alternative RPC URL in settings.`,
         duration: 8000,
@@ -129,7 +129,9 @@ export default function RpcStatus({
           label: "Settings",
           onClick: () => {
             // Open settings sheet - we'll need to trigger this via context or event
-            document.querySelector<HTMLButtonElement>('[aria-label="Settings"]')?.click();
+            document
+              .querySelector<HTMLButtonElement>('[aria-label="Settings"]')
+              ?.click();
           },
         },
       });
@@ -171,6 +173,7 @@ export default function RpcStatus({
           type="button"
           onClick={() => checkHealth()}
           disabled={isChecking}
+          aria-label="Refresh RPC status"
           className={cn(
             "text-xs text-muted-foreground hover:text-foreground transition-all disabled:opacity-50",
             "min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2",
@@ -211,9 +214,12 @@ export default function RpcStatus({
                 ⚠️ Degraded RPC detected
               </p>
               <p className="text-orange-700/90 dark:text-orange-400/90">
-                {degradedRpcs.map((rpc) => rpc.name).join(", ")} {degradedRpcs.length === 1 ? "has" : "have"} limited capabilities
-                {degradedRpcs.some(r => !r.archiveDataSupported) && " (no archive data support)"}.
-                Consider providing an alternative RPC URL in settings.
+                {degradedRpcs.map((rpc) => rpc.name).join(", ")}{" "}
+                {degradedRpcs.length === 1 ? "has" : "have"} limited
+                capabilities
+                {degradedRpcs.some((r) => !r.archiveDataSupported) &&
+                  " (no archive data support)"}
+                . Consider providing an alternative RPC URL in settings.
               </p>
             </div>
           )}

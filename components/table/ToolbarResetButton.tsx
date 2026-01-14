@@ -17,6 +17,7 @@ export const ToolbarResetButton = memo(function ToolbarResetButton({
     <Button
       variant="ghost"
       onClick={onClick}
+      aria-label="Reset filters"
       className="h-11 sm:h-12 px-2 lg:px-3 hover:bg-red-500 min-w-[44px]"
     >
       <span className="hidden sm:inline">Reset</span>
