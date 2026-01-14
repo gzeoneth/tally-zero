@@ -1,20 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  checkElectionStatus,
   getMemberElectionDetails,
   getNomineeElectionDetails,
-  trackAllElections,
   type ElectionProposalStatus,
   type ElectionStatus,
 } from "@gzeoneth/gov-tracker";
 
-import { STORAGE_KEYS } from "@/config/storage-keys";
 import { getBundledCacheElections } from "@/lib/bundled-cache-loader";
-import { debug, isBrowser } from "@/lib/debug";
+import { debug } from "@/lib/debug";
+import { getCacheAdapter } from "@/lib/gov-tracker-cache";
 import { createRpcProvider } from "@/lib/rpc-utils";
+import { createTracker, type ProposalStageTracker } from "@/lib/stage-tracker";
 import {
   ARBITRUM_RPC_URL,
   ETHEREUM_RPC_URL,
@@ -27,80 +26,11 @@ type MemberElectionDetails = Awaited<
   ReturnType<typeof getMemberElectionDetails>
 >;
 
-interface ElectionCacheData {
-  version: number;
-  timestamp: number;
-  status: ElectionStatus | null;
-  elections: ElectionProposalStatus[];
-  nomineeDetails: Record<number, NomineeElectionDetails>;
-  memberDetails: Record<number, MemberElectionDetails>;
-}
-
-const ELECTION_CACHE_VERSION = 1;
-const ELECTION_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMBER_DETAIL_PHASES = new Set([
   "MEMBER_ELECTION",
   "PENDING_EXECUTION",
   "COMPLETED",
 ]);
-
-/**
- * Merge elections by index, keeping current over bundled for same index
- */
-function mergeElectionsByIndex(
-  current: ElectionProposalStatus[],
-  bundled: ElectionProposalStatus[]
-): ElectionProposalStatus[] {
-  if (current.length === 0) return bundled;
-
-  const currentIndices = new Set(current.map((e) => e.electionIndex));
-  const merged = [
-    ...current,
-    ...bundled.filter((e) => !currentIndices.has(e.electionIndex)),
-  ];
-  return merged.sort((a, b) => a.electionIndex - b.electionIndex);
-}
-
-function loadElectionCache(): ElectionCacheData | null {
-  if (!isBrowser) return null;
-
-  try {
-    const data = localStorage.getItem(STORAGE_KEYS.ELECTION_CACHE);
-    if (!data) return null;
-
-    const cache = JSON.parse(data) as ElectionCacheData;
-    if (!cache || cache.version !== ELECTION_CACHE_VERSION) {
-      localStorage.removeItem(STORAGE_KEYS.ELECTION_CACHE);
-      return null;
-    }
-
-    if (Date.now() - cache.timestamp > ELECTION_CACHE_TTL_MS) {
-      return null;
-    }
-
-    return cache;
-  } catch (err) {
-    debug.cache("Failed to load election cache: %O", err);
-    return null;
-  }
-}
-
-function saveElectionCache(
-  data: Omit<ElectionCacheData, "version" | "timestamp">
-): void {
-  if (!isBrowser) return;
-
-  try {
-    const cache: ElectionCacheData = {
-      ...data,
-      version: ELECTION_CACHE_VERSION,
-      timestamp: Date.now(),
-    };
-    localStorage.setItem(STORAGE_KEYS.ELECTION_CACHE, JSON.stringify(cache));
-  } catch (err) {
-    debug.cache("Failed to save election cache: %O", err);
-  }
-}
 
 export interface UseElectionStatusOptions {
   enabled?: boolean;
@@ -131,29 +61,36 @@ export function useElectionStatus({
   refreshInterval = 60000,
   selectedElectionIndex: initialSelectedIndex = null,
 }: UseElectionStatusOptions = {}): UseElectionStatusResult {
-  const initialCache = useMemo(() => loadElectionCache(), []);
-
-  const [status, setStatus] = useState<ElectionStatus | null>(
-    initialCache?.status ?? null
-  );
+  const [status, setStatus] = useState<ElectionStatus | null>(null);
   const [allElections, setAllElections] = useState<ElectionProposalStatus[]>(
-    initialCache?.elections ?? []
+    []
   );
   const [selectedIndex, setSelectedIndex] = useState<number | null>(
     initialSelectedIndex
   );
   const [nomineeDetailsMap, setNomineeDetailsMap] = useState<
     Record<number, NomineeElectionDetails>
-  >(initialCache?.nomineeDetails ?? {});
+  >({});
   const [memberDetailsMap, setMemberDetailsMap] = useState<
     Record<number, MemberElectionDetails>
-  >(initialCache?.memberDetails ?? {});
+  >({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const l2Url = l2RpcUrl || ARBITRUM_RPC_URL;
   const l1Url = l1RpcUrl || ETHEREUM_RPC_URL;
+
+  // Create tracker instance with cache - memoized to avoid recreation
+  const trackerRef = useRef<ProposalStageTracker | null>(null);
+  const tracker = useMemo(() => {
+    if (!trackerRef.current) {
+      trackerRef.current = createTracker(l2Url, l1Url, {
+        cache: getCacheAdapter(),
+      });
+    }
+    return trackerRef.current;
+  }, [l2Url, l1Url]);
 
   const activeElections = useMemo(
     () => allElections.filter((e) => e.phase !== "COMPLETED"),
@@ -194,9 +131,7 @@ export function useElectionStatus({
             "Loaded %d elections from bundled cache",
             bundledElections.length
           );
-          setAllElections((current) =>
-            mergeElectionsByIndex(current, bundledElections)
-          );
+          setAllElections(bundledElections);
         }
       })
       .catch((err) => {
@@ -214,29 +149,38 @@ export function useElectionStatus({
     setError(null);
 
     try {
-      const [l2Provider, l1Provider] = await Promise.all([
-        createRpcProvider(l2Url),
-        createRpcProvider(l1Url),
-      ]);
+      const l2Provider = await createRpcProvider(l2Url);
+      debug.app("Fetching SC election status via tracker...");
 
-      debug.app("Fetching SC election status...");
-
-      // Fetch status and all elections in parallel
-      const [electionStatus, elections] = await Promise.all([
-        checkElectionStatus(l2Provider, l1Provider),
-        trackAllElections(l2Provider, l1Provider),
-      ]);
-
+      // Use tracker.checkElection() to get status and election count
+      const checkResult = await tracker.checkElection();
+      const electionStatus = checkResult.status;
       setStatus(electionStatus);
-      setAllElections(elections);
 
       debug.app(
-        "Election status: count=%d, canCreate=%s, elections=%d",
+        "Election status: count=%d, canCreate=%s",
         electionStatus.electionCount,
-        electionStatus.canCreateElection,
-        elections.length
+        electionStatus.canCreateElection
       );
 
+      // Track all elections using tracker.trackElection() which auto-caches
+      const elections: ElectionProposalStatus[] = [];
+      for (let i = 0; i < electionStatus.electionCount; i++) {
+        try {
+          const electionResult = await tracker.trackElection(i);
+          elections.push(electionResult);
+        } catch (err) {
+          debug.app("Failed to track election %d: %O", i, err);
+        }
+      }
+
+      // Sort by election index
+      elections.sort((a, b) => a.electionIndex - b.electionIndex);
+      setAllElections(elections);
+
+      debug.app("Tracked %d elections", elections.length);
+
+      // Fetch nominee and member details for each election
       const newNomineeDetails: Record<number, NomineeElectionDetails> = {};
       const newMemberDetails: Record<number, MemberElectionDetails> = {};
 
@@ -268,21 +212,13 @@ export function useElectionStatus({
 
       setNomineeDetailsMap(newNomineeDetails);
       setMemberDetailsMap(newMemberDetails);
-
-      // Save to cache
-      saveElectionCache({
-        status: electionStatus,
-        elections,
-        nomineeDetails: newNomineeDetails,
-        memberDetails: newMemberDetails,
-      });
     } catch (err) {
       debug.app("Election status error: %O", err);
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
-  }, [enabled, l2Url, l1Url]);
+  }, [enabled, tracker, l2Url]);
 
   const refresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
@@ -293,7 +229,6 @@ export function useElectionStatus({
   }, []);
 
   // Only fetch from RPC after bundled cache has been checked
-  // This ensures bundled data shows immediately while fresh data loads
   useEffect(() => {
     if (!bundledLoaded) return;
     fetchElectionData();

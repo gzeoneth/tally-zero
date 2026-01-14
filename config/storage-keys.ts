@@ -24,7 +24,6 @@ export const STORAGE_KEYS = {
   STAGES_CACHE_PREFIX: "tally-zero-stages-",
   TIMELOCK_OP_CACHE_PREFIX: "tally-zero-timelock-op-",
   CHECKPOINT_CACHE_PREFIX: "tally-zero-checkpoint-",
-  ELECTION_CACHE: "tally-zero-election-cache",
   DAYS_TO_SEARCH: "tally-zero-days-to-search",
   NERD_MODE: "tally-zero-nerd-mode",
   DEBUG_LOGGING: "tally-zero-debug-logging",

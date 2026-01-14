@@ -9,6 +9,7 @@ import {
   createTracker as createGovTracker,
   type CacheAdapter,
   type ChunkingConfig,
+  type ProposalStageTracker,
   type TrackerOptions,
   type TrackingResult,
 } from "@gzeoneth/gov-tracker";
@@ -20,6 +21,8 @@ import {
   ETHEREUM_RPC_URL,
 } from "@/config/arbitrum-governance";
 import type { ProposalTrackingResult } from "@/types/proposal-stage";
+
+export type { ProposalStageTracker };
 
 /**
  * Create a proposal stage tracker with RPC URLs
@@ -92,3 +95,11 @@ export function toProposalTrackingResult(
     proposalType: result.proposalType,
   };
 }
+
+/**
+ * Alias for createProposalTracker
+ *
+ * The tracker instance supports both proposal and election tracking methods.
+ * Use this when you need a general-purpose tracker.
+ */
+export const createTracker = createProposalTracker;
