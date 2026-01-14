@@ -45,9 +45,8 @@ const STATE_MAP: Record<string, ProposalStateName> = {
 };
 
 function mapProposalState(votingData: VotingActiveData): ProposalStateName {
-  const state = votingData.proposalState;
-  if (!state) return "Active";
-  return STATE_MAP[state.toLowerCase()] ?? "Active";
+  if (!votingData.proposalState) return "Active";
+  return STATE_MAP[votingData.proposalState.toLowerCase()] ?? "Active";
 }
 
 /** Extract ParsedProposal from a TrackingCheckpoint */
@@ -83,11 +82,9 @@ function extractProposal(
 
   const governorAddress = input.governorAddress.toLowerCase();
   const governorName = GOVERNOR_NAMES[governorAddress] ?? "Unknown Governor";
-
-  let state: ProposalStateName = "Active";
-  if (votingData) {
-    state = mapProposalState(votingData);
-  }
+  const state: ProposalStateName = votingData
+    ? mapProposalState(votingData)
+    : "Active";
 
   const proposal: ParsedProposal = {
     id: input.proposalId,

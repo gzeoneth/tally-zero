@@ -141,16 +141,16 @@ function checkpointToResult(
   const queuedData = queuedStage
     ? getStageData(queuedStage, "PROPOSAL_QUEUED")
     : null;
-  let timelockLink = undefined;
-  if (queuedData?.timelockAddress && queuedData?.operationId && queuedStage) {
-    const queueTx = queuedStage.transactions[0];
-    timelockLink = {
-      timelockAddress: queuedData.timelockAddress,
-      operationId: queuedData.operationId,
-      txHash: queueTx?.hash ?? "",
-      queueBlockNumber: queueTx?.blockNumber ?? 0,
-    };
-  }
+
+  const timelockLink =
+    queuedData?.timelockAddress && queuedData?.operationId && queuedStage
+      ? {
+          timelockAddress: queuedData.timelockAddress,
+          operationId: queuedData.operationId,
+          txHash: queuedStage.transactions[0]?.hash ?? "",
+          queueBlockNumber: queuedStage.transactions[0]?.blockNumber ?? 0,
+        }
+      : undefined;
 
   // Determine current state from voting stage using type-safe accessor
   const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");

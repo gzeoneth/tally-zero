@@ -133,13 +133,10 @@ export function useUrlState(): UseUrlStateResult {
       if (typeof window === "undefined") return;
 
       const newHash = buildUrlHash(newState);
-      // Normalize current hash for comparison (remove # prefix if present)
-      const currentHashNormalized = window.location.hash.startsWith("#")
-        ? window.location.hash.slice(1)
-        : window.location.hash;
-      const newHashNormalized = newHash.startsWith("#")
-        ? newHash.slice(1)
-        : newHash;
+      const normalizeHash = (hash: string) =>
+        hash.startsWith("#") ? hash.slice(1) : hash;
+      const currentHashNormalized = normalizeHash(window.location.hash);
+      const newHashNormalized = normalizeHash(newHash);
 
       // Only update if different to avoid extra history entries
       if (newHashNormalized !== currentHashNormalized) {
