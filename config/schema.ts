@@ -3,9 +3,19 @@
  * Provides runtime validation for user inputs and proposal data
  */
 
-import { ETH_ADDRESS_REGEX } from "@/lib/address-utils";
+import { ETH_ADDRESS_REGEX, TX_HASH_REGEX } from "@/lib/address-utils";
 import { isValidRpcUrl } from "@lib/utils";
 import * as z from "zod";
+
+/** Schema for validating Ethereum addresses */
+const ethAddressSchema = z
+  .string()
+  .regex(ETH_ADDRESS_REGEX, "Invalid Ethereum address");
+
+/** Schema for validating transaction hashes */
+const txHashSchema = z
+  .string()
+  .regex(TX_HASH_REGEX, "Invalid transaction hash");
 
 import { DEFAULT_FORM_VALUES } from "./arbitrum-governance";
 
@@ -26,7 +36,7 @@ const rpcUrlSchema = z
 
 /** Schema for the main search/settings form */
 export const formSchema = z.object({
-  address: z.string().regex(ETH_ADDRESS_REGEX, "Invalid Ethereum address"),
+  address: ethAddressSchema,
   networkId: z.string(),
   daysToSearch: z
     .number()
@@ -58,9 +68,9 @@ export const voteSchema = z.object({
 /** Schema for validating proposal data structure */
 export const proposalSchema = z.object({
   id: z.string(),
-  proposer: z.string(),
-  contractAddress: z.string(),
-  targets: z.array(z.string()),
+  proposer: ethAddressSchema,
+  contractAddress: ethAddressSchema,
+  targets: z.array(ethAddressSchema),
   values: z.array(z.string()),
   signatures: z.array(z.string()),
   calldatas: z.array(z.string()),
@@ -69,5 +79,5 @@ export const proposalSchema = z.object({
   description: z.string(),
   networkId: z.string(),
   state: z.string(),
-  creationTxHash: z.string().optional(),
+  creationTxHash: txHashSchema.optional(),
 });
