@@ -88,6 +88,23 @@ export function filterDelegates(
  * @param options - Search options including filters and RPC URL
  * @returns Delegate list, statistics, and refresh functions
  */
+interface CacheState {
+  cache: DelegateCache | null;
+  delegates: DelegateInfo[];
+  totalVotingPower: string;
+  totalSupply: string;
+  snapshotBlock: number;
+  cacheStats?: DelegateCacheStats;
+}
+
+const initialCacheState: CacheState = {
+  cache: null,
+  delegates: [],
+  totalVotingPower: "0",
+  totalSupply: "0",
+  snapshotBlock: 0,
+};
+
 export function useDelegateSearch({
   enabled,
   customRpcUrl,
@@ -99,15 +116,11 @@ export function useDelegateSearch({
     ""
   );
 
-  const [delegates, setDelegates] = useState<DelegateInfo[]>([]);
-  const [totalVotingPower, setTotalVotingPower] = useState<string>("0");
-  const [totalSupply, setTotalSupply] = useState<string>("0");
-  const [snapshotBlock, setSnapshotBlock] = useState<number>(0);
+  // Consolidated cache state to batch updates and avoid multiple re-renders
+  const [cacheState, setCacheState] = useState<CacheState>(initialCacheState);
   const [error, setError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshingVisible, setIsRefreshingVisible] = useState(false);
-  const [cacheStats, setCacheStats] = useState<DelegateCacheStats>();
-  const [cache, setCache] = useState<DelegateCache | null>(null);
 
   const refreshedAddresses = useRef<Set<string>>(new Set());
 
@@ -125,11 +138,14 @@ export function useDelegateSearch({
         if (cancelled) return;
 
         if (loaded) {
-          setCache(loaded);
-          setTotalVotingPower(loaded.totalVotingPower);
-          setTotalSupply(loaded.totalSupply);
-          setSnapshotBlock(loaded.snapshotBlock);
-          setCacheStats(getDelegateCacheStats(loaded));
+          setCacheState({
+            cache: loaded,
+            delegates: loaded.delegates,
+            totalVotingPower: loaded.totalVotingPower,
+            totalSupply: loaded.totalSupply,
+            snapshotBlock: loaded.snapshotBlock,
+            cacheStats: getDelegateCacheStats(loaded),
+          });
           debug.delegates(
             "cache loaded: %d delegates (block %d)",
             loaded.delegates.length,
@@ -152,14 +168,14 @@ export function useDelegateSearch({
 
   // Apply filters when they change
   useEffect(() => {
-    if (cache) {
-      const filtered = filterDelegates(cache.delegates, {
+    if (cacheState.cache) {
+      const filtered = filterDelegates(cacheState.cache.delegates, {
         minVotingPower,
         addressFilter,
       });
-      setDelegates(filtered);
+      setCacheState((prev) => ({ ...prev, delegates: filtered }));
     }
-  }, [minVotingPower, addressFilter, cache]);
+  }, [minVotingPower, addressFilter, cacheState.cache]);
 
   const refreshVisibleDelegates = useCallback(
     async (addresses: string[]) => {
@@ -202,8 +218,8 @@ export function useDelegateSearch({
           (r): r is { address: string; votingPower: string } => r !== null
         );
 
-        if (successfulResults.length > 0 && cache) {
-          const updatedDelegates = cache.delegates.map((d) => {
+        if (successfulResults.length > 0 && cacheState.cache) {
+          const updatedDelegates = cacheState.cache.delegates.map((d) => {
             const refreshed = successfulResults.find((r) =>
               addressesEqual(r.address, d.address)
             );
@@ -215,19 +231,22 @@ export function useDelegateSearch({
             return diff > BigInt(0) ? 1 : diff < BigInt(0) ? -1 : 0;
           });
 
-          const newCache = { ...cache, delegates: updatedDelegates };
-          setCache(newCache);
-
           const filtered = filterDelegates(updatedDelegates, {
             minVotingPower,
             addressFilter,
           });
-          setDelegates(filtered);
 
           const newTotalVotingPower = updatedDelegates
             .reduce((sum, d) => sum + BigInt(d.votingPower), BigInt(0))
             .toString();
-          setTotalVotingPower(newTotalVotingPower);
+
+          // Single state update for all cache-related changes
+          setCacheState((prev) => ({
+            ...prev,
+            cache: { ...prev.cache!, delegates: updatedDelegates },
+            delegates: filtered,
+            totalVotingPower: newTotalVotingPower,
+          }));
         }
       } catch (err) {
         debug.delegates("error refreshing visible delegates: %O", err);
@@ -235,17 +254,24 @@ export function useDelegateSearch({
         setIsRefreshingVisible(false);
       }
     },
-    [enabled, l2RpcHydrated, rpcUrl, cache, minVotingPower, addressFilter]
+    [
+      enabled,
+      l2RpcHydrated,
+      rpcUrl,
+      cacheState.cache,
+      minVotingPower,
+      addressFilter,
+    ]
   );
 
   return {
-    delegates,
-    totalVotingPower,
-    totalSupply,
+    delegates: cacheState.delegates,
+    totalVotingPower: cacheState.totalVotingPower,
+    totalSupply: cacheState.totalSupply,
     error,
     isLoading,
-    cacheStats,
-    snapshotBlock,
+    cacheStats: cacheState.cacheStats,
+    snapshotBlock: cacheState.snapshotBlock,
     refreshVisibleDelegates,
     isRefreshingVisible,
   };
