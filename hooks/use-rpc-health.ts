@@ -38,6 +38,8 @@ export interface UseRpcHealthResult {
   isChecking: boolean;
   /** Timestamp of last completed health check */
   lastCheckedAt: Date | null;
+  /** Error message if health check failed */
+  error: string | null;
   /** Summary statistics of RPC health */
   summary: {
     allHealthy: boolean;
@@ -62,6 +64,7 @@ export function useRpcHealth({
   const [results, setResults] = useState<RpcHealthResult[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const checkHealth = useCallback(async () => {
     setIsChecking(true);
@@ -79,8 +82,12 @@ export function useRpcHealth({
       const healthResults = await checkAllRpcHealth(customUrls, chunkSizes);
       setResults(healthResults);
       setLastCheckedAt(new Date());
-    } catch (error) {
-      debug.rpc("failed to check RPC health: %O", error);
+      setError(null);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to check RPC health";
+      debug.rpc("failed to check RPC health: %O", err);
+      setError(message);
     } finally {
       setIsChecking(false);
     }
@@ -100,6 +107,7 @@ export function useRpcHealth({
     results,
     isChecking,
     lastCheckedAt,
+    error,
     summary,
     checkHealth,
   };
