@@ -15,7 +15,7 @@ export const ARBITRUM_RPC_URL = "https://arb1.arbitrum.io/rpc";
 export const ARBITRUM_NOVA_RPC_URL = "https://nova.arbitrum.io/rpc";
 
 /** Default Ethereum Mainnet RPC URL */
-export const ETHEREUM_RPC_URL = "https://eth.llamarpc.com/";
+export const ETHEREUM_RPC_URL = "https://eth.drpc.org";
 
 /**
  * Core Governor Contract (Constitutional Proposals)
