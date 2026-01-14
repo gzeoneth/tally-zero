@@ -261,6 +261,12 @@ export async function initializeBundledCache(
         await cache.set(key, bundledCheckpoint);
         added++;
       } else {
+        // Version mismatch - always prefer bundled (from current gov-tracker)
+        if (existing.version !== bundledCheckpoint.version) {
+          await cache.set(key, bundledCheckpoint);
+          upgraded++;
+          continue;
+        }
         // Compare stage counts - bundled cache may have more complete data
         const existingStages =
           existing.cachedData?.completedStages?.length ?? 0;
