@@ -145,20 +145,31 @@ export function useUrlState(): UseUrlStateResult {
       if (newHashNormalized !== currentHashNormalized) {
         const baseUrl = window.location.pathname + window.location.search;
 
-        if (options?.replace) {
-          // Replace current history entry (for closing modals - back button goes to previous page)
-          window.history.replaceState(
-            {},
-            "",
-            newHash ? baseUrl + newHash : baseUrl
-          );
-        } else if (newHash) {
-          // Push new history entry (for opening modals)
-          window.location.hash = newHash;
-        } else {
-          // When clearing hash without replace option, use replaceState to avoid double back
-          window.history.replaceState({}, "", baseUrl);
-        }
+        // Defer history changes to avoid conflicts with Next.js router during
+        // React transitions (fixes "__PRIVATE_NEXTJS_INTERNALS_TREE" error)
+        const updateHistory = () => {
+          try {
+            if (options?.replace) {
+              // Replace current history entry (for closing modals - back button goes to previous page)
+              window.history.replaceState(
+                {},
+                "",
+                newHash ? baseUrl + newHash : baseUrl
+              );
+            } else if (newHash) {
+              // Push new history entry (for opening modals)
+              window.location.hash = newHash;
+            } else {
+              // When clearing hash without replace option, use replaceState to avoid double back
+              window.history.replaceState({}, "", baseUrl);
+            }
+          } catch {
+            // Silently ignore history update errors during transitions
+          }
+        };
+
+        // Use requestAnimationFrame to defer outside React render cycle
+        requestAnimationFrame(updateHistory);
       }
 
       setUrlStateInternal(newState);

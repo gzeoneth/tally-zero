@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 
 import { isArbitrumGovernor } from "@config/governors";
 import { proposalSchema } from "@config/schema";
+import { useDeepLink } from "@context/DeepLinkContext";
 import { useNerdMode } from "@context/NerdModeContext";
 import { cn } from "@lib/utils";
 
@@ -227,6 +228,8 @@ function TabsNavigation({ showStagesTab }: TabsNavigationProps) {
   );
 }
 
+type TabValue = "description" | "payload" | "stages" | "vote";
+
 export default function VoteModel({
   proposal,
   stateValue,
@@ -236,10 +239,12 @@ export default function VoteModel({
   proposal: z.infer<typeof proposalSchema>;
   stateValue: StateValue;
   isDesktop: boolean;
-  defaultTab?: "description" | "payload" | "stages" | "vote";
+  defaultTab?: TabValue;
 }) {
   const showStagesTab = isArbitrumGovernor(proposal.contractAddress);
   const { nerdMode } = useNerdMode();
+  const { openProposal } = useDeepLink();
+  const [activeTab, setActiveTab] = useState<TabValue>(defaultTab);
   const [calldataOverrides, setCalldataOverrides] = useState<CalldataOverrides>(
     {}
   );
@@ -256,6 +261,16 @@ export default function VoteModel({
       });
     },
     []
+  );
+
+  const handleTabChange = useCallback(
+    (value: string) => {
+      const tab = value as TabValue;
+      setActiveTab(tab);
+      // Update URL with new tab (description is default so omit it)
+      openProposal(proposal.id, tab === "description" ? undefined : tab);
+    },
+    [openProposal, proposal.id]
   );
 
   const hasCalldataOverrides = Object.keys(calldataOverrides).length > 0;
@@ -279,7 +294,8 @@ export default function VoteModel({
         </DialogHeader>
 
         <Tabs
-          defaultValue={defaultTab}
+          value={activeTab}
+          onValueChange={handleTabChange}
           className="flex-1 flex flex-col min-h-0"
         >
           <TabsNavigation showStagesTab={showStagesTab} />
@@ -301,7 +317,11 @@ export default function VoteModel({
         </DrawerTitle>
       </DrawerHeader>
 
-      <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="flex-1 flex flex-col"
+      >
         <TabsNavigation showStagesTab={showStagesTab} />
         <ProposalTabsContent
           {...tabsContentProps}
