@@ -35,6 +35,7 @@ import {
   type GovernorTrackingInput,
   type ProposalQueuedData,
   type StageType,
+  type TrackedStage,
   type TrackingCheckpoint,
   type TrackingProgress,
   type VotingActiveData,
@@ -165,17 +166,17 @@ function checkpointToResult(
     stages,
     timelockLink,
     currentState,
+    isComplete: isStagesComplete(stages, governorAddress),
   };
 }
 
 /**
- * Check if checkpoint stages are complete for this governor
+ * Check if stages are complete for a given governor
  */
-function isCheckpointComplete(
-  checkpoint: TrackingCheckpoint,
+function isStagesComplete(
+  stages: TrackedStage[],
   governorAddress: string
 ): boolean {
-  const stages = checkpoint.cachedData.completedStages ?? [];
   if (stages.length === 0) return false;
 
   if (stages.some((s) => s.status === "FAILED")) return true;
@@ -196,6 +197,17 @@ function isCheckpointComplete(
     (s) => s.status === "PENDING" || s.status === "NOT_STARTED"
   );
   return hasCompleted && !hasIncomplete;
+}
+
+/**
+ * Check if checkpoint stages are complete for this governor
+ */
+function isCheckpointComplete(
+  checkpoint: TrackingCheckpoint,
+  governorAddress: string
+): boolean {
+  const stages = checkpoint.cachedData.completedStages ?? [];
+  return isStagesComplete(stages, governorAddress);
 }
 
 /**
