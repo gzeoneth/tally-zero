@@ -3,7 +3,7 @@
  * Provides state lookup and conversion for OpenZeppelin Governor states
  */
 
-import { ProposalState } from "@/config/initial-state";
+import { PROPOSAL_STATE_NAMES } from "@/config/arbitrum-governance";
 import { states } from "@/data/table/data";
 import type { ProposalStateName } from "@/types/proposal";
 
@@ -34,6 +34,7 @@ export function findStateByValue(
  * @returns The lowercase state name (e.g., "pending", "active", "executed")
  */
 export function getStateName(stateNumber: number): ProposalStateName {
-  const stateName = ProposalState[stateNumber];
+  const stateName =
+    PROPOSAL_STATE_NAMES[stateNumber as keyof typeof PROPOSAL_STATE_NAMES];
   return (stateName?.toLowerCase() ?? "pending") as ProposalStateName;
 }
