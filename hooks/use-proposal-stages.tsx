@@ -43,33 +43,34 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
 
 // Shared L1 block cache to avoid redundant RPC calls across hook instances
-let sharedL1Block: { block: number; timestamp: number; rpcUrl: string } | null =
-  null;
-let pendingL1BlockPromise: Promise<number | null> | null = null;
-let pendingL1BlockRpcUrl: string | null = null;
+// Uses a Map keyed by RPC URL to prevent race conditions between concurrent requests
+interface L1BlockCacheEntry {
+  block: number;
+  timestamp: number;
+}
+
+const l1BlockCache = new Map<string, L1BlockCacheEntry>();
+const pendingL1BlockRequests = new Map<string, Promise<number | null>>();
 
 /**
  * Fetch L1 block with deduplication - multiple callers share the same result
- * within a short time window
+ * within a short time window. Thread-safe via Map-based locking per RPC URL.
  */
 async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
-  // Return cached value if fresh and from the same RPC
-  if (
-    sharedL1Block &&
-    sharedL1Block.rpcUrl === rpcUrl &&
-    Date.now() - sharedL1Block.timestamp < L1_BLOCK_CACHE_FRESHNESS_MS
-  ) {
-    return sharedL1Block.block;
+  // Return cached value if fresh
+  const cached = l1BlockCache.get(rpcUrl);
+  if (cached && Date.now() - cached.timestamp < L1_BLOCK_CACHE_FRESHNESS_MS) {
+    return cached.block;
   }
 
-  // If a fetch is already in progress for the same RPC, wait for it
-  if (pendingL1BlockPromise && pendingL1BlockRpcUrl === rpcUrl) {
-    return pendingL1BlockPromise;
+  // If a fetch is already in progress for this RPC, wait for it
+  const pending = pendingL1BlockRequests.get(rpcUrl);
+  if (pending) {
+    return pending;
   }
 
-  // Start a new fetch
-  pendingL1BlockRpcUrl = rpcUrl;
-  pendingL1BlockPromise = (async () => {
+  // Start a new fetch - store promise in map BEFORE awaiting to prevent races
+  const fetchPromise = (async () => {
     try {
       const response = await fetch(rpcUrl, {
         method: "POST",
@@ -84,19 +85,19 @@ async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
       const data = await response.json();
       if (data.result) {
         const block = parseInt(data.result, 16);
-        sharedL1Block = { block, timestamp: Date.now(), rpcUrl };
+        l1BlockCache.set(rpcUrl, { block, timestamp: Date.now() });
         return block;
       }
       return null;
     } catch {
       return null;
     } finally {
-      pendingL1BlockPromise = null;
-      pendingL1BlockRpcUrl = null;
+      pendingL1BlockRequests.delete(rpcUrl);
     }
   })();
 
-  return pendingL1BlockPromise;
+  pendingL1BlockRequests.set(rpcUrl, fetchPromise);
+  return fetchPromise;
 }
 
 interface UseProposalStagesOptions {
