@@ -13,14 +13,13 @@ import {
 } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import type { ParsedProposal, ProposalStateName } from "@/types/proposal";
-import type {
-  CacheAdapter,
-  ElectionProposalStatus,
-  GovernorTrackingInput,
-  ProposalCreatedData,
-  ProposalQueuedData,
-  TrackingCheckpoint,
-  VotingActiveData,
+import {
+  getStageData,
+  type CacheAdapter,
+  type ElectionProposalStatus,
+  type GovernorTrackingInput,
+  type TrackingCheckpoint,
+  type VotingActiveData,
 } from "@gzeoneth/gov-tracker";
 
 import { debug } from "./debug";
@@ -69,11 +68,18 @@ function extractProposal(
     return null;
   }
 
-  const proposalData = proposalCreatedStage.data as ProposalCreatedData;
+  const proposalData = getStageData(proposalCreatedStage, "PROPOSAL_CREATED");
+  if (!proposalData) {
+    return null;
+  }
   const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
-  const votingData = votingStage?.data as VotingActiveData | undefined;
+  const votingData = votingStage
+    ? getStageData(votingStage, "VOTING_ACTIVE")
+    : null;
   const queuedStage = stages.find((s) => s.type === "PROPOSAL_QUEUED");
-  const queuedData = queuedStage?.data as ProposalQueuedData | undefined;
+  const queuedData = queuedStage
+    ? getStageData(queuedStage, "PROPOSAL_QUEUED")
+    : null;
 
   const governorAddress = input.governorAddress.toLowerCase();
   const governorName = GOVERNOR_NAMES[governorAddress] ?? "Unknown Governor";

@@ -32,13 +32,12 @@ import type {
 } from "@/types/proposal-stage";
 import {
   getAllStageMetadata,
+  getStageData,
   type GovernorTrackingInput,
-  type ProposalQueuedData,
   type StageType,
   type TrackedStage,
   type TrackingCheckpoint,
   type TrackingProgress,
-  type VotingActiveData,
 } from "@gzeoneth/gov-tracker";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
@@ -137,9 +136,11 @@ function checkpointToResult(
   const stages = checkpoint.cachedData.completedStages ?? [];
   const input = checkpoint.input as GovernorTrackingInput;
 
-  // Extract timelockLink from PROPOSAL_QUEUED stage if present
+  // Extract timelockLink from PROPOSAL_QUEUED stage using type-safe accessor
   const queuedStage = stages.find((s) => s.type === "PROPOSAL_QUEUED");
-  const queuedData = queuedStage?.data as ProposalQueuedData | undefined;
+  const queuedData = queuedStage
+    ? getStageData(queuedStage, "PROPOSAL_QUEUED")
+    : null;
   let timelockLink = undefined;
   if (queuedData?.timelockAddress && queuedData?.operationId && queuedStage) {
     const queueTx = queuedStage.transactions[0];
@@ -151,9 +152,11 @@ function checkpointToResult(
     };
   }
 
-  // Determine current state from voting stage
+  // Determine current state from voting stage using type-safe accessor
   const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
-  const votingData = votingStage?.data as VotingActiveData | undefined;
+  const votingData = votingStage
+    ? getStageData(votingStage, "VOTING_ACTIVE")
+    : null;
   const currentState = votingData?.proposalState
     ? votingData.proposalState.charAt(0).toUpperCase() +
       votingData.proposalState.slice(1)

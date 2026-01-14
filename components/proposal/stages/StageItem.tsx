@@ -9,7 +9,7 @@ import {
 } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
-import { getStageMetadata } from "@gzeoneth/gov-tracker";
+import { getStageData, getStageMetadata } from "@gzeoneth/gov-tracker";
 import { CalendarIcon, ReloadIcon } from "@radix-ui/react-icons";
 
 import { ExecuteTimelockButton } from "./ExecuteTimelockButton";
@@ -87,23 +87,13 @@ function extractTimelockOperation(
   if (!stage || stage.status !== "READY") return null;
   if (stageType !== "L2_TIMELOCK" && stageType !== "L1_TIMELOCK") return null;
 
-  const data = stage.data as {
-    operationId?: string;
-    timelockAddress?: string;
-    callScheduledData?: Array<{
-      operationId: string;
-      target: string;
-      value: string;
-      data: string;
-      predecessor: string;
-      delay: string;
-      txHash: string;
-      blockNumber: number;
-      timelockAddress: string;
-    }>;
-  };
+  // Use type-safe getStageData for the appropriate timelock type
+  const data =
+    stageType === "L2_TIMELOCK"
+      ? getStageData(stage, "L2_TIMELOCK")
+      : getStageData(stage, "L1_TIMELOCK");
 
-  if (!data.callScheduledData?.length) return null;
+  if (!data?.callScheduledData?.length) return null;
 
   const call = data.callScheduledData[0];
   return {
