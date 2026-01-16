@@ -14,7 +14,6 @@ import {
   type ElectionProposalStatus,
   type ElectionStatus,
   type ChunkingConfig as GovTrackerChunkingConfig,
-  type ProposalStageTracker,
   type SerializableMemberDetails,
   type SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
@@ -67,78 +66,6 @@ export interface UseElectionStatusResult {
   selectElection: (index: number | null) => void;
 }
 
-interface TrackerWithProviders {
-  tracker: ProposalStageTracker;
-  l2Provider: ethers.providers.StaticJsonRpcProvider;
-  l1Provider: ethers.providers.StaticJsonRpcProvider;
-}
-
-interface ChunkSizes {
-  l1ChunkSize?: number;
-  l2ChunkSize?: number;
-}
-
-let cachedTracker: TrackerWithProviders | null = null;
-let cachedRpcUrls: { l2: string; l1: string } | null = null;
-let cachedChunkSizes: ChunkSizes | null = null;
-let bundledCacheInitialized = false;
-
-function buildChunkingConfig(
-  chunkSizes?: ChunkSizes
-): GovTrackerChunkingConfig | undefined {
-  if (!chunkSizes?.l1ChunkSize && !chunkSizes?.l2ChunkSize) {
-    return undefined;
-  }
-  return {
-    l1ChunkSize: chunkSizes.l1ChunkSize ?? 10000,
-    l2ChunkSize: chunkSizes.l2ChunkSize ?? 10000000,
-    delayBetweenChunks: 100,
-  };
-}
-
-async function getTrackerWithProviders(
-  l2RpcUrl: string,
-  l1RpcUrl: string,
-  chunkSizes?: ChunkSizes
-): Promise<TrackerWithProviders> {
-  const cache = getCacheAdapter();
-
-  if (!bundledCacheInitialized) {
-    await initializeBundledCache(cache);
-    bundledCacheInitialized = true;
-  }
-
-  // Check if we need to recreate the tracker (RPC or chunk config changed)
-  const chunkConfigChanged =
-    chunkSizes?.l1ChunkSize !== cachedChunkSizes?.l1ChunkSize ||
-    chunkSizes?.l2ChunkSize !== cachedChunkSizes?.l2ChunkSize;
-
-  if (
-    !cachedTracker ||
-    !cachedRpcUrls ||
-    cachedRpcUrls.l2 !== l2RpcUrl ||
-    cachedRpcUrls.l1 !== l1RpcUrl ||
-    chunkConfigChanged
-  ) {
-    const l2Provider = new ethers.providers.StaticJsonRpcProvider(l2RpcUrl);
-    const l1Provider = new ethers.providers.StaticJsonRpcProvider(l1RpcUrl);
-
-    const chunkingConfig = buildChunkingConfig(chunkSizes);
-    const tracker = createTracker({
-      l2Provider,
-      l1Provider,
-      cache,
-      chunkingConfig,
-    });
-
-    cachedTracker = { tracker, l2Provider, l1Provider };
-    cachedRpcUrls = { l2: l2RpcUrl, l1: l1RpcUrl };
-    cachedChunkSizes = chunkSizes ?? null;
-  }
-
-  return cachedTracker;
-}
-
 export function useElectionStatus({
   enabled = true,
   l2RpcUrl,
@@ -164,19 +91,58 @@ export function useElectionStatus({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [trackingIndices, setTrackingIndices] = useState<Set<number>>(
-    new Set()
-  );
+
+  // Use refs for tracking state that shouldn't trigger re-renders
+  const trackingIndicesRef = useRef<Set<number>>(new Set());
   const shownErrorToastRef = useRef(false);
   const initialLoadDoneRef = useRef(false);
+  const selectedIndexRef = useRef(selectedIndex);
+  const bundledCacheInitializedRef = useRef(false);
+
+  // Keep selectedIndexRef in sync
+  useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+  }, [selectedIndex]);
 
   const l2Url = l2RpcUrl || ARBITRUM_RPC_URL;
   const l1Url = l1RpcUrl || ETHEREUM_RPC_URL;
-  const chunkSizes = useMemo<ChunkSizes | undefined>(
-    () =>
-      l1ChunkSize || l2ChunkSize ? { l1ChunkSize, l2ChunkSize } : undefined,
-    [l1ChunkSize, l2ChunkSize]
-  );
+
+  // Reset error toast ref when URLs change
+  useEffect(() => {
+    shownErrorToastRef.current = false;
+  }, [l2Url, l1Url]);
+
+  // Stable chunking config - only create object when values are truthy
+  const chunkingConfig = useMemo<GovTrackerChunkingConfig | undefined>(() => {
+    if (!l1ChunkSize && !l2ChunkSize) return undefined;
+    return {
+      l1ChunkSize: l1ChunkSize ?? 10000,
+      l2ChunkSize: l2ChunkSize ?? 10000000,
+      delayBetweenChunks: 100,
+    };
+  }, [l1ChunkSize, l2ChunkSize]);
+
+  // Create tracker with providers - memoized to avoid recreation
+  const getTracker = useCallback(async () => {
+    const cache = getCacheAdapter();
+
+    if (!bundledCacheInitializedRef.current) {
+      await initializeBundledCache(cache);
+      bundledCacheInitializedRef.current = true;
+    }
+
+    const l2Provider = new ethers.providers.StaticJsonRpcProvider(l2Url);
+    const l1Provider = new ethers.providers.StaticJsonRpcProvider(l1Url);
+
+    const tracker = createTracker({
+      l2Provider,
+      l1Provider,
+      cache,
+      chunkingConfig,
+    });
+
+    return { tracker, l2Provider, l1Provider };
+  }, [l2Url, l1Url, chunkingConfig]);
 
   const activeElections = useMemo(
     () => allElections.filter((e) => e.phase !== "COMPLETED"),
@@ -197,8 +163,6 @@ export function useElectionStatus({
     ? memberDetailsMap[selectedElection.electionIndex] ?? null
     : null;
 
-  // Lightweight initial load - only gets election count and cached data
-  // Does NOT track uncached elections (that happens on-demand when selected)
   const fetchElectionData = useCallback(async () => {
     if (!enabled) return;
 
@@ -206,24 +170,17 @@ export function useElectionStatus({
     setError(null);
 
     try {
-      const { tracker, l2Provider, l1Provider } = await getTrackerWithProviders(
-        l2Url,
-        l1Url,
-        chunkSizes
-      );
+      const { tracker, l2Provider, l1Provider } = await getTracker();
 
       debug.app("Fetching SC election status (lightweight)...");
 
-      // Get election count first (lightweight, L2-only call)
       const electionCount = await getElectionCount(l2Provider);
       debug.app("Election count: %d", electionCount);
 
       const cachedElections: ElectionProposalStatus[] = [];
       const cachedNomineeDetails: Record<number, NomineeElectionDetails> = {};
       const cachedMemberDetails: Record<number, MemberElectionDetails> = {};
-      const uncachedIndices: number[] = [];
 
-      // Check cache for each election (including next potential election)
       for (let i = 0; i <= electionCount; i++) {
         const checkpoint = await tracker.getElectionCheckpoint(i);
         if (checkpoint) {
@@ -235,29 +192,15 @@ export function useElectionStatus({
           if (checkpoint.memberDetails) {
             cachedMemberDetails[i] = checkpoint.memberDetails;
           }
-        } else {
-          uncachedIndices.push(i);
         }
       }
 
-      // Set cached elections immediately
       setAllElections(cachedElections);
       setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
       setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
 
-      if (uncachedIndices.length > 0) {
-        debug.app(
-          "Found %d uncached elections: %O (will track on-demand when selected)",
-          uncachedIndices.length,
-          uncachedIndices
-        );
-      } else {
-        debug.app("All %d elections loaded from cache", cachedElections.length);
-      }
-
       initialLoadDoneRef.current = true;
 
-      // Fetch full election status (includes nextElectionTimestamp, canCreateElection)
       const electionStatus = await checkElectionStatus(l2Provider, l1Provider);
       setStatus(electionStatus);
 
@@ -291,7 +234,7 @@ export function useElectionStatus({
     } finally {
       setIsLoading(false);
     }
-  }, [enabled, l2Url, l1Url, chunkSizes]);
+  }, [enabled, getTracker]);
 
   const refresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
@@ -314,29 +257,27 @@ export function useElectionStatus({
 
   // Track selected election on-demand if not already cached
   useEffect(() => {
-    if (!enabled || !initialLoadDoneRef.current) return;
-    if (selectedIndex === null) return;
+    if (!enabled || !initialLoadDoneRef.current || selectedIndex === null)
+      return;
 
-    // Check if election already exists in allElections
+    // Use a local variable to capture the index at effect time
+    const indexToTrack = selectedIndex;
+
+    // Check if election already exists
     const existingElection = allElections.find(
-      (e) => e.electionIndex === selectedIndex
+      (e) => e.electionIndex === indexToTrack
     );
     if (existingElection) return;
 
-    // Check if already tracking this index
-    if (trackingIndices.has(selectedIndex)) return;
+    // Check if already tracking this index (using ref to avoid dependency)
+    if (trackingIndicesRef.current.has(indexToTrack)) return;
 
     const trackSelectedElection = async () => {
-      const indexToTrack = selectedIndex;
-      setTrackingIndices((prev) => new Set([...prev, indexToTrack]));
+      trackingIndicesRef.current.add(indexToTrack);
       setIsLoading(true);
 
       try {
-        const { l2Provider, l1Provider } = await getTrackerWithProviders(
-          l2Url,
-          l1Url,
-          chunkSizes
-        );
+        const { l2Provider, l1Provider } = await getTracker();
 
         debug.app("On-demand tracking election %d", indexToTrack);
 
@@ -346,8 +287,16 @@ export function useElectionStatus({
           l1Provider
         );
 
+        // Verify this is still the selected index (avoid stale updates)
+        if (selectedIndexRef.current !== indexToTrack) {
+          debug.app(
+            "Election %d tracking complete but selection changed, skipping update",
+            indexToTrack
+          );
+          return;
+        }
+
         if (result) {
-          // Get nominee/member details
           const nominee = await getNomineeElectionDetails(
             indexToTrack,
             l2Provider
@@ -359,8 +308,11 @@ export function useElectionStatus({
               ? await getMemberElectionDetails(indexToTrack, l2Provider)
               : null;
 
-          // Add to allElections (maintain order by electionIndex)
           setAllElections((prev) => {
+            // Check if already added (race condition guard)
+            if (prev.some((e) => e.electionIndex === indexToTrack)) {
+              return prev;
+            }
             const updated = [...prev, result];
             updated.sort((a, b) => a.electionIndex - b.electionIndex);
             return updated;
@@ -385,31 +337,24 @@ export function useElectionStatus({
             indexToTrack,
             result.phase
           );
-        } else {
-          debug.app("Election %d not found or not started", indexToTrack);
         }
       } catch (err) {
         debug.app("Failed to track election %d: %O", indexToTrack, err);
+        // Surface error to UI
+        setError(
+          err instanceof Error
+            ? err
+            : new Error(`Failed to track election ${indexToTrack}`)
+        );
       } finally {
-        setTrackingIndices((prev) => {
-          const next = new Set(prev);
-          next.delete(indexToTrack);
-          return next;
-        });
+        trackingIndicesRef.current.delete(indexToTrack);
         setIsLoading(false);
       }
     };
 
     trackSelectedElection();
-  }, [
-    enabled,
-    selectedIndex,
-    allElections,
-    trackingIndices,
-    l2Url,
-    l1Url,
-    chunkSizes,
-  ]);
+    // Intentionally minimal deps - we use refs for tracking state
+  }, [enabled, selectedIndex, allElections, getTracker]);
 
   // Fetch details only for the selected election (lazy loading)
   useEffect(() => {
@@ -417,18 +362,13 @@ export function useElectionStatus({
 
     const electionIndex = selectedElection.electionIndex;
 
-    // Skip if we already have details for this election
     if (nomineeDetailsMap[electionIndex] !== undefined) {
       return;
     }
 
     const fetchDetails = async () => {
       try {
-        const { l2Provider } = await getTrackerWithProviders(
-          l2Url,
-          l1Url,
-          chunkSizes
-        );
+        const { l2Provider } = await getTracker();
 
         debug.app("Fetching details for election %d", electionIndex);
 
@@ -465,11 +405,17 @@ export function useElectionStatus({
           electionIndex,
           err
         );
+        // Surface error to UI
+        setError(
+          err instanceof Error
+            ? err
+            : new Error(`Failed to fetch details for election ${electionIndex}`)
+        );
       }
     };
 
     fetchDetails();
-  }, [selectedElection, enabled, l2Url, l1Url, chunkSizes, nomineeDetailsMap]);
+  }, [selectedElection, enabled, getTracker, nomineeDetailsMap]);
 
   return {
     status,

@@ -57,7 +57,7 @@ export default function ProposalStages({
   const isTreasuryProposal = isTreasuryGovernor(governorAddress);
   const governorType = isTreasuryProposal ? "treasury" : "core";
 
-  const allStageTypes = getAllStageTypes(governorType);
+  const allStageTypes = getAllStageTypes();
   const stageMap = useMemo(() => {
     const map = new Map<StageType, ProposalStage>();
     for (const stage of stages) {

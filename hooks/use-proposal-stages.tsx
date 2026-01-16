@@ -92,6 +92,7 @@ export function useProposalStages({
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
 
   const isMounted = useRef(true);
+  const pendingBackgroundRefreshRef = useRef(false);
 
   // Sync local state from session
   const syncFromSession = useCallback((session: TrackingSession) => {
@@ -206,6 +207,9 @@ export function useProposalStages({
 
         trackerManager.trackingFinished(proposalId, governorAddress);
 
+        // Clear background refresh tracking
+        pendingBackgroundRefreshRef.current = false;
+
         trackerManager.updateSession(proposalId, governorAddress, {
           result: proposalResult,
           stages: proposalResult.stages,
@@ -234,8 +238,10 @@ export function useProposalStages({
           });
         }
       } catch (err) {
+        // Clear background refresh tracking on any exit
+        pendingBackgroundRefreshRef.current = false;
+
         if (abortController.signal.aborted) {
-          // Clear background refresh flag on abort
           trackerManager.updateSession(proposalId, governorAddress, {
             isBackgroundRefreshing: false,
           });
@@ -304,13 +310,27 @@ export function useProposalStages({
     [proposalId, governorAddress, creationTxHash, startTracking]
   );
 
-  // Mount/unmount effect
+  // Mount/unmount effect with cleanup for background refresh flag
   useEffect(() => {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
+      // Clean up background refresh flag if we initiated one but component unmounted
+      if (
+        pendingBackgroundRefreshRef.current &&
+        proposalId &&
+        governorAddress
+      ) {
+        const session = trackerManager.getSession(proposalId, governorAddress);
+        if (session?.isBackgroundRefreshing) {
+          trackerManager.updateSession(proposalId, governorAddress, {
+            isBackgroundRefreshing: false,
+          });
+        }
+        pendingBackgroundRefreshRef.current = false;
+      }
     };
-  }, []);
+  }, [proposalId, governorAddress]);
 
   // Function to trigger background refresh
   // Background refresh keeps cached stages visible while updating
@@ -328,8 +348,9 @@ export function useProposalStages({
       return;
     }
 
-    // Mark as background refreshing without changing status
-    // This keeps cached stages visible during refresh
+    // Track that we initiated a background refresh (for cleanup on unmount)
+    pendingBackgroundRefreshRef.current = true;
+
     trackerManager.updateSession(proposalId, governorAddress, {
       isBackgroundRefreshing: true,
     });
@@ -490,9 +511,7 @@ export interface StageMetadataWithType {
  * gov-tracker's getAllStageMetadata() returns a Record<StageType, StageMetadata>
  * This function converts it to an array with the type key included
  */
-export function getAllStageTypes(
-  governorType: "core" | "treasury" = "core"
-): StageMetadataWithType[] {
+export function getAllStageTypes(): StageMetadataWithType[] {
   const metadata = getAllStageMetadata();
   return (
     Object.entries(metadata) as [StageType, (typeof metadata)[StageType]][]
