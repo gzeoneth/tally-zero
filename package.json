@@ -26,7 +26,7 @@
     ]
   },
   "dependencies": {
-    "@gzeoneth/gov-tracker": "0.2.1-beta.746bfec",
+    "@gzeoneth/gov-tracker": "0.2.1-alpha.refactor-retry-logic-blocklist.a3437d2",
     "@headlessui/react": "^1.7.18",
     "@hookform/resolvers": "^3.3.4",
     "@next/bundle-analyzer": "^14.2.3",
