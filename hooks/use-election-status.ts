@@ -226,6 +226,9 @@ export function useElectionStatus({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [trackingIndices, setTrackingIndices] = useState<Set<number>>(
+    new Set()
+  );
   const shownErrorToastRef = useRef(false);
   const initialLoadDoneRef = useRef(false);
 
@@ -253,6 +256,8 @@ export function useElectionStatus({
     ? memberDetailsMap[selectedElection.electionIndex] ?? null
     : null;
 
+  // Lightweight initial load - only gets election count and cached data
+  // Does NOT track uncached elections (that happens on-demand when selected)
   const fetchElectionData = useCallback(async () => {
     if (!enabled) return;
 
@@ -266,11 +271,12 @@ export function useElectionStatus({
         chunkSizes
       );
 
-      debug.app("Fetching SC election status...");
+      debug.app("Fetching SC election status (lightweight)...");
 
       // Get election count first (lightweight, L2-only call)
       const electionCount = await getElectionCount(l2Provider);
       debug.app("Election count: %d", electionCount);
+
       const cachedElections: ElectionProposalStatus[] = [];
       const cachedNomineeDetails: Record<number, NomineeElectionDetails> = {};
       const cachedMemberDetails: Record<number, MemberElectionDetails> = {};
@@ -293,55 +299,21 @@ export function useElectionStatus({
         }
       }
 
-      // If we have cached data and this is initial load, show it immediately
-      if (cachedElections.length > 0 && !initialLoadDoneRef.current) {
-        setAllElections(cachedElections);
-        setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
-        setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
-        debug.app(
-          "Showing %d cached elections with details while fetching fresh data",
-          cachedElections.length
-        );
-      }
+      // Set cached elections immediately
+      setAllElections(cachedElections);
+      setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
+      setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
 
-      // Fetch only uncached elections using trackElectionProposal
-      let freshElections: ElectionProposalStatus[] = [];
       if (uncachedIndices.length > 0) {
         debug.app(
-          "Fetching %d uncached elections: %O",
+          "Found %d uncached elections: %O (will track on-demand when selected)",
           uncachedIndices.length,
           uncachedIndices
         );
-
-        // Fetch uncached elections in parallel
-        const fetchPromises = uncachedIndices.map((index) =>
-          trackElectionProposal(index, l2Provider, l1Provider).catch((err) => {
-            debug.app("Failed to fetch election %d: %O", index, err);
-            return null;
-          })
-        );
-        const results = await Promise.all(fetchPromises);
-        freshElections = results.filter(
-          (e): e is ElectionProposalStatus => e !== null
-        );
-
-        // Save freshly fetched elections to cache
-        for (const election of freshElections) {
-          await tracker.saveElectionCheckpoint(election);
-          debug.cache("Saved election %d to cache", election.electionIndex);
-        }
       } else {
         debug.app("All %d elections loaded from cache", cachedElections.length);
       }
 
-      // Merge cached and fresh elections, sorted by index
-      const elections = [...cachedElections, ...freshElections].sort(
-        (a, b) => a.electionIndex - b.electionIndex
-      );
-      setAllElections(elections);
-      // Set cached details (fresh elections will be fetched on-demand via lazy loading)
-      setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
-      setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
       initialLoadDoneRef.current = true;
 
       // Fetch full election status (includes nextElectionTimestamp, canCreateElection)
@@ -349,10 +321,10 @@ export function useElectionStatus({
       setStatus(electionStatus);
 
       debug.app(
-        "Election status: count=%d, canCreate=%s, elections=%d",
+        "Election status: count=%d, canCreate=%s, cached=%d",
         electionStatus.electionCount,
         electionStatus.canCreateElection,
-        elections.length
+        cachedElections.length
       );
     } catch (err) {
       debug.app("Election status error: %O", err);
@@ -398,6 +370,105 @@ export function useElectionStatus({
     const interval = setInterval(refresh, refreshInterval);
     return () => clearInterval(interval);
   }, [enabled, refreshInterval, refresh]);
+
+  // Track selected election on-demand if not already cached
+  useEffect(() => {
+    if (!enabled || !initialLoadDoneRef.current) return;
+    if (selectedIndex === null) return;
+
+    // Check if election already exists in allElections
+    const existingElection = allElections.find(
+      (e) => e.electionIndex === selectedIndex
+    );
+    if (existingElection) return;
+
+    // Check if already tracking this index
+    if (trackingIndices.has(selectedIndex)) return;
+
+    const trackSelectedElection = async () => {
+      const indexToTrack = selectedIndex;
+      setTrackingIndices((prev) => new Set([...prev, indexToTrack]));
+      setIsLoading(true);
+
+      try {
+        const { l2Provider, l1Provider } = await getTrackerWithProviders(
+          l2Url,
+          l1Url,
+          chunkSizes
+        );
+
+        debug.app("On-demand tracking election %d", indexToTrack);
+
+        const result = await trackElectionProposal(
+          indexToTrack,
+          l2Provider,
+          l1Provider
+        );
+
+        if (result) {
+          // Get nominee/member details
+          const nominee = await getNomineeElectionDetails(
+            indexToTrack,
+            l2Provider
+          );
+          const member =
+            result.phase === "MEMBER_ELECTION" ||
+            result.phase === "PENDING_EXECUTION" ||
+            result.phase === "COMPLETED"
+              ? await getMemberElectionDetails(indexToTrack, l2Provider)
+              : null;
+
+          // Add to allElections (maintain order by electionIndex)
+          setAllElections((prev) => {
+            const updated = [...prev, result];
+            updated.sort((a, b) => a.electionIndex - b.electionIndex);
+            return updated;
+          });
+
+          if (nominee) {
+            setNomineeDetailsMap((prev) => ({
+              ...prev,
+              [indexToTrack]: serializeNomineeDetails(nominee),
+            }));
+          }
+
+          if (member) {
+            setMemberDetailsMap((prev) => ({
+              ...prev,
+              [indexToTrack]: serializeMemberDetails(member),
+            }));
+          }
+
+          debug.app(
+            "Successfully tracked election %d: %s",
+            indexToTrack,
+            result.phase
+          );
+        } else {
+          debug.app("Election %d not found or not started", indexToTrack);
+        }
+      } catch (err) {
+        debug.app("Failed to track election %d: %O", indexToTrack, err);
+      } finally {
+        setTrackingIndices((prev) => {
+          const next = new Set(prev);
+          next.delete(indexToTrack);
+          return next;
+        });
+        setIsLoading(false);
+      }
+    };
+
+    trackSelectedElection();
+  }, [
+    enabled,
+    selectedIndex,
+    allElections,
+    trackingIndices,
+    l2Url,
+    l1Url,
+    chunkSizes,
+  ]);
 
   // Fetch details only for the selected election (lazy loading)
   useEffect(() => {
