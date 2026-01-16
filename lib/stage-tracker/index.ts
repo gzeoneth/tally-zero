@@ -7,8 +7,11 @@
 
 import {
   createTracker as createGovTracker,
+  getStageMetadata,
   type CacheAdapter,
   type ChunkingConfig,
+  type StageMetadata,
+  type StageType,
   type TrackerOptions,
   type TrackingResult,
 } from "@gzeoneth/gov-tracker";
@@ -91,4 +94,40 @@ export function toProposalTrackingResult(
     isComplete: result.isComplete,
     proposalType: result.proposalType,
   };
+}
+
+const ALL_STAGE_TYPES: StageType[] = [
+  "PROPOSAL_CREATED",
+  "VOTING_ACTIVE",
+  "PROPOSAL_QUEUED",
+  "L2_TIMELOCK",
+  "L2_TO_L1_MESSAGE",
+  "L1_TIMELOCK",
+  "RETRYABLE_EXECUTED",
+  "CREATE_ELECTION",
+  "NOMINEE_ELECTION",
+  "NOMINEE_VETTING",
+  "MEMBER_ELECTION",
+];
+
+let cachedStageMetadata: Record<StageType, StageMetadata> | null = null;
+
+/**
+ * Get metadata for all stage types (memoized)
+ *
+ * Builds a record mapping each StageType to its StageMetadata
+ * by calling gov-tracker's getStageMetadata for each type.
+ * Result is cached after first call.
+ *
+ * @returns Record of StageType to StageMetadata
+ */
+export function getAllStageMetadata(): Record<StageType, StageMetadata> {
+  if (cachedStageMetadata) return cachedStageMetadata;
+
+  const result: Partial<Record<StageType, StageMetadata>> = {};
+  for (const type of ALL_STAGE_TYPES) {
+    result[type] = getStageMetadata(type);
+  }
+  cachedStageMetadata = result as Record<StageType, StageMetadata>;
+  return cachedStageMetadata;
 }

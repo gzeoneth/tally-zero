@@ -1,75 +1,81 @@
 /**
- * Proposal cache utilities for pre-loading and merging proposals
+ * Proposal cache utilities
  *
- * Provides functionality for loading the prebuilt proposal cache,
- * merging cached proposals with fresh data, and seeding localStorage
- * with stage tracking data.
+ * Provides utility functions for working with proposals.
+ * Includes loading the pre-built proposal cache for faster startup.
  */
 
-import { STORAGE_KEYS } from "@/config/storage-keys";
-import type { TimelockOperationInfo } from "@/hooks/use-timelock-operation";
 import type { ParsedProposal } from "@/types/proposal";
-import type { ProposalStage } from "@/types/proposal-stage";
-import { debug, isBrowser } from "./debug";
-import { formatCacheAge } from "./format-utils";
-import { seedStagesFromProposal } from "./stages-cache";
-import {
-  checkAndInvalidateCacheVersion,
-  getStoredValue,
-} from "./storage-utils";
-import { seedTimelockFromCache } from "./unified-cache";
+import type { ProposalCache } from "@/types/proposal-cache";
 
-// Re-export stages cache functions for convenience
-export {
-  getPreloadedStages,
-  hasPreloadedStages,
-  seedStagesFromProposal,
-} from "./stages-cache";
+// Static import of the proposal cache JSON
+// This is bundled at build time and available immediately
+import proposalCacheData from "@data/proposal-cache.json";
 
-/**
- * Timelock operation entry from the prebuilt cache
- */
-interface TimelockOperationEntry {
-  txHash: string;
-  operationId: string;
-  timelockAddress: string;
-  queueBlockNumber: number;
-  stages: ProposalStage[];
-  trackedAt: string;
-}
+/** Cache version - increment to invalidate old caches */
+export const CACHE_VERSION = 1;
+
+/** Cached proposal data */
+const cachedData: ProposalCache | null = (() => {
+  try {
+    const cache = proposalCacheData as ProposalCache;
+    if (cache.version !== CACHE_VERSION) {
+      console.warn(
+        `Proposal cache version mismatch: ${cache.version} !== ${CACHE_VERSION}`
+      );
+      return null;
+    }
+    return cache;
+  } catch (error) {
+    console.warn("Failed to load proposal cache:", error);
+    return null;
+  }
+})();
 
 /**
- * Prebuilt timelock operations cache structure
+ * Load the pre-built proposal cache
+ *
+ * Returns the statically imported cache data.
  */
-interface TimelockOperationsCache {
-  version: number;
-  generatedAt: string;
-  operations: TimelockOperationEntry[];
+export async function loadProposalCache(): Promise<ProposalCache | null> {
+  return cachedData;
 }
 
-function getSkipPreloadCacheSetting(): boolean {
-  return (
-    getStoredValue<boolean>(STORAGE_KEYS.SKIP_PRELOAD_CACHE, false) === true
-  );
+/**
+ * Get all proposals from cache
+ *
+ * Note: The cache contains all historical proposals. The startBlock in each
+ * proposal refers to the voting start block, not the block where it was created.
+ * Since the cache covers all proposals from the initial governance deployment,
+ * we return all cached proposals regardless of the user's search range.
+ *
+ * @returns All cached proposals, or null if cache not available
+ */
+export async function getCachedProposals(): Promise<ParsedProposal[] | null> {
+  if (!cachedData) {
+    return null;
+  }
+
+  return cachedData.proposals;
 }
 
-export interface ProposalCache {
-  version: number;
-  generatedAt: string;
-  snapshotBlock: number;
-  startBlock: number;
-  chainId: number;
-  proposals: ParsedProposal[];
-  governorStats: {
-    [address: string]: {
-      name: string;
-      proposalCount: number;
-    };
-  };
+/**
+ * Get the snapshot block from the cache
+ *
+ * @returns The snapshot block number, or null if cache not available
+ */
+export async function getCacheSnapshotBlock(): Promise<number | null> {
+  return cachedData?.snapshotBlock ?? null;
 }
 
-/** Current version of the proposal cache format */
-export const CURRENT_CACHE_VERSION = 1;
+/**
+ * Get the start block from the cache
+ *
+ * @returns The cache start block, or null if cache not available
+ */
+export async function getCacheStartBlock(): Promise<number | null> {
+  return cachedData?.startBlock ?? null;
+}
 
 /** Proposal states that don't need refresh */
 const FINALIZED_STATES = new Set([
@@ -102,152 +108,13 @@ export function needsStateRefresh(state: string): boolean {
   return lowerState === "pending" || lowerState === "active";
 }
 
-let staticCacheData: ProposalCache | null = null;
-try {
-  staticCacheData = require("@data/proposal-cache.json") as ProposalCache;
-} catch {
-  staticCacheData = null;
-}
-
-let staticTimelockCacheData: TimelockOperationsCache | null = null;
-try {
-  staticTimelockCacheData =
-    require("@data/timelock-operations-cache.json") as TimelockOperationsCache;
-} catch {
-  staticTimelockCacheData = null;
-}
-
-let validatedCacheData: ProposalCache | null = null;
-let cacheValidated = false;
-let stagesSeeded = false;
-let timelockStagesSeeded = false;
-
-/**
- * Load and validate the proposal cache from static data
- *
- * Seeds localStorage with stage data on first load.
- * Returns cached data on subsequent calls for performance.
- *
- * @returns The validated proposal cache, or null if unavailable/invalid
- */
-export async function loadProposalCache(): Promise<ProposalCache | null> {
-  if (getSkipPreloadCacheSetting()) {
-    debug.proposals("skipping preload cache (setting enabled)");
-    return null;
-  }
-
-  // Check cache version and invalidate if changed (before seeding)
-  const versionCheck = checkAndInvalidateCacheVersion();
-  if (versionCheck.wasInvalidated) {
-    debug.proposals(
-      "cache invalidated due to version change: %d -> %d",
-      versionCheck.previousVersion,
-      versionCheck.currentVersion
-    );
-  }
-
-  if (cacheValidated) {
-    debug.proposals("returning validated cache (already loaded)");
-    if (validatedCacheData && !stagesSeeded) {
-      seedAllStagesFromCache(validatedCacheData);
-      stagesSeeded = true;
-    }
-    if (!timelockStagesSeeded) {
-      seedTimelockOperationsFromCache();
-      timelockStagesSeeded = true;
-    }
-    return validatedCacheData;
-  }
-
-  cacheValidated = true;
-
-  if (!staticCacheData) {
-    debug.proposals(
-      "cache file not found - run 'yarn cache:build' to generate"
-    );
-    return null;
-  }
-
-  // Validate cache version
-  if (staticCacheData.version !== CURRENT_CACHE_VERSION) {
-    debug.proposals(
-      "cache version mismatch: expected %d, got %d",
-      CURRENT_CACHE_VERSION,
-      staticCacheData.version
-    );
-    return null;
-  }
-
-  // Validate that proposals exist
-  if (!staticCacheData.proposals || !Array.isArray(staticCacheData.proposals)) {
-    debug.proposals("invalid cache format: missing proposals array");
-    return null;
-  }
-
-  validatedCacheData = staticCacheData;
-
-  const activeCount = validatedCacheData.proposals.filter(
-    (p) => p.state === "Active" || p.state === "Pending"
-  ).length;
-  debug.proposals(
-    "loaded %d proposals from cache (block %d, %d active/pending)",
-    validatedCacheData.proposals.length,
-    validatedCacheData.snapshotBlock,
-    activeCount
-  );
-
-  // Seed localStorage with preloaded stages
-  seedAllStagesFromCache(validatedCacheData);
-  stagesSeeded = true;
-
-  // Seed timelock operations from prebuilt cache
-  seedTimelockOperationsFromCache();
-  timelockStagesSeeded = true;
-
-  return validatedCacheData;
-}
-
-/**
- * Clear the validated proposal cache data
- *
- * Useful for forcing a cache refresh.
- */
-export function clearCacheData(): void {
-  validatedCacheData = null;
-  cacheValidated = false;
-  stagesSeeded = false;
-  timelockStagesSeeded = false;
-}
-
-/**
- * Get the snapshot block number from the proposal cache
- *
- * @returns The block number when the cache was generated, or 0 if no cache
- */
-export async function getCacheSnapshotBlock(): Promise<number> {
-  const cache = await loadProposalCache();
-  return cache?.snapshotBlock ?? 0;
-}
-
-/**
- * Get proposals that need their state refreshed
- *
- * @param cache - The proposal cache
- * @returns Array of proposals in pending or active state
- */
-export function getProposalsNeedingRefresh(
-  cache: ProposalCache
-): ParsedProposal[] {
-  return cache.proposals.filter((p) => needsStateRefresh(p.state));
-}
-
 /**
  * Merge cached proposals with freshly fetched proposals
  *
  * Keeps finalized proposals from cache, uses fresh data for active proposals,
  * and adds any new proposals not in cache.
  *
- * @param cachedProposals - Proposals from the prebuilt cache
+ * @param cachedProposals - Proposals from cache
  * @param freshProposals - Proposals freshly fetched from RPC
  * @returns Merged array of proposals
  */
@@ -295,133 +162,4 @@ export function sortProposals(proposals: ParsedProposal[]): ParsedProposal[] {
     if (a.state !== "Active" && b.state === "Active") return 1;
     return parseInt(b.startBlock, 10) - parseInt(a.startBlock, 10);
   });
-}
-
-/**
- * Get statistics about the proposal cache
- *
- * @param cache - The proposal cache to analyze
- * @returns Cache statistics including proposal count, age, and state distribution
- */
-export function getCacheStats(cache: ProposalCache): {
-  totalProposals: number;
-  snapshotBlock: number;
-  generatedAt: Date;
-  age: string;
-  stateDistribution: Record<string, number>;
-} {
-  const generatedAt = new Date(cache.generatedAt);
-
-  const stateDistribution: Record<string, number> = {};
-  for (const p of cache.proposals) {
-    stateDistribution[p.state] = (stateDistribution[p.state] || 0) + 1;
-  }
-
-  return {
-    totalProposals: cache.proposals.length,
-    snapshotBlock: cache.snapshotBlock,
-    generatedAt,
-    age: formatCacheAge(generatedAt),
-    stateDistribution,
-  };
-}
-
-/**
- * Seed localStorage with stages from all cached proposals
- *
- * @param cache - The proposal cache containing proposals with stages
- * @returns Number of proposals seeded
- */
-export function seedAllStagesFromCache(cache: ProposalCache): number {
-  if (!isBrowser) return 0;
-
-  if (getSkipPreloadCacheSetting()) {
-    debug.proposals("skipping stages seeding (setting enabled)");
-    return 0;
-  }
-
-  let seededCount = 0;
-  for (const proposal of cache.proposals) {
-    if (seedStagesFromProposal(proposal)) {
-      seededCount++;
-    }
-  }
-
-  if (seededCount > 0) {
-    debug.proposals("seeded %d proposals with preloaded stages", seededCount);
-  }
-
-  return seededCount;
-}
-
-/**
- * Seed timelock operations cache from prebuilt cache
- *
- * This loads the prebuilt timelock-operations-cache.json and seeds
- * localStorage with stages 4-10 for each operation.
- *
- * @returns Number of operations seeded
- */
-export function seedTimelockOperationsFromCache(): number {
-  if (!isBrowser) return 0;
-
-  if (getSkipPreloadCacheSetting()) {
-    debug.proposals("skipping timelock seeding (setting enabled)");
-    return 0;
-  }
-
-  if (!staticTimelockCacheData) {
-    debug.proposals("no timelock cache data available");
-    return 0;
-  }
-
-  if (staticTimelockCacheData.version !== CURRENT_CACHE_VERSION) {
-    debug.proposals(
-      "timelock cache version mismatch: expected %d, got %d",
-      CURRENT_CACHE_VERSION,
-      staticTimelockCacheData.version
-    );
-    return 0;
-  }
-
-  let seededCount = 0;
-  for (const operation of staticTimelockCacheData.operations) {
-    // Create a minimal TimelockTrackingResult for seeding
-    const result = {
-      operationInfo: {
-        operationId: operation.operationId,
-        target: "",
-        value: "0",
-        data: "0x",
-        predecessor:
-          "0x0000000000000000000000000000000000000000000000000000000000000000",
-        delay: "0",
-        txHash: operation.txHash,
-        blockNumber: operation.queueBlockNumber,
-        timestamp: 0,
-        timelockAddress: operation.timelockAddress,
-      } as TimelockOperationInfo,
-      stages: operation.stages,
-    };
-
-    if (
-      seedTimelockFromCache(
-        operation.txHash,
-        operation.operationId,
-        result,
-        operation.trackedAt
-      )
-    ) {
-      seededCount++;
-    }
-  }
-
-  if (seededCount > 0) {
-    debug.proposals(
-      "seeded %d timelock operations with preloaded stages",
-      seededCount
-    );
-  }
-
-  return seededCount;
 }

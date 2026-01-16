@@ -1,10 +1,6 @@
-import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "@/lib/date-utils";
 import type { ParsedProposal } from "@/types/proposal";
 import { describe, expect, it } from "vitest";
 import {
-  ProposalCache,
-  getCacheStats,
-  getProposalsNeedingRefresh,
   isProposalFinalized,
   mergeProposals,
   needsStateRefresh,
@@ -31,21 +27,15 @@ const createProposal = (
 });
 
 const activeProposal = createProposal({
-  id: "53154361738756237993090798888616593723057470462495169047773178676976253908001",
+  id: "1",
   state: "Active",
   startBlock: "23943007",
 });
 
 const executedProposal = createProposal({
-  id: "57495998481040869152703890521939307107269690440073097268210566577740258992963",
+  id: "2",
   state: "Executed",
   startBlock: "23593417",
-});
-
-const pendingProposal = createProposal({
-  id: "3",
-  state: "Pending",
-  startBlock: "24000000",
 });
 
 const defeatedProposal = createProposal({
@@ -116,43 +106,6 @@ describe("proposal-cache", () => {
       expect(needsStateRefresh("PENDING")).toBe(true);
       expect(needsStateRefresh("Active")).toBe(true);
       expect(needsStateRefresh("EXECUTED")).toBe(false);
-    });
-  });
-
-  describe("getProposalsNeedingRefresh", () => {
-    it("returns only pending and active proposals", () => {
-      const cache: ProposalCache = {
-        version: 1,
-        generatedAt: new Date().toISOString(),
-        snapshotBlock: 411190231,
-        startBlock: 70398215,
-        chainId: 42161,
-        proposals: [
-          activeProposal,
-          executedProposal,
-          pendingProposal,
-          defeatedProposal,
-        ],
-        governorStats: {},
-      };
-
-      const needingRefresh = getProposalsNeedingRefresh(cache);
-      expect(needingRefresh).toHaveLength(2);
-      expect(needingRefresh.map((p) => p.state)).toEqual(["Active", "Pending"]);
-    });
-
-    it("returns empty array when no proposals need refresh", () => {
-      const cache: ProposalCache = {
-        version: 1,
-        generatedAt: new Date().toISOString(),
-        snapshotBlock: 411190231,
-        startBlock: 70398215,
-        chainId: 42161,
-        proposals: [executedProposal, defeatedProposal],
-        governorStats: {},
-      };
-
-      expect(getProposalsNeedingRefresh(cache)).toHaveLength(0);
     });
   });
 
@@ -287,103 +240,6 @@ describe("proposal-cache", () => {
       sortProposals(proposals);
 
       expect(proposals).toEqual(originalOrder);
-    });
-  });
-
-  describe("getCacheStats", () => {
-    it("calculates state distribution", () => {
-      const cache: ProposalCache = {
-        version: 1,
-        generatedAt: new Date().toISOString(),
-        snapshotBlock: 411190231,
-        startBlock: 70398215,
-        chainId: 42161,
-        proposals: [
-          activeProposal,
-          executedProposal,
-          pendingProposal,
-          defeatedProposal,
-          createProposal({ id: "5", state: "Executed" }),
-        ],
-        governorStats: {},
-      };
-
-      const stats = getCacheStats(cache);
-
-      expect(stats.totalProposals).toBe(5);
-      expect(stats.stateDistribution).toEqual({
-        Active: 1,
-        Executed: 2,
-        Pending: 1,
-        Defeated: 1,
-      });
-    });
-
-    it("formats age correctly for hours", () => {
-      const twoHoursAgo = new Date(Date.now() - 2 * MS_PER_HOUR).toISOString();
-      const cache: ProposalCache = {
-        version: 1,
-        generatedAt: twoHoursAgo,
-        snapshotBlock: 411190231,
-        startBlock: 70398215,
-        chainId: 42161,
-        proposals: [],
-        governorStats: {},
-      };
-
-      const stats = getCacheStats(cache);
-      expect(stats.age).toBe("2h");
-    });
-
-    it("formats age correctly for days", () => {
-      const threeDaysAgo = new Date(
-        Date.now() - 3 * MS_PER_DAY - 5 * MS_PER_HOUR
-      ).toISOString();
-      const cache: ProposalCache = {
-        version: 1,
-        generatedAt: threeDaysAgo,
-        snapshotBlock: 411190231,
-        startBlock: 70398215,
-        chainId: 42161,
-        proposals: [],
-        governorStats: {},
-      };
-
-      const stats = getCacheStats(cache);
-      expect(stats.age).toBe("3d 5h");
-    });
-
-    it("formats age correctly for less than an hour", () => {
-      const thirtyMinutesAgo = new Date(
-        Date.now() - 30 * MS_PER_MINUTE
-      ).toISOString();
-      const cache: ProposalCache = {
-        version: 1,
-        generatedAt: thirtyMinutesAgo,
-        snapshotBlock: 411190231,
-        startBlock: 70398215,
-        chainId: 42161,
-        proposals: [],
-        governorStats: {},
-      };
-
-      const stats = getCacheStats(cache);
-      expect(stats.age).toBe("< 1h");
-    });
-
-    it("returns correct snapshotBlock", () => {
-      const cache: ProposalCache = {
-        version: 1,
-        generatedAt: new Date().toISOString(),
-        snapshotBlock: 411190231,
-        startBlock: 70398215,
-        chainId: 42161,
-        proposals: [executedProposal],
-        governorStats: {},
-      };
-
-      const stats = getCacheStats(cache);
-      expect(stats.snapshotBlock).toBe(411190231);
     });
   });
 });

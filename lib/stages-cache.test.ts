@@ -4,7 +4,6 @@ import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import { describe, expect, it } from "vitest";
 import {
   MAX_TRACKING_AGE_MS,
-  areStagesComplete,
   getCacheKey,
   hasExceededTrackingAge,
   hasReachedFinalStage,
@@ -55,52 +54,6 @@ describe("stages-cache", () => {
       const key1 = getCacheKey("111", CORE_GOVERNOR_ADDRESS);
       const key2 = getCacheKey("222", CORE_GOVERNOR_ADDRESS);
       expect(key1).not.toBe(key2);
-    });
-  });
-
-  describe("areStagesComplete", () => {
-    it("returns true for COMPLETED last stage", () => {
-      const stages: ProposalStage[] = [
-        createStage("PROPOSAL_CREATED", "COMPLETED"),
-        createStage("VOTING_ACTIVE", "COMPLETED"),
-        createStage("PROPOSAL_QUEUED", "COMPLETED"),
-      ];
-      expect(areStagesComplete(stages)).toBe(true);
-    });
-
-    it("returns true for FAILED last stage", () => {
-      const stages: ProposalStage[] = [
-        createStage("PROPOSAL_CREATED", "COMPLETED"),
-        createStage("VOTING_ACTIVE", "FAILED"),
-      ];
-      expect(areStagesComplete(stages)).toBe(true);
-    });
-
-    it("returns false for PENDING last stage", () => {
-      const stages: ProposalStage[] = [
-        createStage("PROPOSAL_CREATED", "COMPLETED"),
-        createStage("VOTING_ACTIVE", "PENDING"),
-      ];
-      expect(areStagesComplete(stages)).toBe(false);
-    });
-
-    it("returns false for NOT_STARTED last stage", () => {
-      const stages: ProposalStage[] = [
-        createStage("PROPOSAL_CREATED", "COMPLETED"),
-        createStage("VOTING_ACTIVE", "NOT_STARTED"),
-      ];
-      expect(areStagesComplete(stages)).toBe(false);
-    });
-
-    it("returns false for empty stages", () => {
-      expect(areStagesComplete([])).toBe(false);
-    });
-
-    it("returns false for null/undefined", () => {
-      expect(areStagesComplete(null as unknown as ProposalStage[])).toBe(false);
-      expect(areStagesComplete(undefined as unknown as ProposalStage[])).toBe(
-        false
-      );
     });
   });
 

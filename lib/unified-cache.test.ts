@@ -9,14 +9,12 @@ import { MS_PER_HOUR, MS_PER_SECOND } from "@/lib/date-utils";
 import type { ProposalStage, TimelockLink } from "@/types/proposal-stage";
 import {
   clearCachedTimelockResult,
-  getRefreshNeeds,
   getTimelockCacheKey,
   hasTimelockCache,
   loadCachedTimelockResult,
   loadUnifiedStages,
   needsRefresh,
   saveCachedTimelockResult,
-  seedTimelockFromCache,
   type UnifiedCacheResult,
 } from "./unified-cache";
 
@@ -262,68 +260,14 @@ describe("unified-cache", () => {
     });
   });
 
-  describe("seedTimelockFromCache", () => {
-    it("seeds cache when empty", () => {
-      const result = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK", "COMPLETED"),
-      ]);
-
-      const seeded = seedTimelockFromCache("0x123", "0x456", result);
-
-      expect(seeded).toBe(true);
-      expect(mockLocalStorage.setItem).toHaveBeenCalled();
-    });
-
-    it("skips seeding when existing has more stages", () => {
-      const existing = {
-        version: CACHE_VERSION,
-        timestamp: Date.now(),
-        result: createMockTimelockResult([
-          createMockStage("L2_TIMELOCK", "COMPLETED"),
-          createMockStage("L2_TO_L1_MESSAGE", "COMPLETED"),
-        ]),
-      };
-      const key = getTimelockCacheKey("0x123", "0x456");
-      mockStorage[key] = JSON.stringify(existing);
-
-      const newResult = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK", "COMPLETED"),
-      ]);
-
-      const seeded = seedTimelockFromCache("0x123", "0x456", newResult);
-
-      expect(seeded).toBe(false);
-    });
-
-    it("uses provided trackedAt timestamp", () => {
-      const result = createMockTimelockResult([
-        createMockStage("L2_TIMELOCK", "COMPLETED"),
-      ]);
-
-      seedTimelockFromCache(
-        "0x123",
-        "0x456",
-        result,
-        "2024-01-15T12:00:00.000Z"
-      );
-
-      const savedValue = JSON.parse(mockLocalStorage.setItem.mock.calls[0][1]);
-      expect(savedValue.timestamp).toBe(
-        new Date("2024-01-15T12:00:00.000Z").getTime()
-      );
-    });
-  });
-
   describe("needsRefresh", () => {
     it("returns false when complete", () => {
       const result: UnifiedCacheResult = {
         stages: [],
         proposalCacheExpired: true,
-        timelockCacheExpired: true,
         completionStatus: "completed",
         isComplete: true,
         proposalResult: null,
-        timelockResult: null,
       };
 
       expect(needsRefresh(result)).toBe(false);
@@ -333,25 +277,9 @@ describe("unified-cache", () => {
       const result: UnifiedCacheResult = {
         stages: [],
         proposalCacheExpired: true,
-        timelockCacheExpired: false,
         completionStatus: "pending",
         isComplete: false,
         proposalResult: null,
-        timelockResult: null,
-      };
-
-      expect(needsRefresh(result)).toBe(true);
-    });
-
-    it("returns true when timelock cache expired and not complete", () => {
-      const result: UnifiedCacheResult = {
-        stages: [],
-        proposalCacheExpired: false,
-        timelockCacheExpired: true,
-        completionStatus: "incomplete",
-        isComplete: false,
-        proposalResult: null,
-        timelockResult: null,
       };
 
       expect(needsRefresh(result)).toBe(true);
@@ -361,96 +289,12 @@ describe("unified-cache", () => {
       const result: UnifiedCacheResult = {
         stages: [],
         proposalCacheExpired: false,
-        timelockCacheExpired: false,
         completionStatus: "incomplete",
         isComplete: false,
         proposalResult: null,
-        timelockResult: null,
       };
 
       expect(needsRefresh(result)).toBe(false);
-    });
-  });
-
-  describe("getRefreshNeeds", () => {
-    it("returns no refresh needs when complete", () => {
-      const result: UnifiedCacheResult = {
-        stages: [],
-        proposalCacheExpired: true,
-        timelockCacheExpired: true,
-        completionStatus: "completed",
-        isComplete: true,
-        proposalResult: null,
-        timelockResult: null,
-      };
-
-      const needs = getRefreshNeeds(result);
-      expect(needs.needsProposalRefresh).toBe(false);
-      expect(needs.needsTimelockRefresh).toBe(false);
-    });
-
-    it("identifies proposal refresh need without timelock link", () => {
-      const result: UnifiedCacheResult = {
-        stages: [],
-        proposalCacheExpired: true,
-        timelockCacheExpired: false,
-        completionStatus: "pending",
-        isComplete: false,
-        proposalResult: null,
-        timelockResult: null,
-      };
-
-      const needs = getRefreshNeeds(result);
-      expect(needs.needsProposalRefresh).toBe(true);
-      expect(needs.needsTimelockRefresh).toBe(false);
-    });
-
-    it("identifies timelock refresh need with timelock link", () => {
-      const timelockLink = createMockTimelockLink("0x123", "0x456");
-      const result: UnifiedCacheResult = {
-        stages: [],
-        timelockLink,
-        proposalCacheExpired: false,
-        timelockCacheExpired: true,
-        completionStatus: "incomplete",
-        isComplete: false,
-        proposalResult: {
-          proposalId: "123",
-          creationTxHash: "0xcreate",
-          governorAddress: "0xgov",
-          stages: [],
-          timelockLink,
-        },
-        timelockResult: null,
-      };
-
-      const needs = getRefreshNeeds(result);
-      expect(needs.needsProposalRefresh).toBe(false);
-      expect(needs.needsTimelockRefresh).toBe(true);
-    });
-
-    it("identifies both refresh needs", () => {
-      const timelockLink = createMockTimelockLink("0x123", "0x456");
-      const result: UnifiedCacheResult = {
-        stages: [],
-        timelockLink,
-        proposalCacheExpired: true,
-        timelockCacheExpired: true,
-        completionStatus: "incomplete",
-        isComplete: false,
-        proposalResult: {
-          proposalId: "123",
-          creationTxHash: "0xcreate",
-          governorAddress: "0xgov",
-          stages: [],
-          timelockLink,
-        },
-        timelockResult: null,
-      };
-
-      const needs = getRefreshNeeds(result);
-      expect(needs.needsProposalRefresh).toBe(true);
-      expect(needs.needsTimelockRefresh).toBe(true);
     });
   });
 
@@ -460,7 +304,6 @@ describe("unified-cache", () => {
 
       expect(result.stages).toEqual([]);
       expect(result.proposalCacheExpired).toBe(false);
-      expect(result.timelockCacheExpired).toBe(false);
       expect(result.completionStatus).toBe("pending");
       expect(result.isComplete).toBe(false);
     });
@@ -489,7 +332,7 @@ describe("unified-cache", () => {
       expect(result.timelockLink).toBeUndefined();
     });
 
-    it("merges proposal and timelock stages", () => {
+    it("returns all stages from proposal cache including timelock stages", () => {
       const timelockLink = createMockTimelockLink("0xtx", "0xop");
       const proposalKey = `${STORAGE_KEYS.STAGES_CACHE_PREFIX}0xgov-123`;
       const proposalCache = {
@@ -503,31 +346,22 @@ describe("unified-cache", () => {
             createMockStage("PROPOSAL_CREATED", "COMPLETED"),
             createMockStage("VOTING_ACTIVE", "COMPLETED"),
             createMockStage("PROPOSAL_QUEUED", "COMPLETED"),
+            createMockStage("L2_TIMELOCK", "COMPLETED"),
+            createMockStage("L2_TO_L1_MESSAGE", "PENDING"),
           ],
           timelockLink,
         },
       };
       mockStorage[proposalKey] = JSON.stringify(proposalCache);
 
-      const timelockKey = getTimelockCacheKey("0xtx", "0xop");
-      const timelockCache = {
-        version: CACHE_VERSION,
-        timestamp: Date.now(),
-        result: createMockTimelockResult([
-          createMockStage("L2_TIMELOCK", "COMPLETED"),
-          createMockStage("L2_TO_L1_MESSAGE", "PENDING"),
-        ]),
-      };
-      mockStorage[timelockKey] = JSON.stringify(timelockCache);
-
       const result = loadUnifiedStages("123", "0xgov");
 
       expect(result.stages).toHaveLength(5);
       expect(result.stages[0].type).toBe("PROPOSAL_CREATED");
       expect(result.stages[3].type).toBe("L2_TIMELOCK");
+      expect(result.stages[4].type).toBe("L2_TO_L1_MESSAGE");
       expect(result.timelockLink).toEqual(timelockLink);
       expect(result.proposalResult).toBeDefined();
-      expect(result.timelockResult).toBeDefined();
     });
 
     it("handles wrong cache version", () => {

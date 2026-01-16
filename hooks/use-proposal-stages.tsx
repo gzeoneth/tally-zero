@@ -6,6 +6,7 @@ import {
   L1_BLOCK_CACHE_FRESHNESS_MS,
   L1_BLOCK_REFRESH_INTERVAL_MS,
 } from "@/config/storage-keys";
+import { initializeBundledCache } from "@/lib/bundled-cache-loader";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
   clearProposalCheckpoint,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/proposal-tracker-manager";
 import {
   createProposalTracker,
+  getAllStageMetadata,
   toProposalTrackingResult,
 } from "@/lib/stage-tracker";
 import { clearCachedStages, saveCachedStages } from "@/lib/stages-cache";
@@ -34,7 +36,6 @@ import type {
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
 import {
-  getAllStageMetadata,
   type StageType,
   type TrackedStage,
   type TrackingProgress,
@@ -215,6 +216,10 @@ export function useProposalStages({
         // Get cache adapter for zero-RPC resume
         const cache = getCacheAdapter();
 
+        // Initialize cache with gov-tracker's bundled cache on first run
+        // This eliminates the need for initial RPC discovery calls
+        await initializeBundledCache(cache);
+
         // Seed checkpoint from existing cached stages before tracking
         // This enables gov-tracker to resume from where we left off
         const cacheTtlMs = getStoredCacheTtlMs();
@@ -270,7 +275,7 @@ export function useProposalStages({
           throw new Error("No tracking result returned");
         }
 
-        // Convert to ProposalTrackingResult for backwards compatibility
+        // Add proposal metadata for UI display
         const proposalResult = toProposalTrackingResult(
           trackingResult,
           proposalId,
@@ -500,6 +505,7 @@ export function useProposalStages({
           stages: unifiedResult.stages,
           timelockLink: unifiedResult.timelockLink,
           currentState: unifiedResult.proposalResult?.currentState,
+          proposalType: unifiedResult.proposalResult?.proposalType,
         };
 
         // Always load the cached data first

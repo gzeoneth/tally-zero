@@ -5,7 +5,6 @@
  * search options, cache information, results, and search planning.
  */
 
-import type { ProposalCache } from "@/lib/proposal-cache";
 import type { ParsedProposal, Proposal } from "@/types/proposal";
 
 /**
@@ -20,8 +19,6 @@ export interface UseMultiGovernorSearchOptions {
   customRpcUrl?: string;
   /** Block range size for chunked queries */
   blockRange?: number;
-  /** Whether to skip using the prebuilt cache */
-  skipCache?: boolean;
 }
 
 /**
@@ -73,17 +70,13 @@ export interface BlockRange {
 }
 
 /**
- * Search plan with RPC ranges and cache filter
+ * Search plan with RPC ranges
  */
 export interface SearchPlan {
   /** Block ranges to query via RPC */
   rpcRanges: BlockRange[];
-  /** Whether to use the prebuilt cache */
-  useCache: boolean;
-  /** Block range filter for cached proposals */
-  cacheFilter?: { minBlock: number; maxBlock: number };
   /** Human-readable description of search range */
   rangeInfo: string;
 }
 
-export type { ParsedProposal, Proposal, ProposalCache };
+export type { ParsedProposal, Proposal };
