@@ -226,20 +226,17 @@ export function useTimelockOperation({
           }
         );
 
-        // Track by transaction hash
-        const results = await tracker.trackByTxHash(selectedOperation.txHash);
+        // Track by transaction hash with operationId for multi-operation transactions
+        const results = await tracker.trackByTxHash(
+          selectedOperation.txHash,
+          selectedOperation.operationId
+        );
 
         if (signal.aborted) return;
         if (!isMounted.current) return;
 
-        // Find the matching result by operation ID
-        const trackingResult =
-          results.find((r) => {
-            if (r.input.type === "timelock") {
-              return r.input.operationId === selectedOperation.operationId;
-            }
-            return true; // Take first result if types don't match
-          }) || results[0];
+        // With operationId passed, results should contain only the specific operation
+        const trackingResult = results[0];
 
         if (!trackingResult) {
           throw new Error("No tracking result returned");
