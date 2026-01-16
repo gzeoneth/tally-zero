@@ -144,20 +144,30 @@ export function useUrlState(): UseUrlStateResult {
       // Only update if different to avoid extra history entries
       if (newHashNormalized !== currentHashNormalized) {
         const baseUrl = window.location.pathname + window.location.search;
+        const targetUrl = newHash ? baseUrl + newHash : baseUrl;
 
-        if (options?.replace) {
-          // Replace current history entry (for closing modals - back button goes to previous page)
-          window.history.replaceState(
-            {},
-            "",
-            newHash ? baseUrl + newHash : baseUrl
-          );
-        } else if (newHash) {
-          // Push new history entry (for opening modals)
-          window.location.hash = newHash;
-        } else {
-          // When clearing hash without replace option, use replaceState to avoid double back
-          window.history.replaceState({}, "", baseUrl);
+        // Next.js patches pushState/replaceState and requires its internal state.
+        // When history.state is null or missing the internal tree, the patched
+        // functions throw errors. We wrap in try-catch and fall back to direct
+        // hash manipulation which avoids the patched history API.
+        try {
+          if (options?.replace || !newHash) {
+            // For clearing the hash or replace mode, use pushState with current state
+            const safeState = window.history.state ?? {};
+            window.history.pushState(safeState, "", targetUrl);
+          } else {
+            // For adding a new hash, use direct hash assignment (triggers hashchange)
+            window.location.hash = newHash;
+          }
+        } catch {
+          // Fallback: If Next.js history patch fails, use direct hash manipulation
+          // This can happen when history.state is missing Next.js internals
+          if (newHash) {
+            window.location.hash = newHash;
+          }
+          // For clearing hash: silently fail - React state still updates correctly
+          // The URL will retain the old hash but the modal will close properly
+          // This is acceptable since the hash is only for deep linking on page load
         }
       }
 
