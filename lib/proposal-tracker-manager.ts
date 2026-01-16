@@ -86,8 +86,6 @@ const MAX_CONCURRENT_TRACKING = 2;
  * concurrent tracking to avoid overwhelming RPC endpoints.
  */
 class ProposalTrackerManager {
-  /** Maximum number of sessions before forced cleanup */
-  private static readonly MAX_SESSIONS = 100;
   /** Threshold to trigger cleanup of stale sessions */
   private static readonly CLEANUP_THRESHOLD = 50;
 
@@ -196,9 +194,11 @@ class ProposalTrackerManager {
   }
 
   private notifySubscribers(session: TrackingSession): void {
+    // Pass shallow copy to prevent subscribers from mutating shared state
+    const sessionSnapshot = { ...session };
     session.subscribers.forEach((callback) => {
       try {
-        callback(session);
+        callback(sessionSnapshot);
       } catch (e) {
         debug.stageTracker("subscriber error: %O", e);
       }
@@ -362,12 +362,22 @@ class ProposalTrackerManager {
     const now = Date.now();
     let cleanedCount = 0;
 
-    for (const [key, session] of Array.from(this.sessions.entries())) {
+    // Collect keys to delete first, then delete (avoids mutation during iteration)
+    const keysToDelete: SessionKey[] = [];
+    for (const [key, session] of this.sessions.entries()) {
       if (
         (session.status === "complete" || session.status === "error") &&
         session.subscribers.size === 0 &&
         now - session.lastUpdatedAt > maxAgeMs
       ) {
+        keysToDelete.push(key);
+      }
+    }
+
+    // Delete collected keys, re-checking subscribers to avoid race condition
+    for (const key of keysToDelete) {
+      const session = this.sessions.get(key);
+      if (session && session.subscribers.size === 0) {
         this.sessions.delete(key);
         cleanedCount++;
       }
