@@ -6,8 +6,13 @@
 
 import { useEffect, useState } from "react";
 
+import {
+  getBundledCacheWatermark,
+  getBundledProposalSeeds,
+} from "@/lib/bundled-cache-loader";
 import { debug } from "@/lib/debug";
 import {
+  fetchProposalsFromSeeds,
   parseProposals,
   searchGovernor,
   type CacheHitInfo,
@@ -74,66 +79,125 @@ export function useMultiGovernorSearch({
         const provider = await createRpcProvider(rpcUrl);
         const currentBlock = await provider.getBlockNumber();
 
-        // Calculate search range
+        // Calculate search range based on days
         const blocksToSearch = BLOCKS_PER_DAY.arbitrum * daysToSearch;
-        const startBlock = Math.max(currentBlock - blocksToSearch, 0);
-        const endBlock = currentBlock;
+        const userStartBlock = Math.max(currentBlock - blocksToSearch, 0);
 
-        debug.search(
-          "searching blocks %d to %d (%d days)",
-          startBlock,
-          endBlock,
-          daysToSearch
-        );
+        setProgress(5);
+        if (cancelled || abortController.signal.aborted) return;
+
+        // Load bundled cache seeds and watermark
+        const [seeds, watermark] = await Promise.all([
+          getBundledProposalSeeds(),
+          getBundledCacheWatermark(),
+        ]);
 
         setProgress(10);
         if (cancelled || abortController.signal.aborted) return;
 
-        // Fetch from RPC for all governors
-        const totalGovernors = ARBITRUM_GOVERNORS.length;
-        let completedQueries = 0;
         const allProposals: ParsedProposal[] = [];
+        let cacheWatermarkBlock = 0;
+        let seededCount = 0;
 
-        const updateProgress = () => {
-          if (cancelled) return;
-          const searchProgress = 10 + (completedQueries / totalGovernors) * 60;
-          setProgress(searchProgress);
-        };
+        // If we have seeds, fetch proposals from them
+        if (seeds.length > 0) {
+          debug.search("seeding %d proposals from bundled cache", seeds.length);
 
-        for (const governor of ARBITRUM_GOVERNORS) {
-          if (abortController.signal.aborted) break;
-
-          const rawProposals = await searchGovernor(
+          const seededProposals = await fetchProposalsFromSeeds(
             provider,
-            governor.address,
-            startBlock,
-            endBlock,
-            blockRange,
-            () => {}
+            seeds
           );
+          allProposals.push(...seededProposals);
+          seededCount = seededProposals.length;
 
-          completedQueries++;
-          updateProgress();
-
-          if (rawProposals.length > 0) {
-            const parsed = await parseProposals(provider, rawProposals);
-            allProposals.push(...parsed);
-          }
+          debug.search(
+            "loaded %d proposals from seeds",
+            seededProposals.length
+          );
         }
 
-        setProgress(80);
+        setProgress(40);
+        if (cancelled || abortController.signal.aborted) return;
+
+        // Determine the starting block for fresh RPC search
+        // Use watermark if available, otherwise use user's daysToSearch
+        if (watermark) {
+          cacheWatermarkBlock = watermark.l2Block;
+          debug.search(
+            "bundled cache watermark at L2 block %d",
+            cacheWatermarkBlock
+          );
+        }
+
+        // Only scan blocks after the watermark (or from userStartBlock if no watermark)
+        const rpcStartBlock = watermark
+          ? Math.max(cacheWatermarkBlock + 1, userStartBlock)
+          : userStartBlock;
+
+        // Skip RPC search if watermark covers our search range
+        if (rpcStartBlock < currentBlock) {
+          debug.search(
+            "searching RPC blocks %d to %d",
+            rpcStartBlock,
+            currentBlock
+          );
+
+          const totalGovernors = ARBITRUM_GOVERNORS.length;
+          let completedQueries = 0;
+
+          for (const governor of ARBITRUM_GOVERNORS) {
+            if (abortController.signal.aborted) break;
+
+            const rawProposals = await searchGovernor(
+              provider,
+              governor.address,
+              rpcStartBlock,
+              currentBlock,
+              blockRange,
+              () => {}
+            );
+
+            completedQueries++;
+            if (!cancelled) {
+              const searchProgress =
+                40 + (completedQueries / totalGovernors) * 40;
+              setProgress(searchProgress);
+            }
+
+            if (rawProposals.length > 0) {
+              const parsed = await parseProposals(provider, rawProposals);
+              // Deduplicate: only add proposals not already in seeded set
+              const existingIds = new Set(allProposals.map((p) => p.id));
+              for (const p of parsed) {
+                if (!existingIds.has(p.id)) {
+                  allProposals.push(p);
+                }
+              }
+            }
+          }
+        } else {
+          debug.search(
+            "skipping RPC search - watermark %d covers search range",
+            cacheWatermarkBlock
+          );
+          setProgress(80);
+        }
+
         if (cancelled || abortController.signal.aborted) return;
 
         // Sort: active first, then by startBlock descending
         setProposals(sortProposals(allProposals));
         setCacheInfo({
-          loaded: false,
-          snapshotBlock: 0,
+          loaded: seededCount > 0,
+          snapshotBlock: cacheWatermarkBlock,
           cacheStartBlock: 0,
-          cachedCount: 0,
-          freshCount: allProposals.length,
-          cacheUsed: false,
-          rangeInfo: `RPC: ${startBlock} → ${endBlock}`,
+          cachedCount: seededCount,
+          freshCount: allProposals.length - seededCount,
+          cacheUsed: seededCount > 0,
+          rangeInfo:
+            seededCount > 0
+              ? `Seeded: ${seededCount} + RPC: ${rpcStartBlock} → ${currentBlock}`
+              : `RPC: ${rpcStartBlock} → ${currentBlock}`,
         });
         setProgress(100);
         setIsSearching(false);
