@@ -776,10 +776,10 @@
     "@metamask/rpc-errors" "7.0.2"
     eventemitter3 "5.0.1"
 
-"@gzeoneth/gov-tracker@0.2.1-alpha.refactor-retry-logic-blocklist.a3437d2":
-  version "0.2.1-alpha.refactor-retry-logic-blocklist.a3437d2"
-  resolved "https://registry.yarnpkg.com/@gzeoneth/gov-tracker/-/gov-tracker-0.2.1-alpha.refactor-retry-logic-blocklist.a3437d2.tgz#c1d9781d73e4decab5bf1ce95fa57115f0228efe"
-  integrity sha512-i6Wv+LMk+UNeOiuH3bh4mYnRKRpNZNHw28TcqoHwlR/Nds4ZRxCOR+XX/0XmCr97rxbOBvPDUrFlpVuIL7xkaQ==
+"@gzeoneth/gov-tracker@0.2.1-alpha.fix-election-phase-timing.5449d90":
+  version "0.2.1-alpha.fix-election-phase-timing.5449d90"
+  resolved "https://registry.yarnpkg.com/@gzeoneth/gov-tracker/-/gov-tracker-0.2.1-alpha.fix-election-phase-timing.5449d90.tgz#192ba91495602c3c6cb0810746f5ecf02e2d0e12"
+  integrity sha512-TUkOoj6x6WwW4Nik9I3fvEpgBFMY1UO1Oo9Gm2RrZK1JQ5rUfyOH6ih8bRRffiXmo9xK2UKAwARAXziTIUgCCQ==
   dependencies:
     "@arbitrum/sdk" "^4.0.0"
     debug "^4.4.0"

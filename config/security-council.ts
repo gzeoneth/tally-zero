@@ -9,6 +9,7 @@ export const SC_CONTRACTS = {
 } as const;
 
 export const ELECTION_DURATIONS = {
+  CONTENDER_SUBMISSION: ELECTION_TIMING.CONTENDER_SUBMISSION_DAYS,
   NOMINEE_SELECTION: ELECTION_TIMING.NOMINEE_SELECTION_DAYS,
   VETTING_PERIOD: ELECTION_TIMING.VETTING_PERIOD_DAYS,
   MEMBER_ELECTION: ELECTION_TIMING.MEMBER_ELECTION_DAYS,
@@ -22,10 +23,17 @@ export const PHASE_METADATA: Record<ElectionPhase, PhaseMetadata> = {
     durationDays: 0,
     colorClass: "text-muted-foreground",
   },
+  CONTENDER_SUBMISSION: {
+    name: "Contender Submission",
+    description:
+      "DAO members declare candidacy. Anyone can register as a contender.",
+    durationDays: ELECTION_DURATIONS.CONTENDER_SUBMISSION,
+    colorClass: "text-cyan-500",
+  },
   NOMINEE_SELECTION: {
     name: "Nominee Selection",
     description:
-      "Delegates endorse candidates to become nominees. Candidates need 0.2% of votable tokens.",
+      "Delegates endorse contenders to become nominees. Candidates need 0.2% of votable tokens.",
     durationDays: ELECTION_DURATIONS.NOMINEE_SELECTION,
     colorClass: "text-blue-500",
   },
