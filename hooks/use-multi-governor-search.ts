@@ -2,10 +2,9 @@
 
 /**
  * Hook for searching proposals across multiple governors
- * Combines cached and fresh proposals with state refresh for active ones
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { debug } from "@/lib/debug";
 import {
@@ -18,11 +17,12 @@ import {
   type UseMultiGovernorSearchResult,
 } from "@/lib/governor-search";
 import {
-  loadProposalCache,
+  getCachedProposals,
+  getCacheSnapshotBlock,
+  getCacheStartBlock,
   mergeProposals,
   needsStateRefresh,
   sortProposals,
-  type ProposalCache,
 } from "@/lib/proposal-cache";
 import {
   subscribeToVoteUpdates,
@@ -49,7 +49,6 @@ export function useMultiGovernorSearch({
   enabled,
   customRpcUrl,
   blockRange = DEFAULT_BLOCK_RANGE,
-  skipCache = false,
 }: UseMultiGovernorSearchOptions): UseMultiGovernorSearchResult {
   const [progress, setProgress] = useState(0);
   const [proposals, setProposals] = useState<ParsedProposal[]>([]);
@@ -57,40 +56,8 @@ export function useMultiGovernorSearch({
   const [isSearching, setIsSearching] = useState(false);
   const [providerReady, setProviderReady] = useState(false);
   const [cacheInfo, setCacheInfo] = useState<CacheHitInfo>();
-  const [cache, setCache] = useState<ProposalCache | null>(null);
 
   const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
-
-  // Load cache on mount (unless skipping)
-  useEffect(() => {
-    if (skipCache) {
-      setCache(null);
-      return;
-    }
-
-    loadProposalCache().then((loaded) => {
-      if (loaded) {
-        setCache(loaded);
-        // Show cached proposals immediately (sorted)
-        setProposals(sortProposals(loaded.proposals));
-        setCacheInfo({
-          loaded: true,
-          snapshotBlock: loaded.snapshotBlock,
-          cacheStartBlock: loaded.startBlock,
-          cachedCount: loaded.proposals.length,
-          freshCount: 0,
-          cacheUsed: true,
-          rangeInfo: `Cache loaded: blocks ${loaded.startBlock.toLocaleString()}-${loaded.snapshotBlock.toLocaleString()}`,
-        });
-        debug.search(
-          "cache loaded: %d proposals (blocks %d-%d)",
-          loaded.proposals.length,
-          loaded.startBlock,
-          loaded.snapshotBlock
-        );
-      }
-    });
-  }, [skipCache]);
 
   // Initialize provider using cached factory
   useEffect(() => {
@@ -121,20 +88,39 @@ export function useMultiGovernorSearch({
         const userStartBlock = Math.max(currentBlock - blocksToSearch, 0);
         const userEndBlock = currentBlock;
 
-        // Determine what needs to be fetched from RPC vs cache
+        // Load cache metadata
+        const [cacheSnapshotBlock, cacheStartBlock] = await Promise.all([
+          getCacheSnapshotBlock(),
+          getCacheStartBlock(),
+        ]);
+
+        // Determine what needs to be fetched from RPC
         const searchPlan = calculateSearchRanges(
           userStartBlock,
           userEndBlock,
-          cache,
-          skipCache
+          cacheSnapshotBlock,
+          cacheStartBlock
         );
 
         debug.search("search plan: %s", searchPlan.rangeInfo);
 
-        let rpcProposals: ParsedProposal[] = [];
         let cachedProposals: ParsedProposal[] = [];
+        let rpcProposals: ParsedProposal[] = [];
 
-        // Fetch from RPC if needed
+        // Load all proposals from cache
+        if (cacheSnapshotBlock && cacheStartBlock) {
+          setProgress(5);
+          const cached = await getCachedProposals();
+          if (cached) {
+            cachedProposals = cached;
+            debug.search("loaded %d proposals from cache", cached.length);
+          }
+        }
+
+        setProgress(10);
+        if (cancelled || abortController.signal.aborted) return;
+
+        // Fetch from RPC for any uncached ranges
         if (searchPlan.rpcRanges.length > 0) {
           const totalRanges =
             searchPlan.rpcRanges.length * ARBITRUM_GOVERNORS.length;
@@ -142,7 +128,7 @@ export function useMultiGovernorSearch({
 
           const updateProgress = () => {
             if (cancelled) return;
-            const searchProgress = (completedQueries / totalRanges) * 70;
+            const searchProgress = 10 + (completedQueries / totalRanges) * 60;
             setProgress(searchProgress);
           };
 
@@ -158,9 +144,7 @@ export function useMultiGovernorSearch({
                 range.start,
                 range.end,
                 blockRange,
-                () => {
-                  // Individual query progress
-                }
+                () => {}
               );
 
               completedQueries++;
@@ -182,49 +166,42 @@ export function useMultiGovernorSearch({
         setProgress(70);
         if (cancelled || abortController.signal.aborted) return;
 
-        if (searchPlan.useCache && cache) {
-          cachedProposals = cache.proposals;
-          debug.search("using %d cached proposals", cachedProposals.length);
-        }
+        // Merge cached and fresh proposals
+        let allProposals =
+          cachedProposals.length > 0
+            ? mergeProposals(cachedProposals, rpcProposals)
+            : rpcProposals;
 
         // Refresh state for pending/active cached proposals
-        setProgress(80);
         const proposalsToRefresh = cachedProposals.filter((p) =>
           needsStateRefresh(p.state)
         );
-
         if (proposalsToRefresh.length > 0) {
+          setProgress(80);
           debug.search(
-            "refreshing %d pending/active proposals",
+            "refreshing %d active proposals",
             proposalsToRefresh.length
           );
           const refreshed = await refreshProposalStates(
             provider,
             proposalsToRefresh
           );
-
-          // Replace with refreshed versions
-          cachedProposals = cachedProposals.map((p) => {
-            const updated = refreshed.find((r) => r.id === p.id);
-            return updated ?? p;
-          });
+          const refreshedMap = new Map(refreshed.map((p) => [p.id, p]));
+          allProposals = allProposals.map((p) => refreshedMap.get(p.id) ?? p);
         }
 
         setProgress(90);
         if (cancelled || abortController.signal.aborted) return;
 
-        // Merge cached and fresh proposals
-        const allProposals = mergeProposals(cachedProposals, rpcProposals);
-
         // Sort: active first, then by startBlock descending
         setProposals(sortProposals(allProposals));
         setCacheInfo({
-          loaded: cache !== null,
-          snapshotBlock: cache?.snapshotBlock ?? 0,
-          cacheStartBlock: cache?.startBlock ?? 0,
+          loaded: cachedProposals.length > 0,
+          snapshotBlock: cacheSnapshotBlock ?? 0,
+          cacheStartBlock: cacheStartBlock ?? 0,
           cachedCount: cachedProposals.length,
           freshCount: rpcProposals.length,
-          cacheUsed: searchPlan.useCache,
+          cacheUsed: cachedProposals.length > 0,
           rangeInfo: searchPlan.rangeInfo,
         });
         setProgress(100);
@@ -243,50 +220,39 @@ export function useMultiGovernorSearch({
       cancelled = true;
       abortController.abort();
     };
-  }, [
-    enabled,
-    providerReady,
-    daysToSearch,
-    rpcUrl,
-    blockRange,
-    skipCache,
-    cache,
-  ]);
+  }, [enabled, providerReady, daysToSearch, rpcUrl, blockRange]);
 
-  // Handle vote updates from lifecycle tracking
-  const handleVoteUpdate = useCallback((update: VoteUpdate) => {
-    setProposals((currentProposals) => {
-      const proposalIndex = currentProposals.findIndex(
-        (p) =>
-          p.id === update.proposalId &&
-          p.contractAddress.toLowerCase() ===
-            update.governorAddress.toLowerCase()
+  // Subscribe to vote updates and update proposals when votes change
+  useEffect(() => {
+    return subscribeToVoteUpdates((update: VoteUpdate) => {
+      setProposals((prev) =>
+        prev.map((p) => {
+          if (
+            p.id === update.proposalId &&
+            p.contractAddress.toLowerCase() ===
+              update.governorAddress.toLowerCase()
+          ) {
+            debug.search(
+              "updating votes for proposal %s: for=%s, against=%s",
+              p.id,
+              update.forVotes,
+              update.againstVotes
+            );
+            return {
+              ...p,
+              votes: {
+                forVotes: update.forVotes,
+                againstVotes: update.againstVotes,
+                abstainVotes: update.abstainVotes,
+                quorum: p.votes?.quorum || "0",
+              },
+            };
+          }
+          return p;
+        })
       );
-
-      if (proposalIndex === -1) return currentProposals;
-
-      const updatedProposals = [...currentProposals];
-      const proposal = updatedProposals[proposalIndex];
-
-      updatedProposals[proposalIndex] = {
-        ...proposal,
-        votes: {
-          forVotes: update.forVotes,
-          againstVotes: update.againstVotes,
-          abstainVotes: update.abstainVotes,
-          quorum: proposal.votes?.quorum,
-        },
-      };
-
-      return updatedProposals;
     });
   }, []);
-
-  // Subscribe to vote updates from lifecycle tracking
-  useEffect(() => {
-    const unsubscribe = subscribeToVoteUpdates(handleVoteUpdate);
-    return () => unsubscribe();
-  }, [handleVoteUpdate]);
 
   return {
     proposals,

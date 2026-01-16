@@ -1,78 +1,66 @@
-import type { ProposalCache } from "@/lib/proposal-cache";
-import type { BlockRange, SearchPlan } from "./types";
+import type { SearchPlan } from "./types";
 
 /**
- * Calculate optimal search ranges using cache when available
+ * Calculate search ranges with cache awareness
+ *
+ * If cache covers the requested range, returns cache info.
+ * Otherwise, determines which blocks need to be fetched from RPC.
  */
 export function calculateSearchRanges(
   userStartBlock: number,
   userEndBlock: number,
-  cache: ProposalCache | null,
-  skipCache: boolean
+  cacheSnapshotBlock?: number | null,
+  cacheStartBlock?: number | null
 ): SearchPlan {
-  // If no cache or skipping cache, fetch everything from RPC
-  if (!cache || skipCache) {
+  // No cache - search entire range
+  if (!cacheSnapshotBlock || !cacheStartBlock) {
     return {
       rpcRanges: [{ start: userStartBlock, end: userEndBlock }],
-      useCache: false,
-      rangeInfo: skipCache
-        ? "Cache skipped, fetching all from RPC"
-        : "No cache available, fetching all from RPC",
+      rangeInfo: `Searching blocks ${userStartBlock.toLocaleString()}-${userEndBlock.toLocaleString()} (no cache)`,
     };
   }
 
-  const cacheStart = cache.startBlock;
-  const cacheEnd = cache.snapshotBlock;
-
-  // Case 1: User range is entirely after cache (most common - looking for new proposals)
-  if (userStartBlock > cacheEnd) {
-    return {
-      rpcRanges: [{ start: userStartBlock, end: userEndBlock }],
-      useCache: false,
-      rangeInfo: `Searching new blocks ${userStartBlock.toLocaleString()}-${userEndBlock.toLocaleString()}`,
-    };
-  }
-
-  // Case 2: User range is entirely within cache (full cache hit!)
-  if (userStartBlock >= cacheStart && userEndBlock <= cacheEnd) {
+  // Cache covers the entire requested range
+  if (userStartBlock >= cacheStartBlock && userEndBlock <= cacheSnapshotBlock) {
     return {
       rpcRanges: [],
-      useCache: true,
-      cacheFilter: { minBlock: userStartBlock, maxBlock: userEndBlock },
-      rangeInfo: `Full cache hit: blocks ${userStartBlock.toLocaleString()}-${userEndBlock.toLocaleString()}`,
+      rangeInfo: `Using cache for blocks ${userStartBlock.toLocaleString()}-${userEndBlock.toLocaleString()}`,
     };
   }
 
-  // Case 3: User range overlaps with cache (partial cache hit)
-  const rpcRanges: BlockRange[] = [];
-
-  if (userStartBlock < cacheStart) {
-    rpcRanges.push({ start: userStartBlock, end: cacheStart - 1 });
+  // Cache covers beginning, need to fetch recent blocks
+  if (
+    userStartBlock >= cacheStartBlock &&
+    userStartBlock <= cacheSnapshotBlock
+  ) {
+    return {
+      rpcRanges: [{ start: cacheSnapshotBlock + 1, end: userEndBlock }],
+      rangeInfo: `Cache blocks ${userStartBlock.toLocaleString()}-${cacheSnapshotBlock.toLocaleString()}, RPC blocks ${(cacheSnapshotBlock + 1).toLocaleString()}-${userEndBlock.toLocaleString()}`,
+    };
   }
 
-  if (userEndBlock > cacheEnd) {
-    rpcRanges.push({ start: cacheEnd + 1, end: userEndBlock });
+  // User wants older blocks than cache, but there's overlap - fetch old blocks via RPC
+  if (userStartBlock < cacheStartBlock && userEndBlock >= cacheStartBlock) {
+    // If user end is within cache, only fetch blocks before cache
+    if (userEndBlock <= cacheSnapshotBlock) {
+      return {
+        rpcRanges: [{ start: userStartBlock, end: cacheStartBlock - 1 }],
+        rangeInfo: `RPC blocks ${userStartBlock.toLocaleString()}-${(cacheStartBlock - 1).toLocaleString()}, cache for rest`,
+      };
+    }
+    // User range spans before and after cache - fetch both ends
+    return {
+      rpcRanges: [
+        { start: userStartBlock, end: cacheStartBlock - 1 },
+        { start: cacheSnapshotBlock + 1, end: userEndBlock },
+      ],
+      rangeInfo: `RPC blocks ${userStartBlock.toLocaleString()}-${(cacheStartBlock - 1).toLocaleString()} and ${(cacheSnapshotBlock + 1).toLocaleString()}-${userEndBlock.toLocaleString()}, cache for middle`,
+    };
   }
 
-  const cacheFilterMin = Math.max(userStartBlock, cacheStart);
-  const cacheFilterMax = Math.min(userEndBlock, cacheEnd);
-
-  const rangeDescriptions: string[] = [];
-  if (cacheFilterMin <= cacheFilterMax) {
-    rangeDescriptions.push(
-      `cache: ${cacheFilterMin.toLocaleString()}-${cacheFilterMax.toLocaleString()}`
-    );
-  }
-  for (const range of rpcRanges) {
-    rangeDescriptions.push(
-      `RPC: ${range.start.toLocaleString()}-${range.end.toLocaleString()}`
-    );
-  }
-
+  // Cache doesn't cover request - search entire range
   return {
-    rpcRanges,
-    useCache: true,
-    cacheFilter: { minBlock: cacheFilterMin, maxBlock: cacheFilterMax },
-    rangeInfo: `Partial cache hit - ${rangeDescriptions.join(", ")}`,
+    rpcRanges: [{ start: userStartBlock, end: userEndBlock }],
+    rangeInfo: `Searching blocks ${userStartBlock.toLocaleString()}-${userEndBlock.toLocaleString()} (cache out of range)`,
   };
 }

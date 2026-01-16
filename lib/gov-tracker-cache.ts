@@ -1,161 +1,51 @@
 /**
- * CacheAdapter implementation for gov-tracker using TallyZero's localStorage cache
+ * Gov-tracker cache integration for TallyZero
  *
- * This adapter bridges TallyZero's existing cache format with gov-tracker's
- * TrackingCheckpoint format, enabling zero-RPC resume from cached stages.
+ * Uses gov-tracker's LocalStorageCache with TallyZero's prefix
+ * for caching TrackingCheckpoints in localStorage.
  */
 
 import { STORAGE_KEYS } from "@/config/storage-keys";
-import type {
-  CacheAdapter,
-  TrackedStage,
-  TrackingCheckpoint,
+import {
+  LocalStorageCache,
+  txHashCacheKey,
+  type CacheAdapter,
+  type TrackedStage,
+  type TrackingCheckpoint,
 } from "@gzeoneth/gov-tracker";
-import { debug, isBrowser } from "./debug";
+import { debug } from "./debug";
+
+// Re-export txHashCacheKey for external use
+export { txHashCacheKey };
 
 /**
- * Build gov-tracker cache key for a proposal
- * @deprecated Use buildTxHashCacheKey instead - gov-tracker uses tx hash as primary key
+ * Singleton LocalStorageCache instance with TallyZero's prefix
  */
-export function buildProposalCacheKey(
-  governorAddress: string,
-  proposalId: string
-): string {
-  return `proposal:${governorAddress.toLowerCase()}:${proposalId}`;
-}
+let cacheInstance: LocalStorageCache | null = null;
 
 /**
- * Build gov-tracker cache key from transaction hash
- * This matches gov-tracker's internal txHashCacheKey() format
- */
-export function buildTxHashCacheKey(txHash: string): string {
-  return `tx:${txHash.toLowerCase()}`;
-}
-
-/**
- * Build gov-tracker cache key for a timelock operation
- */
-export function buildTimelockCacheKey(
-  timelockAddress: string,
-  operationId: string
-): string {
-  return `timelock:${timelockAddress.toLowerCase()}:${operationId.toLowerCase()}`;
-}
-
-/**
- * Build localStorage key from gov-tracker cache key
- */
-function toStorageKey(key: string): string {
-  return `${STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX}${key}`;
-}
-
-/**
- * CacheAdapter for gov-tracker that uses localStorage
+ * Get the shared cache adapter instance
  *
- * This adapter stores TrackingCheckpoints in localStorage, enabling
- * gov-tracker to resume from cached stages without re-fetching RPC data.
+ * Uses gov-tracker's LocalStorageCache with TallyZero's checkpoint prefix.
  */
-export class LocalStorageCacheAdapter implements CacheAdapter {
-  async get<T>(key: string): Promise<T | null> {
-    if (!isBrowser) return null;
-
-    try {
-      const storageKey = toStorageKey(key);
-      const data = localStorage.getItem(storageKey);
-      if (!data) return null;
-      return JSON.parse(data) as T;
-    } catch (err) {
-      debug.cache("gov-tracker cache get error for %s: %O", key, err);
-      return null;
-    }
+export function getCacheAdapter(): LocalStorageCache {
+  if (!cacheInstance) {
+    cacheInstance = new LocalStorageCache(STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX);
   }
-
-  async set<T>(key: string, value: T): Promise<void> {
-    if (!isBrowser) return;
-
-    try {
-      const storageKey = toStorageKey(key);
-      localStorage.setItem(storageKey, JSON.stringify(value));
-    } catch (err) {
-      debug.cache("gov-tracker cache set error for %s: %O", key, err);
-    }
-  }
-
-  async delete(key: string): Promise<void> {
-    if (!isBrowser) return;
-
-    try {
-      const storageKey = toStorageKey(key);
-      localStorage.removeItem(storageKey);
-    } catch (err) {
-      debug.cache("gov-tracker cache delete error for %s: %O", key, err);
-    }
-  }
-
-  async clear(): Promise<void> {
-    if (!isBrowser) return;
-
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith(STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX)) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach((key) => localStorage.removeItem(key));
-    } catch (err) {
-      debug.cache("gov-tracker cache clear error: %O", err);
-    }
-  }
-
-  async has(key: string): Promise<boolean> {
-    if (!isBrowser) return false;
-
-    try {
-      const storageKey = toStorageKey(key);
-      return localStorage.getItem(storageKey) !== null;
-    } catch (err) {
-      debug.cache("gov-tracker cache has error for %s: %O", key, err);
-      return false;
-    }
-  }
-
-  async keys(prefix?: string): Promise<string[]> {
-    if (!isBrowser) return [];
-
-    try {
-      const result: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const storageKey = localStorage.key(i);
-        if (storageKey?.startsWith(STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX)) {
-          const key = storageKey.slice(
-            STORAGE_KEYS.CHECKPOINT_CACHE_PREFIX.length
-          );
-          if (!prefix || key.startsWith(prefix)) {
-            result.push(key);
-          }
-        }
-      }
-      return result;
-    } catch (err) {
-      debug.cache("gov-tracker cache keys error: %O", err);
-      return [];
-    }
-  }
+  return cacheInstance;
 }
 
 /**
- * Seed gov-tracker cache from TallyZero's existing proposal cache
+ * Seed gov-tracker cache from existing tracked stages
  *
- * This bridges the gap between TallyZero's cache format and gov-tracker's
- * checkpoint format, allowing existing cached stages to be used for resume.
+ * Converts stages to a TrackingCheckpoint and stores it,
+ * enabling gov-tracker to resume from where tracking left off.
  *
  * @param cache - The cache adapter to seed
  * @param proposalId - The proposal ID
  * @param governorAddress - The governor address
  * @param creationTxHash - The creation transaction hash
- * @param stages - The cached stages from TallyZero
+ * @param stages - The tracked stages
  */
 export async function seedCheckpointFromStages(
   cache: CacheAdapter,
@@ -166,10 +56,8 @@ export async function seedCheckpointFromStages(
 ): Promise<void> {
   if (stages.length === 0) return;
 
-  // Use tx hash as key - this matches gov-tracker's internal txHashCacheKey() format
-  const key = buildTxHashCacheKey(creationTxHash);
+  const key = txHashCacheKey(creationTxHash);
 
-  // Build checkpoint from existing stages
   const lastStage = stages[stages.length - 1];
   const lastTx = lastStage.transactions[lastStage.transactions.length - 1];
 
@@ -205,30 +93,15 @@ export async function seedCheckpointFromStages(
 }
 
 /**
- * Clear gov-tracker checkpoint for a proposal by tx hash
+ * Clear gov-tracker checkpoint for a proposal
  *
- * Called when TallyZero's cache is cleared to keep caches in sync.
- * Uses tx hash as key to match gov-tracker's internal format.
+ * @param cache - The cache adapter
+ * @param creationTxHash - The creation transaction hash
  */
 export async function clearProposalCheckpoint(
   cache: CacheAdapter,
   creationTxHash: string
 ): Promise<void> {
-  const key = buildTxHashCacheKey(creationTxHash);
+  const key = txHashCacheKey(creationTxHash);
   await cache.delete(key);
-}
-
-/**
- * Singleton cache adapter instance
- */
-let cacheAdapterInstance: LocalStorageCacheAdapter | null = null;
-
-/**
- * Get the shared cache adapter instance
- */
-export function getCacheAdapter(): LocalStorageCacheAdapter {
-  if (!cacheAdapterInstance) {
-    cacheAdapterInstance = new LocalStorageCacheAdapter();
-  }
-  return cacheAdapterInstance;
 }
