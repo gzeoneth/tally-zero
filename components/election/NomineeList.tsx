@@ -1,6 +1,8 @@
 "use client";
 
-import { CheckCircle2, User, XCircle } from "lucide-react";
+import { useState } from "react";
+
+import { CheckCircle2, User, Users, XCircle } from "lucide-react";
 
 import type { ProposalStageTracker } from "@gzeoneth/gov-tracker";
 
@@ -13,9 +15,12 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { formatVotingPower, shortenAddress } from "@/lib/format-utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { formatVotingPower } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
 import type { ElectionPhase } from "@/types/election";
+
+type ViewMode = "nominees" | "results";
 
 type ElectionCheckpoint = NonNullable<
   Awaited<ReturnType<ProposalStageTracker["getElectionCheckpoint"]>>
@@ -38,6 +43,16 @@ export function NomineeList({
   isLoading,
   phase,
 }: NomineeListProps): React.ReactElement | null {
+  const hasMemberResults =
+    memberDetails &&
+    (phase === "MEMBER_ELECTION" ||
+      phase === "PENDING_EXECUTION" ||
+      phase === "COMPLETED");
+
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    hasMemberResults ? "results" : "nominees"
+  );
+
   if (isLoading && !nomineeDetails) {
     return <NomineeListSkeleton />;
   }
@@ -46,28 +61,46 @@ export function NomineeList({
     return null;
   }
 
-  const showMemberResults =
-    memberDetails &&
-    (phase === "MEMBER_ELECTION" ||
-      phase === "PENDING_EXECUTION" ||
-      phase === "COMPLETED");
+  const canToggle = hasMemberResults && nomineeDetails;
+  const showResults = viewMode === "results" && hasMemberResults;
 
   return (
     <Card variant="glass">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <User className="h-5 w-5" />
-          {showMemberResults ? "Election Results" : "Nominees"}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            {showResults ? (
+              <Users className="h-5 w-5" />
+            ) : (
+              <User className="h-5 w-5" />
+            )}
+            {showResults ? "Election Results" : "Nominees"}
+          </CardTitle>
+          {canToggle && (
+            <Tabs
+              value={viewMode}
+              onValueChange={(v) => setViewMode(v as ViewMode)}
+            >
+              <TabsList className="h-8">
+                <TabsTrigger value="nominees" className="text-xs px-2 h-6">
+                  Nominees
+                </TabsTrigger>
+                <TabsTrigger value="results" className="text-xs px-2 h-6">
+                  Results
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
         <CardDescription>
-          {showMemberResults
+          {showResults
             ? `Top 6 nominees will be elected to the Security Council`
             : `${nomineeDetails.compliantNominees.length} compliant nominees of ${nomineeDetails.targetNomineeCount} required`}
         </CardDescription>
       </CardHeader>
 
       <CardContent>
-        {showMemberResults && memberDetails ? (
+        {showResults && memberDetails ? (
           <MemberElectionResults details={memberDetails} />
         ) : (
           <NomineeElectionList details={nomineeDetails} />
@@ -164,7 +197,7 @@ function MemberElectionResults({
             <div className="flex items-center gap-3">
               <span
                 className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold shrink-0",
                   nominee.isWinner
                     ? "bg-green-500 text-white"
                     : "bg-muted text-muted-foreground"
@@ -172,8 +205,8 @@ function MemberElectionResults({
               >
                 {index + 1}
               </span>
-              <span className="font-mono text-sm">
-                {shortenAddress(nominee.address)}
+              <span className="font-mono text-xs break-all">
+                {nominee.address}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -212,10 +245,12 @@ function NomineeRow({
         isExcluded && "border-red-500/30 bg-red-500/10"
       )}
     >
-      <div className="flex items-center gap-2">
-        {isCompliant && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-        {isExcluded && <XCircle className="h-4 w-4 text-red-500" />}
-        <span className="font-mono text-sm">{shortenAddress(address)}</span>
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        {isCompliant && (
+          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+        )}
+        {isExcluded && <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
+        <span className="font-mono text-xs break-all">{address}</span>
       </div>
       <span className="text-sm text-muted-foreground">{votes} ARB</span>
     </div>
