@@ -32,7 +32,8 @@ interface ElectionPhaseTimelineProps {
 
 const PHASE_TO_STAGE_TYPES: Record<ElectionPhase, StageType[]> = {
   NOT_STARTED: [],
-  NOMINEE_SELECTION: ["CREATE_ELECTION", "NOMINEE_ELECTION"],
+  CONTENDER_SUBMISSION: ["CREATE_ELECTION"],
+  NOMINEE_SELECTION: ["NOMINEE_ELECTION"],
   VETTING_PERIOD: ["NOMINEE_VETTING"],
   MEMBER_ELECTION: ["MEMBER_ELECTION"],
   PENDING_EXECUTION: [
@@ -85,6 +86,7 @@ function getTransactionsForPhase(
 }
 
 const TIMELINE_PHASES: ElectionPhase[] = [
+  "CONTENDER_SUBMISSION",
   "NOMINEE_SELECTION",
   "VETTING_PERIOD",
   "MEMBER_ELECTION",
@@ -112,16 +114,22 @@ interface PhaseEta {
 function calculatePhaseEtas(
   nextElectionTimestamp: number
 ): Record<ElectionPhase, PhaseEta | null> {
-  const nomineeStart = nextElectionTimestamp;
+  const contenderStart = nextElectionTimestamp;
+  const contenderEnd =
+    contenderStart + ELECTION_TIMING.CONTENDER_SUBMISSION_DAYS * 86400;
   const nomineeEnd =
-    nomineeStart + ELECTION_TIMING.NOMINEE_SELECTION_DAYS * 86400;
+    contenderEnd + ELECTION_TIMING.NOMINEE_SELECTION_DAYS * 86400;
   const vettingEnd = nomineeEnd + ELECTION_TIMING.VETTING_PERIOD_DAYS * 86400;
   const memberEnd = vettingEnd + ELECTION_TIMING.MEMBER_ELECTION_DAYS * 86400;
 
   return {
     NOT_STARTED: null,
+    CONTENDER_SUBMISSION: {
+      startTimestamp: contenderStart,
+      endTimestamp: contenderEnd,
+    },
     NOMINEE_SELECTION: {
-      startTimestamp: nomineeStart,
+      startTimestamp: contenderEnd,
       endTimestamp: nomineeEnd,
     },
     VETTING_PERIOD: { startTimestamp: nomineeEnd, endTimestamp: vettingEnd },
