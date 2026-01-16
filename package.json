@@ -26,7 +26,6 @@
     ]
   },
   "dependencies": {
-    "@arbitrum/sdk": "^4",
     "@gzeoneth/gov-tracker": "0.2.1-beta.746bfec",
     "@headlessui/react": "^1.7.18",
     "@hookform/resolvers": "^3.3.4",
