@@ -184,6 +184,13 @@ export async function loadCachedProposal(
   // Derive timelockLink from stages (same as gov-tracker does)
   const timelockLink = extractTimelockLink(stages);
 
+  // Extract currentState from VOTING_ACTIVE stage data
+  const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
+  const currentState =
+    votingStage?.type === "VOTING_ACTIVE"
+      ? (votingStage.data as { proposalState?: string }).proposalState
+      : undefined;
+
   // Convert checkpoint to ProposalTrackingResult
   const result: ProposalTrackingResult = {
     proposalId: input.proposalId,
@@ -192,6 +199,7 @@ export async function loadCachedProposal(
     stages,
     timelockLink,
     isComplete,
+    currentState,
   };
 
   debug.cache(
