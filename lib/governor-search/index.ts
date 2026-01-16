@@ -1,5 +1,7 @@
 export {
+  fetchProposalByTxHash,
   fetchProposalStateAndVotes,
+  fetchProposalsFromSeeds,
   parseProposals,
   refreshProposalStates,
   searchGovernor,
