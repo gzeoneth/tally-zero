@@ -1,11 +1,7 @@
 "use client";
 
 import { getGovernorByAddress } from "@/config/governors";
-import {
-  CACHE_TTL_CHECK_INTERVAL_MS,
-  L1_BLOCK_CACHE_FRESHNESS_MS,
-  L1_BLOCK_REFRESH_INTERVAL_MS,
-} from "@/config/storage-keys";
+import { CACHE_TTL_CHECK_INTERVAL_MS } from "@/config/storage-keys";
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
 import { getErrorMessage } from "@/lib/error-utils";
 import {
@@ -36,58 +32,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRpcSettings } from "./use-rpc-settings";
 
-// Shared L1 block cache to avoid redundant RPC calls across hook instances
-let sharedL1Block: { block: number; timestamp: number } | null = null;
-let pendingL1BlockPromise: Promise<number | null> | null = null;
-
-/**
- * Fetch L1 block with deduplication - multiple callers share the same result
- * within a short time window
- */
-async function fetchSharedL1Block(rpcUrl: string): Promise<number | null> {
-  // Return cached value if fresh
-  if (
-    sharedL1Block &&
-    Date.now() - sharedL1Block.timestamp < L1_BLOCK_CACHE_FRESHNESS_MS
-  ) {
-    return sharedL1Block.block;
-  }
-
-  // If a fetch is already in progress, wait for it
-  if (pendingL1BlockPromise) {
-    return pendingL1BlockPromise;
-  }
-
-  // Start a new fetch
-  pendingL1BlockPromise = (async () => {
-    try {
-      const response = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "eth_blockNumber",
-          params: [],
-          id: 1,
-        }),
-      });
-      const data = await response.json();
-      if (data.result) {
-        const block = parseInt(data.result, 16);
-        sharedL1Block = { block, timestamp: Date.now() };
-        return block;
-      }
-      return null;
-    } catch {
-      return null;
-    } finally {
-      pendingL1BlockPromise = null;
-    }
-  })();
-
-  return pendingL1BlockPromise;
-}
-
 interface UseProposalStagesOptions {
   proposalId: string;
   creationTxHash: string;
@@ -95,6 +39,7 @@ interface UseProposalStagesOptions {
   enabled?: boolean;
   l1RpcUrl?: string;
   l2RpcUrl?: string;
+  currentL1Block?: number | null;
 }
 
 interface UseProposalStagesResult {
@@ -119,6 +64,7 @@ export function useProposalStages({
   enabled = true,
   l1RpcUrl,
   l2RpcUrl,
+  currentL1Block = null,
 }: UseProposalStagesOptions): UseProposalStagesResult {
   const {
     l1Rpc,
@@ -143,7 +89,6 @@ export function useProposalStages({
   );
   const [isQueued, setIsQueued] = useState(false);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
-  const [currentL1Block, setCurrentL1Block] = useState<number | null>(null);
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
 
   const isMounted = useRef(true);
@@ -366,26 +311,6 @@ export function useProposalStages({
       isMounted.current = false;
     };
   }, []);
-
-  // Fetch current L1 block for timing calculations (uses shared cache)
-  useEffect(() => {
-    if (!enabled || !rpcHydrated) return;
-
-    const updateL1Block = async () => {
-      const block = await fetchSharedL1Block(effectiveL1RpcUrl);
-      if (block !== null && isMounted.current) {
-        setCurrentL1Block(block);
-      }
-    };
-
-    // Fetch immediately (may use cached value)
-    updateL1Block();
-
-    // Refresh periodically
-    const interval = setInterval(updateL1Block, L1_BLOCK_REFRESH_INTERVAL_MS);
-
-    return () => clearInterval(interval);
-  }, [enabled, rpcHydrated, effectiveL1RpcUrl]);
 
   // Function to trigger background refresh
   // Background refresh keeps cached stages visible while updating

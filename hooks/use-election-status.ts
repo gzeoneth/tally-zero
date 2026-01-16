@@ -8,11 +8,15 @@ import {
   getElectionCount,
   getMemberElectionDetails,
   getNomineeElectionDetails,
+  serializeMemberDetails,
+  serializeNomineeDetails,
   trackElectionProposal,
   type ElectionProposalStatus,
   type ElectionStatus,
   type ChunkingConfig as GovTrackerChunkingConfig,
   type ProposalStageTracker,
+  type SerializableMemberDetails,
+  type SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
 import { ethers } from "ethers";
 import { toast } from "sonner";
@@ -25,74 +29,8 @@ import {
   ETHEREUM_RPC_URL,
 } from "@config/arbitrum-governance";
 
-type ElectionCheckpoint = NonNullable<
-  Awaited<ReturnType<ProposalStageTracker["getElectionCheckpoint"]>>
->;
-type NomineeElectionDetails = ElectionCheckpoint["nomineeDetails"];
-type MemberElectionDetails = ElectionCheckpoint["memberDetails"];
-
-type FreshNomineeDetails = Awaited<
-  ReturnType<typeof getNomineeElectionDetails>
->;
-type FreshMemberDetails = Awaited<ReturnType<typeof getMemberElectionDetails>>;
-
-function serializeNomineeDetails(
-  details: NonNullable<FreshNomineeDetails>
-): NonNullable<NomineeElectionDetails> {
-  return {
-    proposalId: details.proposalId,
-    electionIndex: details.electionIndex,
-    contenders: details.contenders.map((c) => ({
-      address: c.address,
-      registeredAtBlock: c.registeredAtBlock,
-      registrationTxHash: c.registrationTxHash,
-    })),
-    nominees: details.nominees.map((n) => ({
-      address: n.address,
-      votesReceived: n.votesReceived.toString(),
-      isExcluded: n.isExcluded,
-      nominatedAtBlock: n.nominatedAtBlock,
-      excludedAtBlock: n.excludedAtBlock,
-      exclusionTxHash: n.exclusionTxHash,
-    })),
-    compliantNominees: details.compliantNominees.map((n) => ({
-      address: n.address,
-      votesReceived: n.votesReceived.toString(),
-      isExcluded: n.isExcluded,
-      nominatedAtBlock: n.nominatedAtBlock,
-      excludedAtBlock: n.excludedAtBlock,
-      exclusionTxHash: n.exclusionTxHash,
-    })),
-    excludedNominees: details.excludedNominees.map((n) => ({
-      address: n.address,
-      votesReceived: n.votesReceived.toString(),
-      isExcluded: n.isExcluded,
-      nominatedAtBlock: n.nominatedAtBlock,
-      excludedAtBlock: n.excludedAtBlock,
-      exclusionTxHash: n.exclusionTxHash,
-    })),
-    quorumThreshold: details.quorumThreshold.toString(),
-    targetNomineeCount: details.targetNomineeCount,
-  };
-}
-
-function serializeMemberDetails(
-  details: NonNullable<FreshMemberDetails>
-): NonNullable<MemberElectionDetails> {
-  return {
-    proposalId: details.proposalId,
-    electionIndex: details.electionIndex,
-    nominees: details.nominees.map((n) => ({
-      address: n.address,
-      weightReceived: n.weightReceived.toString(),
-      isWinner: n.isWinner,
-      rank: n.rank,
-    })),
-    winners: details.winners,
-    fullWeightDeadline: details.fullWeightDeadline,
-    proposalDeadline: details.proposalDeadline,
-  };
-}
+type NomineeElectionDetails = SerializableNomineeDetails | null;
+type MemberElectionDetails = SerializableMemberDetails | null;
 
 function isCorsOrNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -234,8 +172,11 @@ export function useElectionStatus({
 
   const l2Url = l2RpcUrl || ARBITRUM_RPC_URL;
   const l1Url = l1RpcUrl || ETHEREUM_RPC_URL;
-  const chunkSizes: ChunkSizes | undefined =
-    l1ChunkSize || l2ChunkSize ? { l1ChunkSize, l2ChunkSize } : undefined;
+  const chunkSizes = useMemo<ChunkSizes | undefined>(
+    () =>
+      l1ChunkSize || l2ChunkSize ? { l1ChunkSize, l2ChunkSize } : undefined,
+    [l1ChunkSize, l2ChunkSize]
+  );
 
   const activeElections = useMemo(
     () => allElections.filter((e) => e.phase !== "COMPLETED"),

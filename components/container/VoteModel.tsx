@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/Tabs";
 import { isArbitrumGovernor } from "@config/governors";
 import { proposalSchema } from "@config/schema";
 import { useNerdMode } from "@context/NerdModeContext";
+import { useL1Block } from "@hooks/use-l1-block";
 import { cn } from "@lib/utils";
 
 interface StateValue {
@@ -58,6 +59,7 @@ interface ProposalTabsContentProps {
     children: React.ReactNode;
     asChild?: boolean;
   }>;
+  currentL1Block: number | null;
 }
 
 function ProposalTabsContent({
@@ -69,6 +71,7 @@ function ProposalTabsContent({
   onCalldataOverrideChange,
   maxHeight,
   DescriptionWrapper,
+  currentL1Block,
 }: ProposalTabsContentProps) {
   return (
     <>
@@ -149,6 +152,7 @@ function ProposalTabsContent({
                 proposalId={proposal.id}
                 creationTxHash={proposal.creationTxHash}
                 governorAddress={proposal.contractAddress}
+                currentL1Block={currentL1Block ?? undefined}
               />
             </ErrorBoundary>
           </div>
@@ -240,6 +244,7 @@ export default function VoteModel({
 }) {
   const showStagesTab = isArbitrumGovernor(proposal.contractAddress);
   const { nerdMode } = useNerdMode();
+  const { currentL1Block } = useL1Block();
   const [calldataOverrides, setCalldataOverrides] = useState<CalldataOverrides>(
     {}
   );
@@ -267,6 +272,7 @@ export default function VoteModel({
     hasCalldataOverrides,
     calldataOverrides,
     onCalldataOverrideChange: handleCalldataOverrideChange,
+    currentL1Block,
   };
 
   if (isDesktop) {

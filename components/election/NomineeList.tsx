@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 
 import { CheckCircle2, ExternalLink, User, Users, XCircle } from "lucide-react";
 
-import type { ProposalStageTracker } from "@gzeoneth/gov-tracker";
+import type {
+  SerializableMemberDetails,
+  SerializableNomineeDetails,
+} from "@gzeoneth/gov-tracker";
 
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -24,13 +27,10 @@ import type { ElectionPhase } from "@/types/election";
 
 type ViewMode = "nominees" | "results";
 
-type ElectionCheckpoint = NonNullable<
-  Awaited<ReturnType<ProposalStageTracker["getElectionCheckpoint"]>>
->;
-type NomineeDetails = ElectionCheckpoint["nomineeDetails"];
-type MemberDetails = ElectionCheckpoint["memberDetails"];
-type NomineeElectionDetails = NonNullable<NomineeDetails>;
-type MemberElectionDetails = NonNullable<MemberDetails>;
+type NomineeDetails = SerializableNomineeDetails | null;
+type MemberDetails = SerializableMemberDetails | null;
+type NomineeElectionDetails = SerializableNomineeDetails;
+type MemberElectionDetails = SerializableMemberDetails;
 
 interface NomineeListProps {
   nomineeDetails: NomineeDetails;

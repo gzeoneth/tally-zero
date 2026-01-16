@@ -32,7 +32,7 @@ export default function ProposalStages({
   creationTxHash,
   governorAddress,
   l1RpcUrl,
-  currentL1Block: currentL1BlockProp,
+  currentL1Block,
 }: ProposalStagesProps) {
   const {
     stages,
@@ -45,18 +45,14 @@ export default function ProposalStages({
     result,
     refetchFromStage,
     refreshingFromIndex,
-    currentL1Block: currentL1BlockFromHook,
   } = useProposalStages({
     proposalId,
     creationTxHash,
     governorAddress,
     enabled: true,
     l1RpcUrl,
+    currentL1Block,
   });
-
-  // Use prop override if provided, otherwise use hook value (convert null to undefined)
-  const currentL1Block =
-    currentL1BlockProp ?? currentL1BlockFromHook ?? undefined;
 
   const isTreasuryProposal = isTreasuryGovernor(governorAddress);
   const governorType = isTreasuryProposal ? "treasury" : "core";
