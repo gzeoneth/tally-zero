@@ -6,10 +6,6 @@ import {
   checkElectionStatus,
   createTracker,
   getElectionCount,
-  getMemberElectionDetails,
-  getNomineeElectionDetails,
-  serializeMemberDetails,
-  serializeNomineeDetails,
   type ElectionProposalStatus,
   type ElectionStatus,
   type ChunkingConfig as GovTrackerChunkingConfig,
@@ -342,89 +338,6 @@ export function useElectionStatus({
     trackSelectedElection();
     // Intentionally minimal deps - we use refs for tracking state
   }, [enabled, selectedIndex, allElections, getTracker]);
-
-  // Fetch details only for the selected election (lazy loading)
-  // First checks checkpoint cache, then falls back to RPC if needed
-  useEffect(() => {
-    if (!selectedElection || !enabled) return;
-
-    const electionIndex = selectedElection.electionIndex;
-
-    if (nomineeDetailsMap[electionIndex] !== undefined) {
-      return;
-    }
-
-    const fetchDetails = async () => {
-      try {
-        const { tracker, l2Provider } = await getTracker();
-
-        debug.app("Fetching details for election %d", electionIndex);
-
-        // Check checkpoint first (gov-tracker caches details for COMPLETED elections)
-        const checkpoint = await tracker.getElectionCheckpoint(electionIndex);
-        if (checkpoint?.nomineeDetails) {
-          debug.app(
-            "Election %d nominee details loaded from cache",
-            electionIndex
-          );
-          setNomineeDetailsMap((prev) => ({
-            ...prev,
-            [electionIndex]: checkpoint.nomineeDetails,
-          }));
-          if (checkpoint.memberDetails) {
-            setMemberDetailsMap((prev) => ({
-              ...prev,
-              [electionIndex]: checkpoint.memberDetails,
-            }));
-          }
-          return;
-        }
-
-        // Fall back to RPC for non-cached details
-        const nominee = await getNomineeElectionDetails(
-          electionIndex,
-          l2Provider
-        );
-        if (nominee) {
-          setNomineeDetailsMap((prev) => ({
-            ...prev,
-            [electionIndex]: serializeNomineeDetails(nominee),
-          }));
-        }
-
-        if (
-          selectedElection.phase === "MEMBER_ELECTION" ||
-          selectedElection.phase === "PENDING_EXECUTION" ||
-          selectedElection.phase === "COMPLETED"
-        ) {
-          const member = await getMemberElectionDetails(
-            electionIndex,
-            l2Provider
-          );
-          if (member) {
-            setMemberDetailsMap((prev) => ({
-              ...prev,
-              [electionIndex]: serializeMemberDetails(member),
-            }));
-          }
-        }
-      } catch (err) {
-        debug.app(
-          "Failed to fetch details for election %d: %O",
-          electionIndex,
-          err
-        );
-        // Surface error to UI
-        setError(
-          err instanceof Error
-            ? err
-            : new Error(`Failed to fetch details for election ${electionIndex}`)
-        );
-      }
-    };
-
-    fetchDetails();
-  }, [selectedElection, enabled, getTracker, nomineeDetailsMap]);
 
   return {
     status,
