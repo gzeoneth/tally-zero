@@ -186,7 +186,9 @@ interface BundledStageData {
   type: string;
   status: string;
   transactions?: Array<{ hash: string; blockNumber: number }>;
-  data?: Record<string, unknown>;
+  data?: Record<string, unknown> & {
+    proposalState?: string;
+  };
 }
 
 /** Checkpoint structure from bundled cache */
@@ -203,25 +205,53 @@ interface BundledCheckpoint {
   };
 }
 
-/** Map gov-tracker stage to proposal state */
-function stageToState(
-  lastStage: string | undefined,
-  votingStatus: string | undefined
+/** Valid proposal state names (lowercase) */
+const VALID_STATES = new Set([
+  "pending",
+  "active",
+  "canceled",
+  "defeated",
+  "succeeded",
+  "queued",
+  "expired",
+  "executed",
+]);
+
+/**
+ * Extract proposal state from gov-tracker stage data.
+ * Gov-tracker 0.3.0+ provides proposalState directly in stage data.
+ */
+function extractProposalState(
+  stages: BundledStageData[],
+  lastStage: string | undefined
 ): ProposalStateName {
   if (!lastStage) return "Pending";
 
-  // Check voting outcome first
+  // Find the stage that should have proposalState
+  // For PROPOSAL_QUEUED, check the queued stage; for VOTING_ACTIVE, check voting stage
+  const relevantStage = stages.find((s) => s.type === lastStage);
+  const proposalState = relevantStage?.data?.proposalState;
+
+  if (proposalState) {
+    const normalized = proposalState.toLowerCase() as ProposalStateName;
+    if (VALID_STATES.has(normalized)) {
+      return normalized;
+    }
+  }
+
+  // Fallback: infer state from stage type and status
   if (lastStage === "VOTING_ACTIVE") {
+    const votingStatus = relevantStage?.status;
     if (votingStatus === "FAILED") return "Defeated";
     if (votingStatus === "COMPLETED") return "Succeeded";
     return "Active";
   }
 
-  // Pre-voting
   if (lastStage === "PROPOSAL_CREATED") return "Pending";
 
   // Post-voting stages indicate queued or executed
   const postVotingStages = [
+    "PROPOSAL_QUEUED",
     "L2_TIMELOCK_QUEUED",
     "L2_TIMELOCK_EXECUTED",
     "L2_TO_L1_MESSAGE",
@@ -231,7 +261,6 @@ function stageToState(
   ];
   if (postVotingStages.includes(lastStage)) return "Queued";
 
-  // Final execution
   if (lastStage === "RETRYABLE_EXECUTED") return "Executed";
 
   return "Pending";
@@ -279,10 +308,7 @@ export async function extractProposalsFromBundledCache(): Promise<{
       const data = createdStage.data;
       const voteData = votingStage?.data;
 
-      const state = stageToState(
-        checkpoint.lastProcessedStage,
-        votingStage?.status
-      );
+      const state = extractProposalState(stages, checkpoint.lastProcessedStage);
 
       // Track active proposals that need refresh
       if (state === "Pending" || state === "Active") {
