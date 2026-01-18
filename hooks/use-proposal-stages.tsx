@@ -1,14 +1,9 @@
 "use client";
 
 import { getGovernorByAddress } from "@/config/governors";
-import { CACHE_TTL_CHECK_INTERVAL_MS } from "@/config/storage-keys";
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
 import { getErrorMessage } from "@/lib/error-utils";
-import {
-  getCacheAdapter,
-  loadCachedProposal,
-  trimCachedStages,
-} from "@/lib/gov-tracker-cache";
+import { getCacheAdapter, trimCachedStages } from "@/lib/gov-tracker-cache";
 import {
   emitVoteUpdate,
   trackerManager,
@@ -19,7 +14,6 @@ import {
   getAllStageMetadata,
   toProposalTrackingResult,
 } from "@/lib/stage-tracker";
-import { getStoredCacheTtlMs } from "@/lib/storage-utils";
 import type {
   ProposalStage,
   ProposalTrackingResult,
@@ -92,7 +86,6 @@ export function useProposalStages({
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false);
 
   const isMounted = useRef(true);
-  const pendingBackgroundRefreshRef = useRef(false);
 
   // Sync local state from session
   const syncFromSession = useCallback((session: TrackingSession) => {
@@ -207,9 +200,6 @@ export function useProposalStages({
 
         trackerManager.trackingFinished(proposalId, governorAddress);
 
-        // Clear background refresh tracking
-        pendingBackgroundRefreshRef.current = false;
-
         trackerManager.updateSession(proposalId, governorAddress, {
           result: proposalResult,
           stages: proposalResult.stages,
@@ -238,9 +228,6 @@ export function useProposalStages({
           });
         }
       } catch (err) {
-        // Clear background refresh tracking on any exit
-        pendingBackgroundRefreshRef.current = false;
-
         if (abortController.signal.aborted) {
           trackerManager.updateSession(proposalId, governorAddress, {
             isBackgroundRefreshing: false,
@@ -281,23 +268,13 @@ export function useProposalStages({
       // Abort any existing tracking
       trackerManager.abortTracking(proposalId, governorAddress);
 
-      // Load the trimmed checkpoint to get the updated stages
-      const cacheTtlMs = getStoredCacheTtlMs();
-      const cached = await loadCachedProposal(
-        creationTxHash,
-        governorAddress,
-        cacheTtlMs
-      );
-
-      // Update session with trimmed stages (keep what we have)
+      // Reset session and start fresh tracking
+      // The tracker will load trimmed checkpoint and continue from there
       trackerManager.updateSession(proposalId, governorAddress, {
-        stages: cached.result?.stages ?? [],
-        currentStageIndex:
-          (cached.result?.stages.length ?? 0) > 0
-            ? (cached.result?.stages.length ?? 1) - 1
-            : -1,
+        stages: [],
+        currentStageIndex: -1,
         status: "idle",
-        result: cached.result,
+        result: null,
         error: null,
         queuePosition: null,
       });
@@ -310,55 +287,13 @@ export function useProposalStages({
     [proposalId, governorAddress, creationTxHash, startTracking]
   );
 
-  // Mount/unmount effect with cleanup for background refresh flag
+  // Mount/unmount tracking
   useEffect(() => {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
-      // Clean up background refresh flag if we initiated one but component unmounted
-      if (
-        pendingBackgroundRefreshRef.current &&
-        proposalId &&
-        governorAddress
-      ) {
-        const session = trackerManager.getSession(proposalId, governorAddress);
-        if (session?.isBackgroundRefreshing) {
-          trackerManager.updateSession(proposalId, governorAddress, {
-            isBackgroundRefreshing: false,
-          });
-        }
-        pendingBackgroundRefreshRef.current = false;
-      }
     };
-  }, [proposalId, governorAddress]);
-
-  // Function to trigger background refresh
-  // Background refresh keeps cached stages visible while updating
-  const triggerBackgroundRefresh = useCallback(() => {
-    if (!proposalId || !governorAddress) return;
-
-    const session = trackerManager.getSession(proposalId, governorAddress);
-    if (!session) return;
-
-    if (
-      session.isBackgroundRefreshing ||
-      session.status === "loading" ||
-      session.status === "queued"
-    ) {
-      return;
-    }
-
-    // Track that we initiated a background refresh (for cleanup on unmount)
-    pendingBackgroundRefreshRef.current = true;
-
-    trackerManager.updateSession(proposalId, governorAddress, {
-      isBackgroundRefreshing: true,
-    });
-
-    trackerManager.requestTracking(proposalId, governorAddress, () =>
-      startTracking()
-    );
-  }, [proposalId, governorAddress, startTracking]);
+  }, []);
 
   // Subscribe to session and start tracking if needed
   useEffect(() => {
@@ -382,46 +317,17 @@ export function useProposalStages({
       syncFromSession
     );
 
-    // Check if we need to start tracking
-    const checkAndStartTracking = async () => {
-      // Already tracking or queued
-      if (session.status === "loading" || session.status === "queued") {
-        return;
-      }
-
-      // Check for cached result in gov-tracker cache
-      const cacheTtlMs = getStoredCacheTtlMs();
-      const cached = await loadCachedProposal(
-        creationTxHash,
-        governorAddress,
-        cacheTtlMs
+    // Start tracking if not already tracking
+    // The tracker loads from LocalStorageCache automatically (including linked timelock checkpoints)
+    if (
+      session.status !== "loading" &&
+      session.status !== "queued" &&
+      session.status !== "complete"
+    ) {
+      trackerManager.requestTracking(proposalId, governorAddress, () =>
+        startTracking()
       );
-
-      if (cached.result && cached.result.stages.length > 0) {
-        // Always load the cached data first
-        trackerManager.updateSession(proposalId, governorAddress, {
-          stages: cached.result.stages,
-          currentStageIndex: cached.result.stages.length - 1,
-          result: cached.result,
-          status: "complete",
-        });
-
-        // If cache is expired and not complete, do a background refresh
-        if (cached.isExpired && !cached.isComplete) {
-          triggerBackgroundRefresh();
-        }
-        return;
-      }
-
-      // No cache, start fresh tracking
-      if (session.status !== "complete") {
-        trackerManager.requestTracking(proposalId, governorAddress, () =>
-          startTracking()
-        );
-      }
-    };
-
-    checkAndStartTracking();
+    }
 
     return () => {
       unsubscribe();
@@ -434,50 +340,6 @@ export function useProposalStages({
     rpcHydrated,
     syncFromSession,
     startTracking,
-    triggerBackgroundRefresh,
-  ]);
-
-  // Periodic TTL check - continuously check for expiration while user is on page
-  useEffect(() => {
-    if (!enabled || !proposalId || !governorAddress || !creationTxHash) return;
-
-    const checkTtlExpiration = async () => {
-      const session = trackerManager.getSession(proposalId, governorAddress);
-      if (!session || session.status !== "complete") return;
-      if (session.isBackgroundRefreshing) return;
-
-      // Skip cache check if we already know tracking is complete from the session
-      // Complete proposals never need refresh, so no need to reload from cache
-      if (session.result?.isComplete) {
-        return;
-      }
-
-      const cacheTtlMs = getStoredCacheTtlMs();
-      const cached = await loadCachedProposal(
-        creationTxHash,
-        governorAddress,
-        cacheTtlMs
-      );
-
-      // Check if cache is expired and not complete
-      if (cached.isExpired && !cached.isComplete) {
-        triggerBackgroundRefresh();
-      }
-    };
-
-    // Check periodically for expired cache
-    const interval = setInterval(
-      checkTtlExpiration,
-      CACHE_TTL_CHECK_INTERVAL_MS
-    );
-
-    return () => clearInterval(interval);
-  }, [
-    enabled,
-    proposalId,
-    governorAddress,
-    creationTxHash,
-    triggerBackgroundRefresh,
   ]);
 
   return {
