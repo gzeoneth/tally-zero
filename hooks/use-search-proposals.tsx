@@ -84,6 +84,7 @@ export const useSearchProposals: UseSearchProposals = (
               endBlock: endBlock.toString(),
               description,
               state: 0,
+              transactionHash: event.transactionHash,
             };
           });
           if (newProposals.length > 0) {

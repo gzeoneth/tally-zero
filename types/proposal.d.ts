@@ -12,6 +12,7 @@ export type Proposal = {
   endBlock: ethers.BigNumber;
   description: string;
   state: number;
+  transactionHash?: string;
 };
 
 export type UseSearchProposals = (
@@ -38,6 +39,7 @@ export type ParsedProposal = {
   description: string;
   networkId: string;
   state: ProposalState | undefined;
+  transactionHash?: string;
 };
 
 export type UseTotalProposalsReturn = {

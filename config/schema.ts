@@ -28,6 +28,7 @@ export const proposalSchema = z.object({
   description: z.string(),
   networkId: z.string(),
   state: z.string(),
+  transactionHash: z.string().optional(),
 });
 
 export const daoSchema = z.object({

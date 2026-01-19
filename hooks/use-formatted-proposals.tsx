@@ -24,6 +24,7 @@ export function useFormattedProposals(
         networkId === "10"
           ? (ProposalOptimismState[proposal.state] as string).toLowerCase()
           : (ProposalState[proposal.state] as string).toLowerCase(), */
+      transactionHash: proposal.transactionHash,
     }));
 
     return formattedProposals.sort((a, b) => {
