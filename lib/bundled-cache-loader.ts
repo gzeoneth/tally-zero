@@ -18,6 +18,7 @@ import { debug } from "./debug";
 import { getStoredValue, setStoredValue } from "./storage-utils";
 
 let bundledCacheInitialized = false;
+let bundledCacheInitPromise: Promise<void> | null = null;
 let bundledCacheData: Record<string, unknown> | null = null;
 
 async function withRetry<T>(
@@ -52,6 +53,16 @@ export async function initializeBundledCache(
     return;
   }
 
+  // Return existing promise to prevent concurrent initialization
+  if (bundledCacheInitPromise) {
+    return bundledCacheInitPromise;
+  }
+
+  bundledCacheInitPromise = doInitializeBundledCache(cache);
+  return bundledCacheInitPromise;
+}
+
+async function doInitializeBundledCache(cache: CacheAdapter): Promise<void> {
   const skipBundledCache = getStoredValue<boolean>(
     STORAGE_KEYS.SKIP_BUNDLED_CACHE,
     false
@@ -130,6 +141,7 @@ export async function initializeBundledCache(
 
 export function resetBundledCacheFlag(): void {
   bundledCacheInitialized = false;
+  bundledCacheInitPromise = null;
   bundledCacheData = null;
 }
 
