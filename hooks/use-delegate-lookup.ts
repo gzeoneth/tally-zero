@@ -13,7 +13,7 @@ import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { addressesEqual, isValidAddress } from "@/lib/address-utils";
 import { debug } from "@/lib/debug";
-import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
+import { getDelegateLabel, getDelegateRankInfo } from "@/lib/delegate-cache";
 import { getErrorMessage } from "@/lib/error-utils";
 import { createRpcProvider } from "@/lib/rpc-utils";
 
@@ -110,21 +110,16 @@ export function useDelegateLookup({
         contract.delegates(address),
       ]);
 
-      // Check if address is in the delegate cache
+      // Get delegate label and rank from cache (O(1) lookups)
+      const label = getDelegateLabel(address);
       let cacheRank: number | undefined;
       let cacheVotingPower: string | undefined;
-      const label = getDelegateLabel(address);
 
       try {
-        const cache = await loadDelegateCache();
-        if (cache) {
-          const index = cache.delegates.findIndex((d) =>
-            addressesEqual(d.address, address)
-          );
-          if (index !== -1) {
-            cacheRank = index + 1;
-            cacheVotingPower = cache.delegates[index].votingPower;
-          }
+        const rankInfo = await getDelegateRankInfo(address);
+        if (rankInfo) {
+          cacheRank = rankInfo.rank;
+          cacheVotingPower = rankInfo.votingPower;
         }
       } catch (cacheErr) {
         debug.delegates("failed to check delegate cache: %O", cacheErr);
