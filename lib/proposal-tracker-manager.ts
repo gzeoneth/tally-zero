@@ -10,6 +10,24 @@ import type {
   ProposalTrackingResult,
 } from "@/types/proposal-stage";
 
+/**
+ * Safely invoke each callback in a set, catching and logging any errors.
+ * Prevents one failing subscriber from breaking notification to others.
+ */
+function notifyAll<T>(
+  subscribers: Set<(arg: T) => void>,
+  arg: T,
+  errorLabel: string
+): void {
+  subscribers.forEach((callback) => {
+    try {
+      callback(arg);
+    } catch (e) {
+      debug.stageTracker(`${errorLabel}: %O`, e);
+    }
+  });
+}
+
 /** Status of a proposal tracking session */
 export type TrackingStatus =
   | "idle"
@@ -196,23 +214,13 @@ class ProposalTrackerManager {
   private notifySubscribers(session: TrackingSession): void {
     // Pass shallow copy to prevent subscribers from mutating shared state
     const sessionSnapshot = { ...session };
-    session.subscribers.forEach((callback) => {
-      try {
-        callback(sessionSnapshot);
-      } catch (e) {
-        debug.stageTracker("subscriber error: %O", e);
-      }
-    });
+    notifyAll(session.subscribers, sessionSnapshot, "subscriber error");
   }
 
   private notifyGlobalSubscribers(): void {
-    this.globalSubscribers.forEach((callback) => {
-      try {
-        callback();
-      } catch (e) {
-        debug.stageTracker("global subscriber error: %O", e);
-      }
-    });
+    // Global subscribers take no arguments - use a dummy value
+    const voidSubscribers = this.globalSubscribers as Set<(arg: void) => void>;
+    notifyAll(voidSubscribers, undefined, "global subscriber error");
   }
 
   private updateQueuePositions(): void {
@@ -431,11 +439,5 @@ export function subscribeToVoteUpdates(
  * @param update - The vote update event to emit
  */
 export function emitVoteUpdate(update: VoteUpdate): void {
-  voteUpdateSubscribers.forEach((callback) => {
-    try {
-      callback(update);
-    } catch (e) {
-      debug.stageTracker("vote update subscriber error: %O", e);
-    }
-  });
+  notifyAll(voteUpdateSubscribers, update, "vote update subscriber error");
 }

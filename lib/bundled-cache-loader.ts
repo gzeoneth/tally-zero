@@ -58,7 +58,11 @@ export async function initializeBundledCache(
     return bundledCacheInitPromise;
   }
 
-  bundledCacheInitPromise = doInitializeBundledCache(cache);
+  // Reset promise on rejection to allow retry on next call
+  bundledCacheInitPromise = doInitializeBundledCache(cache).catch((err) => {
+    bundledCacheInitPromise = null;
+    throw err;
+  });
   return bundledCacheInitPromise;
 }
 
