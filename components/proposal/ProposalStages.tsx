@@ -80,24 +80,25 @@ export default function ProposalStages({
       "MEMBER_ELECTION",
     ];
 
+    // Pre-compute index map for O(1) lookups instead of repeated findIndex calls
+    const stageTypeToIndex = new Map(
+      allStageTypes.map((s, idx) => [s.type, idx])
+    );
+    const votingIdx = stageTypeToIndex.get("VOTING_ACTIVE") ?? -1;
+    const l2ExecutedIdx = stageTypeToIndex.get("L2_TIMELOCK") ?? -1;
+
     return allStageTypes.filter((meta) => {
       // Filter out election stages for non-election proposals
       if (!isElection && electionStageTypes.includes(meta.type)) {
         return false;
       }
 
+      const currentIdx = stageTypeToIndex.get(meta.type) ?? -1;
+
       if (isDefeated) {
-        const votingIdx = allStageTypes.findIndex(
-          (s) => s.type === "VOTING_ACTIVE"
-        );
-        const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
         return currentIdx <= votingIdx;
       }
       if (isTreasuryProposal) {
-        const l2ExecutedIdx = allStageTypes.findIndex(
-          (s) => s.type === "L2_TIMELOCK"
-        );
-        const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
         return currentIdx <= l2ExecutedIdx;
       }
       return true;

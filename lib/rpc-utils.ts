@@ -18,26 +18,39 @@ interface CachedProvider {
 }
 const providerCache = new Map<string, CachedProvider>();
 
+/** Guard flag to prevent concurrent eviction attempts */
+let isEvicting = false;
+
 /**
  * Evicts least recently used providers when cache exceeds max size.
  * Keeps the cache bounded to prevent memory leaks.
+ * Uses a guard flag to prevent race conditions from concurrent calls.
  */
 function evictLruProviders(): void {
+  if (isEvicting) return;
   if (providerCache.size <= MAX_PROVIDER_CACHE_SIZE) return;
 
-  // Sort entries by lastUsed timestamp (oldest first)
-  const entries = Array.from(providerCache.entries()).sort(
-    ([, a], [, b]) => a.lastUsed - b.lastUsed
-  );
+  isEvicting = true;
+  try {
+    // Sort entries by lastUsed timestamp (oldest first)
+    const entries = Array.from(providerCache.entries()).sort(
+      ([, a], [, b]) => a.lastUsed - b.lastUsed
+    );
 
-  // Evict oldest entries until we're under the limit
-  const toEvict = entries.slice(
-    0,
-    providerCache.size - MAX_PROVIDER_CACHE_SIZE
-  );
-  for (const [url] of toEvict) {
-    debug.rpc("evicting LRU provider: %s", url);
-    providerCache.delete(url);
+    // Evict oldest entries until we're under the limit
+    const toEvict = entries.slice(
+      0,
+      providerCache.size - MAX_PROVIDER_CACHE_SIZE
+    );
+    for (const [url] of toEvict) {
+      // Double-check still exists (could be deleted by concurrent cache operations)
+      if (providerCache.has(url)) {
+        debug.rpc("evicting LRU provider: %s", url);
+        providerCache.delete(url);
+      }
+    }
+  } finally {
+    isEvicting = false;
   }
 }
 

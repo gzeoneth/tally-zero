@@ -165,37 +165,33 @@ export function useMultiGovernorSearch({
             currentBlock
           );
 
-          const totalGovernors = ARBITRUM_GOVERNORS.length;
-          let completedQueries = 0;
+          // Search all governors in parallel for better performance
+          const searchResults = await Promise.all(
+            ARBITRUM_GOVERNORS.map((governor) =>
+              searchGovernor(
+                provider,
+                governor.address,
+                rpcStartBlock,
+                currentBlock,
+                blockRange,
+                () => {}
+              )
+            )
+          );
 
-          for (const governor of ARBITRUM_GOVERNORS) {
-            if (abortController.signal.aborted) break;
+          if (cancelled || abortController.signal.aborted) return;
+          setProgress(60);
 
-            const rawProposals = await searchGovernor(
-              provider,
-              governor.address,
-              rpcStartBlock,
-              currentBlock,
-              blockRange,
-              () => {}
-            );
-
-            completedQueries++;
-            if (!cancelled) {
-              const searchProgress =
-                30 + (completedQueries / totalGovernors) * 50;
-              setProgress(searchProgress);
-            }
-
-            if (rawProposals.length > 0) {
-              const parsed = await parseProposals(provider, rawProposals);
-              // Deduplicate: only add proposals not already in cached set
-              const existingIds = new Set(allProposals.map((p) => p.id));
-              for (const p of parsed) {
-                if (!existingIds.has(p.id)) {
-                  allProposals.push(p);
-                  freshCount++;
-                }
+          // Parse proposals from each governor in parallel
+          const allRawProposals = searchResults.flat();
+          if (allRawProposals.length > 0) {
+            const parsed = await parseProposals(provider, allRawProposals);
+            // Build existingIds set once, outside the loop
+            const existingIds = new Set(allProposals.map((p) => p.id));
+            for (const p of parsed) {
+              if (!existingIds.has(p.id)) {
+                allProposals.push(p);
+                freshCount++;
               }
             }
           }

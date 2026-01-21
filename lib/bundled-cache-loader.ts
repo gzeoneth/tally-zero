@@ -300,8 +300,10 @@ export async function extractProposalsFromBundledCache(): Promise<{
       if (!proposalId || !governorAddress) continue;
 
       const stages = checkpoint.cachedData?.completedStages ?? [];
-      const createdStage = stages.find((s) => s.type === "PROPOSAL_CREATED");
-      const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
+      // Build a Map for O(1) lookups instead of repeated O(n) find() calls
+      const stageMap = new Map(stages.map((s) => [s.type, s]));
+      const createdStage = stageMap.get("PROPOSAL_CREATED");
+      const votingStage = stageMap.get("VOTING_ACTIVE");
 
       if (!createdStage?.data) continue;
 

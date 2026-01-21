@@ -11,7 +11,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { addressesEqual } from "@/lib/address-utils";
 import { debug } from "@/lib/debug";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
 import { toError } from "@/lib/error-utils";
@@ -206,10 +205,12 @@ export function useDelegateSearch({
         }
 
         if (successfulResults.length > 0 && cache) {
+          // Build a Map for O(1) lookups instead of O(n) find() in loop
+          const refreshedMap = new Map(
+            successfulResults.map((r) => [r.address.toLowerCase(), r])
+          );
           const updatedDelegates = cache.delegates.map((d) => {
-            const refreshed = successfulResults.find((r) =>
-              addressesEqual(r.address, d.address)
-            );
+            const refreshed = refreshedMap.get(d.address.toLowerCase());
             return refreshed ? { ...d, votingPower: refreshed.votingPower } : d;
           });
 
