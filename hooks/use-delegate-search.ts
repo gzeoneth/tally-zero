@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { compareBigIntDesc } from "@/lib/collection-utils";
 import { debug } from "@/lib/debug";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
 import { toError } from "@/lib/error-utils";
@@ -55,6 +56,8 @@ export interface UseDelegateSearchResult {
 
 /**
  * Filter delegates by minimum voting power and/or address search term
+ * Uses single pass filtering for better performance
+ *
  * @param delegates - Array of delegates to filter
  * @param options - Filter options
  * @returns Filtered delegate array
@@ -66,21 +69,23 @@ export function filterDelegates(
     addressFilter?: string;
   }
 ): DelegateInfo[] {
-  let filtered = delegates;
+  const minPower = options.minVotingPower
+    ? BigInt(options.minVotingPower)
+    : null;
+  const searchTerm = options.addressFilter?.toLowerCase().trim() || null;
 
-  if (options.minVotingPower) {
-    const minPower = BigInt(options.minVotingPower);
-    filtered = filtered.filter((d) => BigInt(d.votingPower) >= minPower);
+  // No filters applied
+  if (!minPower && !searchTerm) {
+    return delegates;
   }
 
-  if (options.addressFilter && options.addressFilter.trim()) {
-    const searchTerm = options.addressFilter.toLowerCase().trim();
-    filtered = filtered.filter((d) =>
-      d.address.toLowerCase().includes(searchTerm)
-    );
-  }
-
-  return filtered;
+  // Single pass filter combining both conditions
+  return delegates.filter((d) => {
+    if (minPower && BigInt(d.votingPower) < minPower) return false;
+    if (searchTerm && !d.address.toLowerCase().includes(searchTerm))
+      return false;
+    return true;
+  });
 }
 
 /**
@@ -214,10 +219,9 @@ export function useDelegateSearch({
             return refreshed ? { ...d, votingPower: refreshed.votingPower } : d;
           });
 
-          updatedDelegates.sort((a, b) => {
-            const diff = BigInt(b.votingPower) - BigInt(a.votingPower);
-            return diff > BigInt(0) ? 1 : diff < BigInt(0) ? -1 : 0;
-          });
+          updatedDelegates.sort((a, b) =>
+            compareBigIntDesc(a.votingPower, b.votingPower)
+          );
 
           const newCache = { ...cache, delegates: updatedDelegates };
           setCache(newCache);

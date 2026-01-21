@@ -10,6 +10,7 @@ import {
   getAllStageTypes,
   useProposalStages,
 } from "@/hooks/use-proposal-stages";
+import { buildLookupMap } from "@/lib/collection-utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import { ReloadIcon } from "@radix-ui/react-icons";
 
@@ -58,13 +59,10 @@ export default function ProposalStages({
   const governorType = isTreasuryProposal ? "treasury" : "core";
 
   const allStageTypes = getAllStageTypes();
-  const stageMap = useMemo(() => {
-    const map = new Map<StageType, ProposalStage>();
-    for (const stage of stages) {
-      map.set(stage.type, stage);
-    }
-    return map;
-  }, [stages]);
+  const stageMap = useMemo(
+    () => buildLookupMap(stages, (s) => s.type),
+    [stages]
+  ) as Map<StageType, ProposalStage>;
 
   const isDefeated = result?.currentState?.toLowerCase() === "defeated";
   const isElection = result?.proposalType
