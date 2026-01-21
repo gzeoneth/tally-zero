@@ -19,7 +19,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { addressesEqual } from "../lib/address-utils";
-import { batchQueryWithRateLimit } from "../lib/rpc-utils";
+import { delay } from "../lib/delay-utils";
 import type { DelegateCache, DelegateInfo } from "../types/delegate";
 import type { Address } from "../types/search";
 
@@ -39,6 +39,10 @@ const ARB_TOKEN_ADDRESS = "0x912CE59144191C1204E64559FE8253a0e49E6548";
 // Excluded address (system address to filter out)
 const EXCLUDED_ADDRESS = "0x00000000000000000000000000000000000A4B86";
 
+// Minimum voting power threshold (10 ARB = 10^19 wei)
+// Delegates with less than this are excluded to reduce cache size
+const MIN_VOTING_POWER = BigInt("10000000000000000000");
+
 // Minimal ABI for ARB token
 const ARB_TOKEN_ABI = [
   "event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)",
@@ -47,18 +51,112 @@ const ARB_TOKEN_ABI = [
 
 // Block range for queries (ARB token has many delegate events, use smaller chunks)
 // Note: 1M blocks can timeout on public RPC during high-activity periods
-const BLOCK_RANGE = 500_000;
+const BLOCK_RANGE = 1_000_000;
 
-// Batch size for parallel queries
-const BATCH_SIZE = 3;
-const DELAY_BETWEEN_BATCHES = 1000;
+// Minimum block range when response size is exceeded
+// During ARB airdrop period, even 5K blocks can exceed 10K logs
+const MIN_BLOCK_RANGE = 1_000;
 
-interface RawDelegateEvent {
-  delegate: string;
-  previousBalance: string;
-  newBalance: string;
-  blockNumber: number;
-  txHash: string;
+// Delay between queries to avoid rate limiting
+const QUERY_DELAY_MS = 100;
+
+function isLogResponseSizeError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message;
+    return (
+      msg.includes("Log response size exceeded") ||
+      msg.includes("logs matched by query exceeds limit")
+    );
+  }
+  return false;
+}
+
+interface BlockRange {
+  from: number;
+  to: number;
+  chunkSize: number;
+}
+
+const CONSECUTIVE_SUCCESS_TO_INCREASE = 3;
+
+async function fetchEventsForRange(
+  contract: ethers.Contract,
+  filter: ethers.EventFilter,
+  fromBlock: number,
+  toBlock: number,
+  initialChunkSize: number,
+  onEvents: (events: ethers.Event[]) => void
+): Promise<void> {
+  const pending: BlockRange[] = [
+    { from: fromBlock, to: toBlock, chunkSize: initialChunkSize },
+  ];
+  let consecutiveSuccesses = 0;
+  let currentChunkSize = initialChunkSize;
+
+  while (pending.length > 0) {
+    const range = pending.shift()!;
+
+    try {
+      await delay(QUERY_DELAY_MS);
+      const chunkEvents = await contract.queryFilter(
+        filter,
+        range.from,
+        range.to
+      );
+
+      // Process immediately, don't accumulate
+      onEvents(chunkEvents);
+
+      // Track consecutive successes for chunk size recovery
+      if (range.chunkSize < initialChunkSize) {
+        consecutiveSuccesses++;
+        if (consecutiveSuccesses >= CONSECUTIVE_SUCCESS_TO_INCREASE) {
+          const newChunkSize = Math.min(initialChunkSize, range.chunkSize * 2);
+          if (newChunkSize > currentChunkSize) {
+            console.log(
+              `\n  ${consecutiveSuccesses} consecutive successes, increasing chunk to ${newChunkSize} blocks`
+            );
+            currentChunkSize = newChunkSize;
+          }
+          consecutiveSuccesses = 0;
+        }
+      }
+
+      // Update pending ranges to use recovered chunk size
+      for (const p of pending) {
+        if (p.chunkSize < currentChunkSize) {
+          p.chunkSize = currentChunkSize;
+        }
+      }
+    } catch (error) {
+      if (isLogResponseSizeError(error) && range.chunkSize > MIN_BLOCK_RANGE) {
+        const newChunkSize = Math.max(
+          MIN_BLOCK_RANGE,
+          Math.floor(range.chunkSize / 2)
+        );
+        console.log(
+          `\n  Response size exceeded for ${range.from}-${range.to}, reducing chunk to ${newChunkSize} blocks`
+        );
+
+        currentChunkSize = newChunkSize;
+        consecutiveSuccesses = 0;
+
+        // Split into smaller ranges and add to front of queue (process in order)
+        const subRanges: BlockRange[] = [];
+        for (let start = range.from; start <= range.to; start += newChunkSize) {
+          const end = Math.min(start + newChunkSize - 1, range.to);
+          subRanges.push({ from: start, to: end, chunkSize: newChunkSize });
+        }
+        pending.unshift(...subRanges);
+      } else {
+        throw new Error(
+          `Failed to fetch events for block range ${range.from}-${range.to}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }
+  }
 }
 
 async function fetchDelegateEvents(
@@ -66,7 +164,7 @@ async function fetchDelegateEvents(
   startBlock: number,
   currentBlock: number,
   onProgress: (processed: number, total: number) => void
-): Promise<RawDelegateEvent[]> {
+): Promise<Map<string, DelegateInfo>> {
   const contract = new ethers.Contract(
     ARB_TOKEN_ADDRESS,
     ARB_TOKEN_ABI,
@@ -74,70 +172,56 @@ async function fetchDelegateEvents(
   );
   const delegateVotesChangedFilter = contract.filters.DelegateVotesChanged();
 
-  const queries: (() => Promise<ethers.Event[]>)[] = [];
   const totalBlocks = currentBlock - startBlock;
   let processedBlocks = 0;
+  let eventsProcessed = 0;
 
-  // Create query chunks
+  // Build delegate map directly instead of accumulating events
+  const delegateMap = new Map<string, DelegateInfo>();
+
+  // Process chunks sequentially with adaptive sizing
   for (
     let fromBlock = startBlock;
     fromBlock <= currentBlock;
     fromBlock += BLOCK_RANGE
   ) {
     const toBlock = Math.min(fromBlock + BLOCK_RANGE - 1, currentBlock);
-    const queryFromBlock = fromBlock;
-    const queryToBlock = toBlock;
 
-    queries.push(async () => {
-      try {
-        const events = await contract.queryFilter(
-          delegateVotesChangedFilter,
-          queryFromBlock,
-          queryToBlock
-        );
-        processedBlocks += queryToBlock - queryFromBlock;
-        onProgress(processedBlocks, totalBlocks);
-        return events;
-      } catch (error) {
-        console.warn(
-          `  Query failed for block range ${queryFromBlock}-${queryToBlock}:`,
-          error instanceof Error ? error.message : error
-        );
-        return [];
+    await fetchEventsForRange(
+      contract,
+      delegateVotesChangedFilter,
+      fromBlock,
+      toBlock,
+      BLOCK_RANGE,
+      (chunkEvents) => {
+        for (const event of chunkEvents) {
+          const args = event.args!;
+          const { delegate, newBalance } = args;
+
+          // Skip excluded address
+          if (addressesEqual(delegate, EXCLUDED_ADDRESS)) {
+            continue;
+          }
+
+          eventsProcessed++;
+
+          // Update delegate map directly (keeps only latest state per delegate)
+          delegateMap.set(delegate.toLowerCase(), {
+            address: delegate as Address,
+            votingPower: newBalance.toString(),
+            lastChangeBlock: event.blockNumber,
+            lastChangeTxHash: event.transactionHash,
+          });
+        }
       }
-    });
+    );
+
+    processedBlocks += toBlock - fromBlock + 1;
+    onProgress(processedBlocks, totalBlocks);
   }
 
-  console.log(`  Executing ${queries.length} queries for delegate events...`);
-  const allEvents = await batchQueryWithRateLimit(
-    queries,
-    BATCH_SIZE,
-    DELAY_BETWEEN_BATCHES
-  );
-
-  const events: RawDelegateEvent[] = [];
-
-  for (const eventBatch of allEvents) {
-    for (const event of eventBatch) {
-      const args = event.args!;
-      const { delegate, previousBalance, newBalance } = args;
-
-      // Skip excluded address
-      if (addressesEqual(delegate, EXCLUDED_ADDRESS)) {
-        continue;
-      }
-
-      events.push({
-        delegate,
-        previousBalance: previousBalance.toString(),
-        newBalance: newBalance.toString(),
-        blockNumber: event.blockNumber,
-        txHash: event.transactionHash,
-      });
-    }
-  }
-
-  return events;
+  console.log(`\n  Processed ${eventsProcessed.toLocaleString()} events`);
+  return delegateMap;
 }
 
 /**
@@ -163,56 +247,24 @@ function loadExistingCache(outputPath: string): DelegateCache | null {
 }
 
 /**
- * Build delegate map from events, keeping only the most recent event per delegate
- */
-function buildDelegateMap(
-  events: RawDelegateEvent[]
-): Map<string, DelegateInfo> {
-  const delegateMap = new Map<string, DelegateInfo>();
-
-  // Sort events by block number ascending to process in chronological order
-  const sortedEvents = [...events].sort(
-    (a, b) => a.blockNumber - b.blockNumber
-  );
-
-  for (const event of sortedEvents) {
-    const address = event.delegate as Address;
-
-    // Update or create delegate entry with latest voting power
-    delegateMap.set(address.toLowerCase(), {
-      address,
-      votingPower: event.newBalance,
-      lastChangeBlock: event.blockNumber,
-      lastChangeTxHash: event.txHash,
-    });
-  }
-
-  return delegateMap;
-}
-
-/**
- * Filter out delegates with zero voting power and sort by voting power descending
+ * Filter out delegates below minimum voting power and sort by voting power descending
  */
 function processDelegates(
   delegateMap: Map<string, DelegateInfo>
 ): DelegateInfo[] {
   const delegates: DelegateInfo[] = [];
 
-  for (const delegate of Array.from(delegateMap.values())) {
-    // Filter out zero voting power
-    if (ethers.BigNumber.from(delegate.votingPower).gt(0)) {
+  for (const delegate of delegateMap.values()) {
+    // Filter out delegates below minimum threshold
+    if (BigInt(delegate.votingPower) >= MIN_VOTING_POWER) {
       delegates.push(delegate);
     }
   }
 
-  // Sort by voting power descending
+  // Sort by voting power descending (BigInt subtraction for comparison)
   delegates.sort((a, b) => {
-    const aBN = ethers.BigNumber.from(a.votingPower);
-    const bBN = ethers.BigNumber.from(b.votingPower);
-
-    if (aBN.gt(bBN)) return -1;
-    if (aBN.lt(bBN)) return 1;
-    return 0;
+    const diff = BigInt(b.votingPower) - BigInt(a.votingPower);
+    return diff > BigInt(0) ? 1 : diff < BigInt(0) ? -1 : 0;
   });
 
   return delegates;
@@ -232,32 +284,27 @@ function calculateTotalVotingPower(delegates: DelegateInfo[]): string {
 }
 
 /**
- * Merge existing cache with new events
+ * Merge existing cache with new delegate map
  */
 function mergeWithExistingCache(
   existingCache: DelegateCache | null,
-  newEvents: RawDelegateEvent[]
-): { delegateMap: Map<string, DelegateInfo>; totalEventsProcessed: number } {
+  newDelegateMap: Map<string, DelegateInfo>
+): Map<string, DelegateInfo> {
   const delegateMap = new Map<string, DelegateInfo>();
-  let totalEventsProcessed = 0;
 
   // Start with existing delegates if available
   if (existingCache) {
     for (const delegate of existingCache.delegates) {
       delegateMap.set(delegate.address.toLowerCase(), delegate);
     }
-    totalEventsProcessed = existingCache.stats.eventsProcessed;
   }
 
-  // Apply new events
-  const newDelegateMap = buildDelegateMap(newEvents);
-  for (const [address, delegate] of Array.from(newDelegateMap.entries())) {
+  // Apply new delegates (overwrites existing)
+  for (const [address, delegate] of newDelegateMap.entries()) {
     delegateMap.set(address, delegate);
   }
 
-  totalEventsProcessed += newEvents.length;
-
-  return { delegateMap, totalEventsProcessed };
+  return delegateMap;
 }
 
 async function main() {
@@ -325,7 +372,7 @@ async function main() {
   console.log(`  Token: ${ARB_TOKEN_ADDRESS}`);
   console.log(`  Excluded address: ${EXCLUDED_ADDRESS}`);
 
-  const newEvents = await fetchDelegateEvents(
+  const newDelegateMap = await fetchDelegateEvents(
     provider,
     startBlock,
     currentBlock,
@@ -335,14 +382,11 @@ async function main() {
     }
   );
 
-  console.log(`\n  Found ${newEvents.length} new events`);
+  console.log(`  Found ${newDelegateMap.size} unique delegates in range`);
 
   // Merge with existing cache
   console.log("\nProcessing delegates...");
-  const { delegateMap, totalEventsProcessed } = mergeWithExistingCache(
-    existingCache,
-    newEvents
-  );
+  const delegateMap = mergeWithExistingCache(existingCache, newDelegateMap);
 
   // Filter and sort delegates
   const delegates = processDelegates(delegateMap);
@@ -373,7 +417,6 @@ async function main() {
     delegates,
     stats: {
       totalDelegates: delegates.length,
-      eventsProcessed: totalEventsProcessed,
     },
   };
 
@@ -386,9 +429,6 @@ async function main() {
   console.log("========================================");
   console.log(`Output: ${outputPath}`);
   console.log(`Total delegates: ${delegates.length}`);
-  console.log(
-    `Total events processed: ${totalEventsProcessed.toLocaleString()}`
-  );
   console.log(`Snapshot block: ${currentBlock.toLocaleString()}`);
   console.log(
     `File size: ${(fs.statSync(outputPath).size / 1024).toFixed(2)} KB`
