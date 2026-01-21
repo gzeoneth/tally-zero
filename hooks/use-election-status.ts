@@ -176,7 +176,7 @@ export function useElectionStatus({
       const cachedNomineeDetails: Record<number, NomineeElectionDetails> = {};
       const cachedMemberDetails: Record<number, MemberElectionDetails> = {};
 
-      for (let i = 0; i <= electionCount; i++) {
+      for (let i = 0; i < electionCount; i++) {
         const checkpoint = await tracker.getElectionCheckpoint(i);
         if (checkpoint) {
           debug.cache("Election %d loaded from cache", i);
