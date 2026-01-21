@@ -7,6 +7,7 @@ import {
   useTimelockOperation,
   type TimelockOperationInfo,
 } from "@/hooks/use-timelock-operation";
+import { buildLookupMap } from "@/lib/collection-utils";
 import {
   SECONDS_PER_DAY,
   SECONDS_PER_HOUR,
@@ -83,16 +84,24 @@ export function TimelockOperationContent({
     }
   }, [operations, selectedOperation, selectOperation, initialOpIndex]);
 
+  // Pre-compute index Map for O(1) lookups
+  const operationIndexMap = useMemo(
+    () =>
+      buildLookupMap(
+        operations.map((op, i) => ({ id: op.operationId, index: i + 1 })),
+        (item) => item.id
+      ),
+    [operations]
+  );
+
   // Wrapped handlers that update URL when operation selection changes
   const handleSelectOperation = useCallback(
     (operation: (typeof operations)[0]) => {
-      const opIndex =
-        operations.findIndex((op) => op.operationId === operation.operationId) +
-        1;
+      const opIndex = operationIndexMap.get(operation.operationId)?.index ?? 1;
       selectOperation(operation);
       onOperationIndexChange?.(opIndex);
     },
-    [operations, selectOperation, onOperationIndexChange]
+    [operationIndexMap, selectOperation, onOperationIndexChange]
   );
 
   const handleDeselectOperation = useCallback(() => {
