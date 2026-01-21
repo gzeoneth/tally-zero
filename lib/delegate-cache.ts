@@ -28,24 +28,19 @@ interface DelegateLabelsConfig {
 
 const delegateLabels = delegateLabelsData as DelegateLabelsConfig;
 
+// Pre-compute a normalized lookup map for O(1) case-insensitive address lookups
+const normalizedDelegateLabels = new Map<string, string>();
+for (const [addr, label] of Object.entries(delegateLabels.delegates)) {
+  normalizedDelegateLabels.set(addr.toLowerCase(), label);
+}
+
 /**
  * Get the human-readable label for a delegate address
  * @param address - The delegate's Ethereum address
  * @returns The delegate's label if found, undefined otherwise
  */
 export function getDelegateLabel(address: string): string | undefined {
-  if (delegateLabels.delegates[address]) {
-    return delegateLabels.delegates[address];
-  }
-
-  const lowerAddress = address.toLowerCase();
-  for (const [addr, label] of Object.entries(delegateLabels.delegates)) {
-    if (addr.toLowerCase() === lowerAddress) {
-      return label;
-    }
-  }
-
-  return undefined;
+  return normalizedDelegateLabels.get(address.toLowerCase());
 }
 
 /**
@@ -182,34 +177,4 @@ export function getTopDelegates(
   limit: number = 100
 ): DelegateInfo[] {
   return cache.delegates.slice(0, limit);
-}
-
-/**
- * Find a delegate by their Ethereum address
- * @param cache - The delegate cache to search
- * @param address - The Ethereum address to look up
- * @returns The delegate info if found, undefined otherwise
- */
-export function findDelegateByAddress(
-  cache: DelegateCache,
-  address: string
-): DelegateInfo | undefined {
-  const normalizedAddress = address.toLowerCase();
-  return cache.delegates.find(
-    (d) => d.address.toLowerCase() === normalizedAddress
-  );
-}
-
-/**
- * Filter delegates by minimum voting power
- * @param cache - The delegate cache to filter
- * @param minPowerWei - Minimum voting power in wei (as string)
- * @returns Array of delegates meeting the minimum power threshold
- */
-export function getDelegatesWithMinPower(
-  cache: DelegateCache,
-  minPowerWei: string
-): DelegateInfo[] {
-  const minPower = BigInt(minPowerWei);
-  return cache.delegates.filter((d) => BigInt(d.votingPower) >= minPower);
 }

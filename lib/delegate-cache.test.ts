@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { DelegateCache, DelegateInfo } from "@/types/delegate";
 
 import {
-  findDelegateByAddress,
   getDelegateCacheStats,
   getDelegateLabel,
-  getDelegatesWithMinPower,
   getTopDelegates,
 } from "./delegate-cache";
 
@@ -128,119 +126,6 @@ describe("delegate-cache", () => {
     it("returns empty array for empty cache", () => {
       const cache = createMockCache([]);
       expect(getTopDelegates(cache)).toHaveLength(0);
-    });
-  });
-
-  describe("findDelegateByAddress", () => {
-    const delegates = [
-      createMockDelegate("0x1111111111111111111111111111111111111111", "1000"),
-      createMockDelegate("0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "500"),
-      createMockDelegate("0xBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBb", "250"),
-    ];
-    const cache = createMockCache(delegates);
-
-    it("finds delegate by exact address", () => {
-      const result = findDelegateByAddress(
-        cache,
-        "0x1111111111111111111111111111111111111111"
-      );
-      expect(result).toBeDefined();
-      expect(result?.votingPower).toBe("1000");
-    });
-
-    it("handles case-insensitive address matching", () => {
-      const lowercase = findDelegateByAddress(
-        cache,
-        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      );
-      const uppercase = findDelegateByAddress(
-        cache,
-        "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-      );
-      const mixed = findDelegateByAddress(
-        cache,
-        "0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa"
-      );
-
-      expect(lowercase).toBeDefined();
-      expect(uppercase).toBeDefined();
-      expect(mixed).toBeDefined();
-      expect(lowercase?.votingPower).toBe("500");
-      expect(uppercase?.votingPower).toBe("500");
-      expect(mixed?.votingPower).toBe("500");
-    });
-
-    it("returns undefined for non-existent address", () => {
-      const result = findDelegateByAddress(
-        cache,
-        "0x9999999999999999999999999999999999999999"
-      );
-      expect(result).toBeUndefined();
-    });
-
-    it("handles empty cache", () => {
-      const emptyCache = createMockCache([]);
-      const result = findDelegateByAddress(
-        emptyCache,
-        "0x1111111111111111111111111111111111111111"
-      );
-      expect(result).toBeUndefined();
-    });
-  });
-
-  describe("getDelegatesWithMinPower", () => {
-    const delegates = [
-      createMockDelegate("0x1111111111111111111111111111111111111111", "1000"),
-      createMockDelegate("0x2222222222222222222222222222222222222222", "500"),
-      createMockDelegate("0x3333333333333333333333333333333333333333", "250"),
-      createMockDelegate("0x4444444444444444444444444444444444444444", "100"),
-    ];
-    const cache = createMockCache(delegates);
-
-    it("filters delegates with minimum power", () => {
-      const result = getDelegatesWithMinPower(cache, "500");
-      expect(result).toHaveLength(2);
-      expect(result.map((d) => d.votingPower)).toEqual(["1000", "500"]);
-    });
-
-    it("returns all delegates when min is 0", () => {
-      const result = getDelegatesWithMinPower(cache, "0");
-      expect(result).toHaveLength(4);
-    });
-
-    it("returns empty array when min exceeds all", () => {
-      const result = getDelegatesWithMinPower(cache, "2000");
-      expect(result).toHaveLength(0);
-    });
-
-    it("handles large BigInt values", () => {
-      const bigDelegates = [
-        createMockDelegate(
-          "0x1111111111111111111111111111111111111111",
-          "1000000000000000000000000"
-        ), // 1e24
-        createMockDelegate(
-          "0x2222222222222222222222222222222222222222",
-          "500000000000000000000000"
-        ), // 5e23
-        createMockDelegate(
-          "0x3333333333333333333333333333333333333333",
-          "100000000000000000000000"
-        ), // 1e23
-      ];
-      const bigCache = createMockCache(bigDelegates);
-
-      const result = getDelegatesWithMinPower(
-        bigCache,
-        "500000000000000000000000"
-      );
-      expect(result).toHaveLength(2);
-    });
-
-    it("handles empty cache", () => {
-      const emptyCache = createMockCache([]);
-      const result = getDelegatesWithMinPower(emptyCache, "100");
-      expect(result).toHaveLength(0);
     });
   });
 });

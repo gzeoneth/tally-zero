@@ -16,7 +16,7 @@ import { shortenAddress } from "@/lib/format-utils";
 import { getAllStageMetadata } from "@/lib/stage-tracker";
 import { truncateMiddle } from "@/lib/text-utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
-import { calculateExpectedEta, type TrackedStage } from "@gzeoneth/gov-tracker";
+import { calculateExpectedEta } from "@gzeoneth/gov-tracker";
 import {
   ExternalLinkIcon,
   InfoCircledIcon,
@@ -488,9 +488,6 @@ function StagesList({
   const estimatedTimes = useMemo(() => {
     const times = new Map<StageType, EstimatedTimeRange>();
 
-    // Convert ProposalStage[] to TrackedStage[] for gov-tracker
-    const trackedStages = stages as unknown as TrackedStage[];
-
     for (const stageType of relevantStageTypes) {
       const stage = stageMap.get(stageType);
 
@@ -502,7 +499,8 @@ function StagesList({
       if (stageIndex < 0) continue;
 
       // Use gov-tracker's calculateExpectedEta for consistent ETA calculation
-      const eta = calculateExpectedEta(trackedStages, stageIndex);
+      // ProposalStage is a re-export of TrackedStage, so types are compatible
+      const eta = calculateExpectedEta(stages, stageIndex);
 
       if (eta) {
         const estimatedTime = new Date(eta * 1000);
