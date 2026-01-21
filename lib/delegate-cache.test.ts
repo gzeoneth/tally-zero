@@ -29,7 +29,6 @@ const createMockCache = (delegates: DelegateInfo[]): DelegateCache => ({
   delegates,
   stats: {
     totalDelegates: delegates.length,
-    eventsProcessed: 50000,
   },
 });
 
