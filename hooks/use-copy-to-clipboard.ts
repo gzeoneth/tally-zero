@@ -31,17 +31,11 @@ export function useCopyToClipboard(): UseCopyToClipboardResult {
   const copy = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
     } catch {
-      // Fallback for older browsers or restricted contexts
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
+      // Clipboard API not available in this context
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), COPY_SUCCESS_TIMEOUT_MS);
   }, []);
 
   return { copied, copy };

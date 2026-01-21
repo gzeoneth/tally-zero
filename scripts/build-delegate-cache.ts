@@ -274,10 +274,10 @@ function processDelegates(
  * Calculate total voting power from delegates
  */
 function calculateTotalVotingPower(delegates: DelegateInfo[]): string {
-  let total = ethers.BigNumber.from(0);
+  let total = BigInt(0);
 
   for (const delegate of delegates) {
-    total = total.add(ethers.BigNumber.from(delegate.votingPower));
+    total = total + BigInt(delegate.votingPower);
   }
 
   return total.toString();

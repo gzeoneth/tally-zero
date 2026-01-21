@@ -151,36 +151,9 @@ export type ProposalStateValue =
   (typeof ProposalState)[keyof typeof ProposalState];
 
 /**
- * Get configuration for a specific governor type
- * @param type - The governor type ("core" or "treasury")
- * @returns Governor configuration with governor, timelock, and L1 timelock info
- */
-export function getGovernorConfig(type: "core" | "treasury") {
-  if (type === "core") {
-    return {
-      governor: CORE_GOVERNOR,
-      l2Timelock: L2_CORE_TIMELOCK,
-      l1Timelock: L1_TIMELOCK,
-      hasL1Timelock: true,
-    };
-  } else {
-    return {
-      governor: TREASURY_GOVERNOR,
-      l2Timelock: L2_TREASURY_TIMELOCK,
-      l1Timelock: null,
-      hasL1Timelock: false,
-    };
-  }
-}
-
-/**
  * Challenge period in L1 blocks (~7 days at 12s/block)
- * The older challenge period is shorter, we use that when looking up events.
  */
 export const CHALLENGE_PERIOD_L1_BLOCKS = 46080;
-
-/** Legacy challenge period in L1 blocks (used for historical event lookup) */
-export const OLD_CHALLENGE_PERIOD_L1_BLOCKS = 45818;
 
 /**
  * Maximum voting period search range in L2 blocks.

@@ -1,5 +1,11 @@
 import { ELECTION_TIMING } from "@gzeoneth/gov-tracker";
 
+import {
+  MS_PER_SECOND,
+  SECONDS_PER_DAY,
+  SECONDS_PER_HOUR,
+  SECONDS_PER_MINUTE,
+} from "@/lib/date-utils";
 import type { ElectionPhase, PhaseMetadata } from "@/types/election";
 
 export const SC_CONTRACTS = {
@@ -90,17 +96,17 @@ export function formatCohort(cohort: 0 | 1): string {
 }
 
 export function daysUntil(timestamp: number): number {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(Date.now() / MS_PER_SECOND);
   const diff = timestamp - now;
-  return Math.max(0, Math.ceil(diff / 86400));
+  return Math.max(0, Math.ceil(diff / SECONDS_PER_DAY));
 }
 
 export function formatDuration(seconds: number): string {
   if (seconds <= 0) return "Now";
 
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
+  const days = Math.floor(seconds / SECONDS_PER_DAY);
+  const hours = Math.floor((seconds % SECONDS_PER_DAY) / SECONDS_PER_HOUR);
+  const minutes = Math.floor((seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
 
   if (days > 0) {
     return `${days}d ${hours}h`;
