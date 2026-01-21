@@ -25,14 +25,19 @@ export interface QuorumProgress {
  * @param abstainVotes - String representation of "abstain" votes
  * @returns Vote distribution with percentages and totals
  */
+function safeParseFloat(value: string): number {
+  const parsed = parseFloat(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 export function calculateVoteDistribution(
   forVotes: string,
   againstVotes: string,
   abstainVotes: string
 ): VoteDistribution {
-  const forNum = parseFloat(forVotes) || 0;
-  const againstNum = parseFloat(againstVotes) || 0;
-  const abstainNum = parseFloat(abstainVotes) || 0;
+  const forNum = safeParseFloat(forVotes);
+  const againstNum = safeParseFloat(againstVotes);
+  const abstainNum = safeParseFloat(abstainVotes);
   const total = forNum + againstNum + abstainNum;
 
   if (total === 0) {
@@ -66,8 +71,8 @@ export function calculateQuorumProgress(
   required: string,
   reachedOverride?: boolean
 ): QuorumProgress {
-  const currentNum = parseFloat(current) || 0;
-  const requiredNum = parseFloat(required) || 0;
+  const currentNum = safeParseFloat(current);
+  const requiredNum = safeParseFloat(required);
   const percentage =
     requiredNum > 0 ? Math.min(100, (currentNum / requiredNum) * 100) : 0;
 

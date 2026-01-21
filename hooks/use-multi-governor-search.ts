@@ -57,10 +57,18 @@ export function useMultiGovernorSearch({
 
   // Initialize provider using cached factory
   useEffect(() => {
+    let cancelled = false;
     setProviderReady(false);
     createRpcProvider(rpcUrl)
-      .then(() => setProviderReady(true))
-      .catch((err) => setError(err as Error));
+      .then(() => {
+        if (!cancelled) setProviderReady(true);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err as Error);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [rpcUrl]);
 
   // Search for proposals

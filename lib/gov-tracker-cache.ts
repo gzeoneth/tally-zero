@@ -64,7 +64,9 @@ export async function seedCheckpointFromStages(
   const key = txHashCacheKey(creationTxHash);
 
   const lastStage = stages[stages.length - 1];
-  const lastTx = lastStage.transactions[lastStage.transactions.length - 1];
+  const transactions = lastStage.transactions ?? [];
+  const lastTx =
+    transactions.length > 0 ? transactions[transactions.length - 1] : undefined;
 
   const checkpoint: TrackingCheckpoint = {
     version: 1,
