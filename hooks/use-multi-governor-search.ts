@@ -229,7 +229,13 @@ export function useMultiGovernorSearch({
       }
     };
 
-    search();
+    search().catch((err) => {
+      if (!cancelled && !abortController.signal.aborted) {
+        debug.search("unhandled search error: %O", err);
+        setError(err as Error);
+        setIsSearching(false);
+      }
+    });
 
     return () => {
       cancelled = true;
