@@ -42,8 +42,8 @@ export interface DelegateCache {
   stats: {
     /** Total number of delegates with non-zero voting power */
     totalDelegates: number;
-    /** Number of DelegateVotesChanged events processed */
-    eventsProcessed: number;
+    /** Number of DelegateVotesChanged events processed (optional, deprecated) */
+    eventsProcessed?: number;
   };
 }
 
