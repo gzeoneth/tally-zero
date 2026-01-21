@@ -110,3 +110,49 @@ export function getStoredCacheTtlMs(): number {
   );
   return seconds > 0 ? seconds * 1000 : DEFAULT_CACHE_TTL_MS;
 }
+
+/**
+ * Iterate over localStorage keys that start with a given prefix.
+ * Provides key and value to the callback for each matching entry.
+ *
+ * @param prefix - The prefix to filter keys by
+ * @param callback - Function called for each matching key-value pair
+ */
+export function iterateStorageByPrefix(
+  prefix: string,
+  callback: (key: string, value: string) => void
+): void {
+  if (!inBrowser()) return;
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      const value = localStorage.getItem(key);
+      if (value !== null) {
+        callback(key, value);
+      }
+    }
+  }
+}
+
+/**
+ * Collect all localStorage keys that match a given predicate.
+ * Useful for gathering keys before deletion to avoid mutation during iteration.
+ *
+ * @param predicate - Function that returns true for keys to collect
+ * @returns Array of matching keys
+ */
+export function collectStorageKeys(
+  predicate: (key: string) => boolean
+): string[] {
+  if (!inBrowser()) return [];
+
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && predicate(key)) {
+      keys.push(key);
+    }
+  }
+  return keys;
+}
