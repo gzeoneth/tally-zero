@@ -93,6 +93,9 @@ export function DataTable<TData, TValue>({
     .getFilteredRowModel()
     .rows.map((row) => row.original);
 
+  // Cache row model to avoid repeated calls in render
+  const rows = table.getRowModel().rows;
+
   return (
     <div className="space-y-4">
       <DataTableToolbar table={table} />
@@ -127,8 +130,8 @@ export function DataTable<TData, TValue>({
                 ))}
               </TableHeader>
               <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
+                {rows.length > 0 ? (
+                  rows.map((row) => (
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
