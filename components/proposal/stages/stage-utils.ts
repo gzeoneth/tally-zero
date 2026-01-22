@@ -5,8 +5,12 @@ import {
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
 import { getTxExplorerUrl, type ChainId } from "@/lib/explorer-utils";
-import type { ProposalStage, StageType } from "@/types/proposal-stage";
-import type { Chain, VotingActiveData } from "@gzeoneth/gov-tracker";
+import {
+  getStageData,
+  type ProposalStage,
+  type StageType,
+} from "@/types/proposal-stage";
+import type { Chain } from "@gzeoneth/gov-tracker";
 
 /**
  * Get the explorer URL for a transaction based on chain
@@ -77,7 +81,6 @@ export interface EstimatedTimesResult {
  */
 export function calculateEstimatedCompletionTimes(
   allStageTypes: Array<{ type: StageType; estimatedDuration?: string }>,
-  stages: ProposalStage[],
   stageMap: Map<StageType, ProposalStage>,
   currentL1Block?: number
 ): EstimatedTimesResult {
@@ -109,9 +112,13 @@ export function calculateEstimatedCompletionTimes(
   const votingStage = stageMap.get("VOTING_ACTIVE");
   let blockBasedTiming: BlockBasedTiming | null = null;
 
-  // Type-narrow voting data for type-safe access
-  const votingData: VotingActiveData | null =
-    votingStage?.type === "VOTING_ACTIVE" ? votingStage.data : null;
+  // Use type guard for type-safe stage data access
+  const proposalData = proposalCreatedStage
+    ? getStageData(proposalCreatedStage, "PROPOSAL_CREATED")
+    : null;
+  const votingData = votingStage
+    ? getStageData(votingStage, "VOTING_ACTIVE")
+    : null;
 
   // Check if extension is still possible and if it was extended
   const extensionPossible = votingData?.extensionPossible !== false;
@@ -120,14 +127,9 @@ export function calculateEstimatedCompletionTimes(
     ? Number(votingData.extendedDeadline)
     : null;
 
-  if (
-    currentL1Block &&
-    proposalCreatedStage?.data &&
-    "startBlock" in proposalCreatedStage.data &&
-    "endBlock" in proposalCreatedStage.data
-  ) {
-    const startBlock = Number(proposalCreatedStage.data.startBlock);
-    const endBlock = Number(proposalCreatedStage.data.endBlock);
+  if (currentL1Block && proposalData?.startBlock && proposalData?.endBlock) {
+    const startBlock = Number(proposalData.startBlock);
+    const endBlock = Number(proposalData.endBlock);
 
     if (!isNaN(startBlock) && !isNaN(endBlock)) {
       blockBasedTiming = {

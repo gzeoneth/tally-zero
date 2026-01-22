@@ -105,7 +105,6 @@ export default function ProposalStages({
 
   const { estimatedTimes, votingTimeRange } = calculateEstimatedCompletionTimes(
     relevantStageTypes,
-    stages,
     stageMap,
     currentL1Block
   );
