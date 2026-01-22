@@ -17,6 +17,7 @@ import { useRpcHealthOrchestration } from "@/hooks/use-rpc-health-orchestration"
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import {
   useTimelockOpsDiscovery,
+  type LifecycleStatus,
   type TimelockOpWithStatus,
 } from "@/hooks/use-timelock-ops-discovery";
 import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
@@ -26,6 +27,47 @@ import { TimelockOpDetail } from "./TimelockOpDetail";
 function truncateHash(hash: string, start = 10, end = 8): string {
   if (hash.length <= start + end) return hash;
   return `${hash.slice(0, start)}...${hash.slice(-end)}`;
+}
+
+function LifecycleStatusBadge({ status }: { status: LifecycleStatus }) {
+  const config: Record<LifecycleStatus, { className: string; label: string }> =
+    {
+      "L2 Pending": {
+        className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
+        label: "L2 Pending",
+      },
+      "L2 Executed": {
+        className: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
+        label: "L2 Executed",
+      },
+      "L2→L1 Pending": {
+        className: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
+        label: "L2→L1",
+      },
+      "L1 Pending": {
+        className: "bg-purple-500/10 text-purple-700 dark:text-purple-300",
+        label: "L1 Pending",
+      },
+      "L1 Executed": {
+        className: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+        label: "L1 Executed",
+      },
+      Completed: {
+        className: "bg-green-500/10 text-green-700 dark:text-green-300",
+        label: "Completed",
+      },
+      Unknown: {
+        className: "bg-gray-500/10 text-gray-700 dark:text-gray-300",
+        label: "Unknown",
+      },
+    };
+
+  const { className, label } = config[status];
+  return (
+    <Badge variant="outline" className={className}>
+      {label}
+    </Badge>
+  );
 }
 
 function TimelockOpsList({
@@ -59,7 +101,8 @@ function TimelockOpsList({
             <TableHead>Operation ID</TableHead>
             <TableHead>Timelock</TableHead>
             <TableHead>Block</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Lifecycle</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Transaction</TableHead>
           </TableRow>
         </TableHeader>
@@ -86,6 +129,9 @@ function TimelockOpsList({
               </TableCell>
               <TableCell className="font-mono text-sm">
                 {op.queueBlock.toLocaleString()}
+              </TableCell>
+              <TableCell>
+                <LifecycleStatusBadge status={op.lifecycleStatus} />
               </TableCell>
               <TableCell>
                 {op.isOrphan ? (

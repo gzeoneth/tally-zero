@@ -17,6 +17,7 @@ import { createProposalTracker } from "@/lib/stage-tracker";
 import {
   ADDRESSES,
   type DiscoveredTimelockOp,
+  type TrackedStage,
   type TrackingCheckpoint,
   isChildCheckpoint,
 } from "@gzeoneth/gov-tracker";
@@ -24,10 +25,47 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "./use-local-storage";
 import { useRpcSettings } from "./use-rpc-settings";
 
+/** Lifecycle status for display */
+export type LifecycleStatus =
+  | "L2 Pending"
+  | "L2 Executed"
+  | "L2→L1 Pending"
+  | "L1 Pending"
+  | "L1 Executed"
+  | "Completed"
+  | "Unknown";
+
 /** Discovered timelock operation with orphan status */
 export interface TimelockOpWithStatus extends DiscoveredTimelockOp {
   isOrphan: boolean;
   timelockName: string;
+  lifecycleStatus: LifecycleStatus;
+}
+
+function deriveLifecycleStatus(stages: TrackedStage[]): LifecycleStatus {
+  if (stages.length === 0) return "Unknown";
+
+  const stageMap = new Map(stages.map((s) => [s.type, s]));
+
+  const retryable = stageMap.get("RETRYABLE_EXECUTED");
+  if (retryable?.status === "COMPLETED") return "Completed";
+
+  const l1Timelock = stageMap.get("L1_TIMELOCK");
+  if (l1Timelock?.status === "COMPLETED") return "L1 Executed";
+  if (l1Timelock?.status === "PENDING" || l1Timelock?.status === "READY")
+    return "L1 Pending";
+
+  const l2ToL1 = stageMap.get("L2_TO_L1_MESSAGE");
+  if (l2ToL1?.status === "PENDING" || l2ToL1?.status === "READY")
+    return "L2→L1 Pending";
+  if (l2ToL1?.status === "COMPLETED") return "L1 Pending";
+
+  const l2Timelock = stageMap.get("L2_TIMELOCK");
+  if (l2Timelock?.status === "COMPLETED") return "L2 Executed";
+  if (l2Timelock?.status === "PENDING" || l2Timelock?.status === "READY")
+    return "L2 Pending";
+
+  return "Unknown";
 }
 
 /** Options for timelock discovery */
@@ -130,7 +168,7 @@ export function useTimelockOpsDiscovery({
 
       const allOps = [...coreOps, ...treasuryOps];
 
-      // Check which operations are orphans (not linked to proposals)
+      // Check which operations are orphans and track lifecycle status
       const opsWithStatus: TimelockOpWithStatus[] = [];
       const totalOps = allOps.length;
 
@@ -149,14 +187,29 @@ export function useTimelockOpsDiscovery({
 
         const isOrphan = !isChild && !isGovernorCheckpoint;
 
+        // Track the operation to get lifecycle status
+        let lifecycleStatus: LifecycleStatus = "Unknown";
+        try {
+          const results = await tracker.trackByTxHash(
+            op.scheduledTxHash,
+            op.operationId
+          );
+          if (results.length > 0) {
+            lifecycleStatus = deriveLifecycleStatus(results[0].stages);
+          }
+        } catch {
+          // If tracking fails, status remains "Unknown"
+        }
+
         opsWithStatus.push({
           ...op,
           isOrphan,
           timelockName: getTimelockName(op.timelockAddress),
+          lifecycleStatus,
         });
 
-        // Update progress between 60-90%
-        setProgress(60 + Math.floor((i / totalOps) * 30));
+        // Update progress between 60-95%
+        setProgress(60 + Math.floor((i / totalOps) * 35));
       }
 
       if (controller.signal.aborted) return;
