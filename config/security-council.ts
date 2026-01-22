@@ -1,4 +1,4 @@
-import { ELECTION_TIMING } from "@gzeoneth/gov-tracker";
+import { ELECTION_TIMING, type StageType } from "@gzeoneth/gov-tracker";
 
 import {
   MS_PER_SECOND,
@@ -76,6 +76,21 @@ export const PHASE_METADATA: Record<ElectionPhase, PhaseMetadata> = {
 export const TARGET_COHORT_SIZE = 6;
 
 export const TOTAL_SC_MEMBERS = 12;
+
+export const PHASE_TO_STAGE_TYPES: Record<ElectionPhase, StageType[]> = {
+  NOT_STARTED: [],
+  CONTENDER_SUBMISSION: ["CREATE_ELECTION"],
+  NOMINEE_SELECTION: ["NOMINEE_ELECTION"],
+  VETTING_PERIOD: ["NOMINEE_VETTING"],
+  MEMBER_ELECTION: ["MEMBER_ELECTION"],
+  PENDING_EXECUTION: [
+    "L2_TIMELOCK",
+    "L2_TO_L1_MESSAGE",
+    "L1_TIMELOCK",
+    "RETRYABLE_EXECUTED",
+  ],
+  COMPLETED: [],
+};
 
 export const NOMINEE_QUORUM_PERCENT = 0.2;
 

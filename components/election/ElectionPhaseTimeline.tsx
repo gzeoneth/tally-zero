@@ -6,7 +6,6 @@ import {
   ELECTION_TIMING,
   getTxUrl,
   type ElectionStatus,
-  type StageType,
   type TrackedStage,
 } from "@gzeoneth/gov-tracker";
 import {
@@ -23,7 +22,11 @@ import { useDeepLink } from "@/context/DeepLinkContext";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { getOrCreateProvider } from "@/lib/rpc-utils";
 
-import { formatDuration, PHASE_METADATA } from "@/config/security-council";
+import {
+  formatDuration,
+  PHASE_METADATA,
+  PHASE_TO_STAGE_TYPES,
+} from "@/config/security-council";
 import { cn } from "@/lib/utils";
 import type { ElectionPhase } from "@/types/election";
 
@@ -33,21 +36,6 @@ interface ElectionPhaseTimelineProps {
   status?: ElectionStatus | null;
   className?: string;
 }
-
-const PHASE_TO_STAGE_TYPES: Record<ElectionPhase, StageType[]> = {
-  NOT_STARTED: [],
-  CONTENDER_SUBMISSION: ["CREATE_ELECTION"],
-  NOMINEE_SELECTION: ["NOMINEE_ELECTION"],
-  VETTING_PERIOD: ["NOMINEE_VETTING"],
-  MEMBER_ELECTION: ["MEMBER_ELECTION"],
-  PENDING_EXECUTION: [
-    "L2_TIMELOCK",
-    "L2_TO_L1_MESSAGE",
-    "L1_TIMELOCK",
-    "RETRYABLE_EXECUTED",
-  ],
-  COMPLETED: [],
-};
 
 interface PhaseTransaction {
   hash: string;
