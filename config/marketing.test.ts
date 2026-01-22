@@ -10,7 +10,7 @@ describe("marketing config", () => {
     });
 
     it("has correct number of nav items", () => {
-      expect(marketingConfig.mainNav).toHaveLength(4);
+      expect(marketingConfig.mainNav).toHaveLength(5);
     });
 
     describe("nav items", () => {
@@ -36,6 +36,14 @@ describe("marketing config", () => {
         );
         expect(delegates).toBeDefined();
         expect(delegates?.href).toBe("/delegates");
+      });
+
+      it("has Timelock nav item", () => {
+        const timelock = marketingConfig.mainNav.find(
+          (item) => item.title === "Timelock"
+        );
+        expect(timelock).toBeDefined();
+        expect(timelock?.href).toBe("/timelock");
       });
 
       it("has Arbitrum DAO nav item", () => {
