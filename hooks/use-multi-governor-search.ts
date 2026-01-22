@@ -10,6 +10,7 @@ import {
   extractProposalsFromBundledCache,
   getBundledCacheWatermark,
 } from "@/lib/bundled-cache-loader";
+import { buildLookupMap } from "@/lib/collection-utils";
 import { debug } from "@/lib/debug";
 import {
   parseProposals,
@@ -29,8 +30,9 @@ import { ParsedProposal } from "@/types/proposal";
 import {
   ARBITRUM_GOVERNORS,
   ARBITRUM_RPC_URL,
-  BLOCKS_PER_DAY,
 } from "@config/arbitrum-governance";
+import { BLOCKS_PER_DAY } from "@config/block-times";
+import { useRpcProvider } from "./use-rpc-provider";
 
 /** Default block range for chunked RPC queries */
 const DEFAULT_BLOCK_RANGE = 10000000;
@@ -50,18 +52,18 @@ export function useMultiGovernorSearch({
   const [proposals, setProposals] = useState<ParsedProposal[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [providerReady, setProviderReady] = useState(false);
   const [cacheInfo, setCacheInfo] = useState<CacheHitInfo>();
 
   const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
+  const { isReady: providerReady, error: providerError } =
+    useRpcProvider(rpcUrl);
 
-  // Initialize provider using cached factory
+  // Propagate provider initialization error
   useEffect(() => {
-    setProviderReady(false);
-    createRpcProvider(rpcUrl)
-      .then(() => setProviderReady(true))
-      .catch((err) => setError(err as Error));
-  }, [rpcUrl]);
+    if (providerError) {
+      setError(providerError);
+    }
+  }, [providerError]);
 
   // Search for proposals
   useEffect(() => {
@@ -122,7 +124,7 @@ export function useMultiGovernorSearch({
           );
 
           // Update the proposals with refreshed data
-          const refreshedMap = new Map(refreshed.map((p) => [p.id, p]));
+          const refreshedMap = buildLookupMap(refreshed, (p) => p.id);
           for (let i = 0; i < allProposals.length; i++) {
             const updated = refreshedMap.get(allProposals[i].id);
             if (updated) {
@@ -157,37 +159,33 @@ export function useMultiGovernorSearch({
             currentBlock
           );
 
-          const totalGovernors = ARBITRUM_GOVERNORS.length;
-          let completedQueries = 0;
+          // Search all governors in parallel for better performance
+          const searchResults = await Promise.all(
+            ARBITRUM_GOVERNORS.map((governor) =>
+              searchGovernor(
+                provider,
+                governor.address,
+                rpcStartBlock,
+                currentBlock,
+                blockRange,
+                () => {}
+              )
+            )
+          );
 
-          for (const governor of ARBITRUM_GOVERNORS) {
-            if (abortController.signal.aborted) break;
+          if (cancelled || abortController.signal.aborted) return;
+          setProgress(60);
 
-            const rawProposals = await searchGovernor(
-              provider,
-              governor.address,
-              rpcStartBlock,
-              currentBlock,
-              blockRange,
-              () => {}
-            );
-
-            completedQueries++;
-            if (!cancelled) {
-              const searchProgress =
-                30 + (completedQueries / totalGovernors) * 50;
-              setProgress(searchProgress);
-            }
-
-            if (rawProposals.length > 0) {
-              const parsed = await parseProposals(provider, rawProposals);
-              // Deduplicate: only add proposals not already in cached set
-              const existingIds = new Set(allProposals.map((p) => p.id));
-              for (const p of parsed) {
-                if (!existingIds.has(p.id)) {
-                  allProposals.push(p);
-                  freshCount++;
-                }
+          // Parse proposals from each governor in parallel
+          const allRawProposals = searchResults.flat();
+          if (allRawProposals.length > 0) {
+            const parsed = await parseProposals(provider, allRawProposals);
+            // Build existingIds set once, outside the loop
+            const existingIds = new Set(allProposals.map((p) => p.id));
+            for (const p of parsed) {
+              if (!existingIds.has(p.id)) {
+                allProposals.push(p);
+                freshCount++;
               }
             }
           }
@@ -225,7 +223,13 @@ export function useMultiGovernorSearch({
       }
     };
 
-    search();
+    search().catch((err) => {
+      if (!cancelled && !abortController.signal.aborted) {
+        debug.search("unhandled search error: %O", err);
+        setError(err as Error);
+        setIsSearching(false);
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -236,32 +240,38 @@ export function useMultiGovernorSearch({
   // Subscribe to vote updates and update proposals when votes change
   useEffect(() => {
     return subscribeToVoteUpdates((update: VoteUpdate) => {
-      setProposals((prev) =>
-        prev.map((p) => {
-          if (
-            p.id === update.proposalId &&
-            p.contractAddress.toLowerCase() ===
-              update.governorAddress.toLowerCase()
-          ) {
-            debug.search(
-              "updating votes for proposal %s: for=%s, against=%s",
-              p.id,
-              update.forVotes,
-              update.againstVotes
-            );
-            return {
-              ...p,
-              votes: {
-                forVotes: update.forVotes,
-                againstVotes: update.againstVotes,
-                abstainVotes: update.abstainVotes,
-                quorum: p.votes?.quorum || "0",
-              },
-            };
-          }
-          return p;
-        })
-      );
+      setProposals((prev) => {
+        // Create composite key for O(1) lookup
+        const updateKey = `${update.proposalId}:${update.governorAddress.toLowerCase()}`;
+
+        // Find index of matching proposal (still O(n) but only once)
+        const idx = prev.findIndex(
+          (p) => `${p.id}:${p.contractAddress.toLowerCase()}` === updateKey
+        );
+
+        // No matching proposal found - return unchanged array
+        if (idx === -1) return prev;
+
+        debug.search(
+          "updating votes for proposal %s: for=%s, against=%s",
+          update.proposalId,
+          update.forVotes,
+          update.againstVotes
+        );
+
+        // Create new array with only the updated proposal changed
+        const updated = [...prev];
+        updated[idx] = {
+          ...prev[idx],
+          votes: {
+            forVotes: update.forVotes,
+            againstVotes: update.againstVotes,
+            abstainVotes: update.abstainVotes,
+            quorum: prev[idx].votes?.quorum || "0",
+          },
+        };
+        return updated;
+      });
     });
   }, []);
 

@@ -10,7 +10,11 @@ import {
   formatEstimatedCompletion,
   type EstimatedTimeRange,
 } from "@/lib/date-utils";
-import type { ProposalStage, StageType } from "@/types/proposal-stage";
+import {
+  getStageData,
+  type ProposalStage,
+  type StageType,
+} from "@/types/proposal-stage";
 import type { VotingActiveData } from "@gzeoneth/gov-tracker";
 import { CalendarIcon } from "@radix-ui/react-icons";
 
@@ -21,9 +25,8 @@ import { VoteDistributionBar } from "./VoteDistributionBar";
 function getVotingData(
   stage: ProposalStage | undefined
 ): VotingActiveData | null {
-  if (!stage?.data) return null;
-  if (stage.type === "VOTING_ACTIVE") return stage.data;
-  return null;
+  if (!stage) return null;
+  return getStageData(stage, "VOTING_ACTIVE");
 }
 
 export interface VotingStageContentProps {

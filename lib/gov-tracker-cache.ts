@@ -10,6 +10,7 @@ import { DEFAULT_CACHE_TTL_MS, STORAGE_KEYS } from "@/config/storage-keys";
 import type { ProposalTrackingResult } from "@/types/proposal-stage";
 import {
   extractTimelockLink,
+  getStageData,
   isCheckpointComplete,
   LocalStorageCache,
   txHashCacheKey,
@@ -64,7 +65,9 @@ export async function seedCheckpointFromStages(
   const key = txHashCacheKey(creationTxHash);
 
   const lastStage = stages[stages.length - 1];
-  const lastTx = lastStage.transactions[lastStage.transactions.length - 1];
+  const transactions = lastStage.transactions ?? [];
+  const lastTx =
+    transactions.length > 0 ? transactions[transactions.length - 1] : undefined;
 
   const checkpoint: TrackingCheckpoint = {
     version: 1,
@@ -184,12 +187,12 @@ export async function loadCachedProposal(
   // Derive timelockLink from stages (same as gov-tracker does)
   const timelockLink = extractTimelockLink(stages);
 
-  // Extract currentState from VOTING_ACTIVE stage data
+  // Extract currentState from VOTING_ACTIVE stage data using type guard
   const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
-  const currentState =
-    votingStage?.type === "VOTING_ACTIVE"
-      ? (votingStage.data as { proposalState?: string }).proposalState
-      : undefined;
+  const votingData = votingStage
+    ? getStageData(votingStage, "VOTING_ACTIVE")
+    : null;
+  const currentState = votingData?.proposalState;
 
   // Convert checkpoint to ProposalTrackingResult
   const result: ProposalTrackingResult = {

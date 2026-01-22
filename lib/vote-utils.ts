@@ -3,6 +3,32 @@
  * Centralizes the logic used across VoteDistributionBar, QuorumIndicator, etc.
  */
 
+import type { ProposalVotes } from "@/types/proposal";
+
+/** Raw votes from ethers BigNumber before formatting */
+export interface RawVotes {
+  forVotes: { toString(): string };
+  againstVotes: { toString(): string };
+  abstainVotes: { toString(): string };
+}
+
+/**
+ * Format raw votes from contract call into ProposalVotes structure.
+ * Consolidates the common pattern of stringifying BigNumber votes.
+ *
+ * @param votes - Raw vote counts from contract (ethers BigNumber compatible)
+ * @param quorum - Optional quorum threshold
+ * @returns Formatted proposal votes
+ */
+export function formatVotes(votes: RawVotes, quorum?: string): ProposalVotes {
+  return {
+    forVotes: votes.forVotes.toString(),
+    againstVotes: votes.againstVotes.toString(),
+    abstainVotes: votes.abstainVotes.toString(),
+    quorum,
+  };
+}
+
 export interface VoteDistribution {
   forPct: number;
   againstPct: number;
@@ -25,14 +51,19 @@ export interface QuorumProgress {
  * @param abstainVotes - String representation of "abstain" votes
  * @returns Vote distribution with percentages and totals
  */
+function safeParseFloat(value: string): number {
+  const parsed = parseFloat(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 export function calculateVoteDistribution(
   forVotes: string,
   againstVotes: string,
   abstainVotes: string
 ): VoteDistribution {
-  const forNum = parseFloat(forVotes) || 0;
-  const againstNum = parseFloat(againstVotes) || 0;
-  const abstainNum = parseFloat(abstainVotes) || 0;
+  const forNum = safeParseFloat(forVotes);
+  const againstNum = safeParseFloat(againstVotes);
+  const abstainNum = safeParseFloat(abstainVotes);
   const total = forNum + againstNum + abstainNum;
 
   if (total === 0) {
@@ -66,8 +97,8 @@ export function calculateQuorumProgress(
   required: string,
   reachedOverride?: boolean
 ): QuorumProgress {
-  const currentNum = parseFloat(current) || 0;
-  const requiredNum = parseFloat(required) || 0;
+  const currentNum = safeParseFloat(current);
+  const requiredNum = safeParseFloat(required);
   const percentage =
     requiredNum > 0 ? Math.min(100, (currentNum / requiredNum) * 100) : 0;
 

@@ -1,5 +1,11 @@
-import { ELECTION_TIMING } from "@gzeoneth/gov-tracker";
+import { ELECTION_TIMING, type StageType } from "@gzeoneth/gov-tracker";
 
+import {
+  MS_PER_SECOND,
+  SECONDS_PER_DAY,
+  SECONDS_PER_HOUR,
+  SECONDS_PER_MINUTE,
+} from "@/lib/date-utils";
 import type { ElectionPhase, PhaseMetadata } from "@/types/election";
 
 export const SC_CONTRACTS = {
@@ -71,6 +77,21 @@ export const TARGET_COHORT_SIZE = 6;
 
 export const TOTAL_SC_MEMBERS = 12;
 
+export const PHASE_TO_STAGE_TYPES: Record<ElectionPhase, StageType[]> = {
+  NOT_STARTED: [],
+  CONTENDER_SUBMISSION: ["CREATE_ELECTION"],
+  NOMINEE_SELECTION: ["NOMINEE_ELECTION"],
+  VETTING_PERIOD: ["NOMINEE_VETTING"],
+  MEMBER_ELECTION: ["MEMBER_ELECTION"],
+  PENDING_EXECUTION: [
+    "L2_TIMELOCK",
+    "L2_TO_L1_MESSAGE",
+    "L1_TIMELOCK",
+    "RETRYABLE_EXECUTED",
+  ],
+  COMPLETED: [],
+};
+
 export const NOMINEE_QUORUM_PERCENT = 0.2;
 
 export function getPhaseColor(phase: ElectionPhase): string {
@@ -90,17 +111,17 @@ export function formatCohort(cohort: 0 | 1): string {
 }
 
 export function daysUntil(timestamp: number): number {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(Date.now() / MS_PER_SECOND);
   const diff = timestamp - now;
-  return Math.max(0, Math.ceil(diff / 86400));
+  return Math.max(0, Math.ceil(diff / SECONDS_PER_DAY));
 }
 
 export function formatDuration(seconds: number): string {
   if (seconds <= 0) return "Now";
 
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
+  const days = Math.floor(seconds / SECONDS_PER_DAY);
+  const hours = Math.floor((seconds % SECONDS_PER_DAY) / SECONDS_PER_HOUR);
+  const minutes = Math.floor((seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
 
   if (days > 0) {
     return `${days}d ${hours}h`;

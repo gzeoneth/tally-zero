@@ -18,27 +18,64 @@ interface CachedProvider {
 }
 const providerCache = new Map<string, CachedProvider>();
 
+/** Guard flag to prevent concurrent eviction attempts */
+let isEvicting = false;
+
 /**
  * Evicts least recently used providers when cache exceeds max size.
  * Keeps the cache bounded to prevent memory leaks.
+ * Uses a guard flag to prevent race conditions from concurrent calls.
  */
 function evictLruProviders(): void {
+  if (isEvicting) return;
   if (providerCache.size <= MAX_PROVIDER_CACHE_SIZE) return;
 
-  // Sort entries by lastUsed timestamp (oldest first)
-  const entries = Array.from(providerCache.entries()).sort(
-    ([, a], [, b]) => a.lastUsed - b.lastUsed
-  );
+  isEvicting = true;
+  try {
+    // Sort entries by lastUsed timestamp (oldest first)
+    const entries = Array.from(providerCache.entries()).sort(
+      ([, a], [, b]) => a.lastUsed - b.lastUsed
+    );
 
-  // Evict oldest entries until we're under the limit
-  const toEvict = entries.slice(
-    0,
-    providerCache.size - MAX_PROVIDER_CACHE_SIZE
-  );
-  for (const [url] of toEvict) {
-    debug.rpc("evicting LRU provider: %s", url);
-    providerCache.delete(url);
+    // Evict oldest entries until we're under the limit
+    const toEvict = entries.slice(
+      0,
+      providerCache.size - MAX_PROVIDER_CACHE_SIZE
+    );
+    for (const [url] of toEvict) {
+      // Double-check still exists (could be deleted by concurrent cache operations)
+      if (providerCache.has(url)) {
+        debug.rpc("evicting LRU provider: %s", url);
+        providerCache.delete(url);
+      }
+    }
+  } finally {
+    isEvicting = false;
   }
+}
+
+/**
+ * Gets or creates an RPC provider without connection validation.
+ * Use this for synchronous provider access (e.g., passing to gov-tracker).
+ * The provider is cached but not validated - first RPC call may fail if URL is bad.
+ *
+ * @param rpcUrl - The JSON-RPC endpoint URL
+ * @returns A cached or new JSON-RPC provider (synchronous)
+ */
+export function getOrCreateProvider(
+  rpcUrl: string
+): ethers.providers.StaticJsonRpcProvider {
+  const cached = providerCache.get(rpcUrl);
+  if (cached) {
+    cached.lastUsed = Date.now();
+    return cached.provider;
+  }
+
+  const provider = new ethers.providers.StaticJsonRpcProvider(rpcUrl);
+
+  evictLruProviders();
+  providerCache.set(rpcUrl, { provider, lastUsed: Date.now() });
+  return provider;
 }
 
 /**

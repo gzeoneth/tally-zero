@@ -22,11 +22,24 @@ export interface RpcSettings {
   isHydrated: boolean;
 }
 
+/** Options for configuring RPC settings with custom overrides */
+export interface UseRpcSettingsOptions {
+  /** Custom L1 RPC URL (overrides stored and default) */
+  customL1Rpc?: string;
+  /** Custom L2 RPC URL (overrides stored and default) */
+  customL2Rpc?: string;
+}
+
 /**
  * Hook for accessing RPC settings from localStorage with hydration state.
  * Provides L1 (Ethereum) and L2 (Arbitrum) RPC URLs with sensible defaults.
+ *
+ * Priority order: custom prop > stored value > default
+ *
+ * @param options - Optional custom RPC URL overrides
+ * @returns RPC settings with effective URLs and hydration state
  */
-export function useRpcSettings(): RpcSettings {
+export function useRpcSettings(options?: UseRpcSettingsOptions): RpcSettings {
   const [storedL1Rpc, , l1RpcHydrated] = useLocalStorage(
     STORAGE_KEYS.L1_RPC,
     ""
@@ -45,8 +58,8 @@ export function useRpcSettings(): RpcSettings {
   );
 
   return {
-    l1Rpc: storedL1Rpc || ETHEREUM_RPC_URL,
-    l2Rpc: storedL2Rpc || ARBITRUM_RPC_URL,
+    l1Rpc: options?.customL1Rpc || storedL1Rpc || ETHEREUM_RPC_URL,
+    l2Rpc: options?.customL2Rpc || storedL2Rpc || ARBITRUM_RPC_URL,
     l2ChunkSize: storedL2ChunkSize,
     l1ChunkSize: storedL1ChunkSize,
     isHydrated:

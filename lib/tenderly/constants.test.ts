@@ -8,6 +8,7 @@ import {
   ADDRESS_ALIAS_OFFSET,
   CHAIN_IDS,
   FUNCTION_SELECTORS,
+  getNetworkIdForChain,
 } from "./constants";
 
 describe("ADDRESS_ALIAS_OFFSET", () => {
@@ -65,5 +66,31 @@ describe("FUNCTION_SELECTORS", () => {
     for (const selector of Object.values(FUNCTION_SELECTORS)) {
       expect(selector).toMatch(/^0x[a-f0-9]{8}$/);
     }
+  });
+});
+
+describe("getNetworkIdForChain", () => {
+  it("returns correct ID for ethereum", () => {
+    expect(getNetworkIdForChain("ethereum")).toBe("1");
+  });
+
+  it("returns correct ID for arb1", () => {
+    expect(getNetworkIdForChain("arb1")).toBe("42161");
+  });
+
+  it("returns correct ID for nova", () => {
+    expect(getNetworkIdForChain("nova")).toBe("42170");
+  });
+
+  it("returns default arb1 for unknown chain", () => {
+    expect(getNetworkIdForChain("unknown")).toBe("42161");
+  });
+
+  it("returns ethereum for unknown chain when specified as default", () => {
+    expect(getNetworkIdForChain("unknown", "ethereum")).toBe("1");
+  });
+
+  it("returns arb1 for unknown chain when specified as default", () => {
+    expect(getNetworkIdForChain("unknown", "arb1")).toBe("42161");
   });
 });

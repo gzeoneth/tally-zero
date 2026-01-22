@@ -5,7 +5,7 @@
 import { L1_TIMELOCK } from "@config/arbitrum-governance";
 
 import { getL1TimelockAlias } from "./address-alias";
-import { CHAIN_IDS } from "./constants";
+import { CHAIN_IDS, getNetworkIdForChain } from "./constants";
 import { getSimulationLink, getTenderlySettings } from "./settings";
 import type {
   ChainType,
@@ -14,22 +14,6 @@ import type {
   TenderlySimulationRequest,
   TenderlySimulationResponse,
 } from "./types";
-
-/**
- * Get the Tenderly network ID for a chain
- */
-function getNetworkIdForChain(chain: ChainType): string {
-  switch (chain) {
-    case "ethereum":
-      return CHAIN_IDS.ethereum;
-    case "arb1":
-      return CHAIN_IDS.arb1;
-    case "nova":
-      return CHAIN_IDS.nova;
-    default:
-      return CHAIN_IDS.arb1;
-  }
-}
 
 /**
  * Get the appropriate sender address for simulation on a chain

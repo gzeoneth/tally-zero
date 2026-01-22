@@ -169,4 +169,23 @@ describe("bundled-cache-loader", () => {
       expect(cache3.keys).toHaveBeenCalled();
     });
   });
+
+  describe("concurrent initialization", () => {
+    it("handles concurrent calls without duplicate initialization", async () => {
+      // #given
+      const cache = createMockCache();
+
+      // #when - call initializeBundledCache multiple times concurrently
+      const results = await Promise.all([
+        initializeBundledCache(cache),
+        initializeBundledCache(cache),
+        initializeBundledCache(cache),
+      ]);
+
+      // #then - all should resolve successfully
+      expect(results).toHaveLength(3);
+      // Only one call should have queried keys (shared initialization)
+      expect(cache.keys).toHaveBeenCalledTimes(1);
+    });
+  });
 });

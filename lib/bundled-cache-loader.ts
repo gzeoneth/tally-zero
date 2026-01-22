@@ -8,6 +8,7 @@ import {
   STORAGE_KEYS,
 } from "@/config/storage-keys";
 import { findByAddress } from "@/lib/address-utils";
+import { buildLookupMap } from "@/lib/collection-utils";
 import type { ParsedProposal, ProposalStateName } from "@/types/proposal";
 import {
   ARBITRUM_CHAIN_ID,
@@ -18,6 +19,7 @@ import { debug } from "./debug";
 import { getStoredValue, setStoredValue } from "./storage-utils";
 
 let bundledCacheInitialized = false;
+let bundledCacheInitPromise: Promise<void> | null = null;
 let bundledCacheData: Record<string, unknown> | null = null;
 
 async function withRetry<T>(
@@ -52,6 +54,20 @@ export async function initializeBundledCache(
     return;
   }
 
+  // Return existing promise to prevent concurrent initialization
+  if (bundledCacheInitPromise) {
+    return bundledCacheInitPromise;
+  }
+
+  // Reset promise on rejection to allow retry on next call
+  bundledCacheInitPromise = doInitializeBundledCache(cache).catch((err) => {
+    bundledCacheInitPromise = null;
+    throw err;
+  });
+  return bundledCacheInitPromise;
+}
+
+async function doInitializeBundledCache(cache: CacheAdapter): Promise<void> {
   const skipBundledCache = getStoredValue<boolean>(
     STORAGE_KEYS.SKIP_BUNDLED_CACHE,
     false
@@ -130,6 +146,7 @@ export async function initializeBundledCache(
 
 export function resetBundledCacheFlag(): void {
   bundledCacheInitialized = false;
+  bundledCacheInitPromise = null;
   bundledCacheData = null;
 }
 
@@ -300,8 +317,10 @@ export async function extractProposalsFromBundledCache(): Promise<{
       if (!proposalId || !governorAddress) continue;
 
       const stages = checkpoint.cachedData?.completedStages ?? [];
-      const createdStage = stages.find((s) => s.type === "PROPOSAL_CREATED");
-      const votingStage = stages.find((s) => s.type === "VOTING_ACTIVE");
+      // Build a Map for O(1) lookups instead of repeated O(n) find() calls
+      const stageMap = buildLookupMap(stages, (s) => s.type);
+      const createdStage = stageMap.get("PROPOSAL_CREATED");
+      const votingStage = stageMap.get("VOTING_ACTIVE");
 
       if (!createdStage?.data) continue;
 

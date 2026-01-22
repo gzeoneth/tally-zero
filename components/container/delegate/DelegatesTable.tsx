@@ -123,8 +123,8 @@ export function DelegatesTable({
                   ))}
                 </TableHeader>
                 <TableBody>
-                  {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
+                  {visibleRows.length > 0 ? (
+                    visibleRows.map((row) => (
                       <TableRow
                         key={row.id}
                         data-state={row.getIsSelected() && "selected"}

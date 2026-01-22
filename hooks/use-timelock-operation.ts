@@ -8,6 +8,7 @@
 import { isValidTxHash } from "@/lib/address-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 import { getCacheAdapter } from "@/lib/gov-tracker-cache";
+import { getOrCreateProvider } from "@/lib/rpc-utils";
 import { createProposalTracker } from "@/lib/stage-tracker";
 import type { ProposalStage } from "@/types/proposal-stage";
 import {
@@ -132,9 +133,7 @@ export function useTimelockOperation({
     setResult(null);
 
     try {
-      const l2Provider = new ethers.providers.StaticJsonRpcProvider(
-        effectiveL2RpcUrl
-      );
+      const l2Provider = getOrCreateProvider(effectiveL2RpcUrl);
 
       // Use gov-tracker's discovery function
       const discoveredOps = await findCallScheduledByTxHash(txHash, l2Provider);

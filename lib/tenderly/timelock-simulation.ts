@@ -4,7 +4,7 @@
 
 import { encodeAbiParameters, keccak256 } from "viem";
 
-import { CHAIN_IDS, FUNCTION_SELECTORS } from "./constants";
+import { FUNCTION_SELECTORS, getNetworkIdForChain } from "./constants";
 import { getSimulationLink, getTenderlySettings } from "./settings";
 import type {
   ChainType,
@@ -83,19 +83,6 @@ async function encodeStorageOverrides(
     );
   }
   return override.value;
-}
-
-function getNetworkId(chain: ChainType): string {
-  switch (chain) {
-    case "ethereum":
-      return CHAIN_IDS.ethereum;
-    case "arb1":
-      return CHAIN_IDS.arb1;
-    case "nova":
-      return CHAIN_IDS.nova;
-    default:
-      return CHAIN_IDS.ethereum;
-  }
 }
 
 /**
@@ -190,7 +177,7 @@ export async function simulateTimelockBatch(params: {
     [`_timestamps[${operationId}]`]: simTimestamp.toString(),
   };
 
-  const networkId = getNetworkId(params.chain);
+  const networkId = getNetworkIdForChain(params.chain, "ethereum");
   const fromAddress = params.timelockAddress;
 
   const encodedStorage = await encodeStorageOverrides(
