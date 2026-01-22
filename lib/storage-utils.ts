@@ -43,18 +43,10 @@ export function getStoredValue<T>(
  * @returns The stored string or default value
  */
 export function getStoredJsonString(key: string, defaultValue: string): string {
-  if (!inBrowser()) return defaultValue;
-
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return defaultValue;
-
+  return getStoredValue<string>(key, defaultValue, (stored) => {
     const parsed = JSON.parse(stored);
     return parsed || defaultValue;
-  } catch (err) {
-    debug.storage("failed to parse JSON string for %s: %O", key, err);
-    return defaultValue;
-  }
+  });
 }
 
 /**
@@ -64,18 +56,10 @@ export function getStoredJsonString(key: string, defaultValue: string): string {
  * @returns The stored number or default value
  */
 export function getStoredNumber(key: string, defaultValue: number): number {
-  if (!inBrowser()) return defaultValue;
-
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return defaultValue;
-
+  return getStoredValue<number>(key, defaultValue, (stored) => {
     const parsed = JSON.parse(stored);
     return typeof parsed === "number" && !isNaN(parsed) ? parsed : defaultValue;
-  } catch (err) {
-    debug.storage("failed to parse number for %s: %O", key, err);
-    return defaultValue;
-  }
+  });
 }
 
 /**
