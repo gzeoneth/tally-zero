@@ -15,16 +15,9 @@ import {
 } from "@/components/ui/Sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 
-import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
-import {
-  DEFAULT_CACHE_TTL_MS,
-  DEFAULT_TENDERLY_ORG,
-  DEFAULT_TENDERLY_PROJECT,
-  STORAGE_KEYS,
-} from "@/config/storage-keys";
 import { useNerdMode } from "@/context/NerdModeContext";
 import { useSettingsSheet } from "@/context/SettingsSheetContext";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useSettingsForm } from "@/hooks/use-settings-form";
 
 import {
   AdvancedTab,
@@ -34,7 +27,6 @@ import {
   clearCache,
   exportSettings,
   getCacheStats,
-  getDefaultFormState,
   getTotalStorageUsage,
   importSettings,
 } from "./settings";
@@ -43,65 +35,18 @@ export function SettingsSheet() {
   const { theme, setTheme } = useTheme();
   const { isOpen, activeTab, openSettings, closeSettings, setActiveTab } =
     useSettingsSheet();
-
-  // LocalStorage settings
-  const [storedL2Rpc, setStoredL2Rpc] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
-  const [storedL1Rpc, setStoredL1Rpc] = useLocalStorage(
-    STORAGE_KEYS.L1_RPC,
-    ""
-  );
-  const [blockRange, setBlockRange] = useLocalStorage<number>(
-    STORAGE_KEYS.BLOCK_RANGE,
-    DEFAULT_FORM_VALUES.blockRange
-  );
-  const [l1BlockRange, setL1BlockRange] = useLocalStorage<number>(
-    STORAGE_KEYS.L1_BLOCK_RANGE,
-    DEFAULT_FORM_VALUES.l1BlockRange
-  );
   const { nerdMode, toggleNerdMode } = useNerdMode();
-  const [daysToSearch, setDaysToSearch] = useLocalStorage<number>(
-    STORAGE_KEYS.DAYS_TO_SEARCH,
-    DEFAULT_FORM_VALUES.daysToSearch
-  );
-  const [cacheTtl, setCacheTtl] = useLocalStorage<number>(
-    STORAGE_KEYS.CACHE_TTL,
-    DEFAULT_CACHE_TTL_MS / 1000
-  );
-  const [skipBundledCache, setSkipBundledCache] = useLocalStorage<boolean>(
-    STORAGE_KEYS.SKIP_BUNDLED_CACHE,
-    false
-  );
-  const [tenderlyOrg, setTenderlyOrg] = useLocalStorage<string>(
-    STORAGE_KEYS.TENDERLY_ORG,
-    DEFAULT_TENDERLY_ORG
-  );
-  const [tenderlyProject, setTenderlyProject] = useLocalStorage<string>(
-    STORAGE_KEYS.TENDERLY_PROJECT,
-    DEFAULT_TENDERLY_PROJECT
-  );
-  const [tenderlyAccessToken, setTenderlyAccessToken] = useLocalStorage<string>(
-    STORAGE_KEYS.TENDERLY_ACCESS_TOKEN,
-    ""
-  );
 
-  // Local form state
-  const [l2RpcInput, setL2RpcInput] = useState(storedL2Rpc);
-  const [l1RpcInput, setL1RpcInput] = useState(storedL1Rpc);
-  const [blockRangeInput, setBlockRangeInput] = useState(String(blockRange));
-  const [l1BlockRangeInput, setL1BlockRangeInput] = useState(
-    String(l1BlockRange)
-  );
-  const [daysInput, setDaysInput] = useState(String(daysToSearch));
-  const [ttlInput, setTtlInput] = useState(cacheTtl);
-  const [ttlCustomInput, setTtlCustomInput] = useState(String(cacheTtl));
-  const [tenderlyOrgInput, setTenderlyOrgInput] = useState(tenderlyOrg);
-  const [tenderlyProjectInput, setTenderlyProjectInput] =
-    useState(tenderlyProject);
-  const [tenderlyAccessTokenInput, setTenderlyAccessTokenInput] =
-    useState(tenderlyAccessToken);
+  // Form state management via custom hook
+  const {
+    formState,
+    setFormState,
+    storedSettings,
+    storeSetters,
+    syncFromStorage,
+    resetToDefaults,
+    saveToStorage,
+  } = useSettingsForm();
 
   // Counter to trigger cache stats refresh
   const [cacheRefreshKey, setCacheRefreshKey] = useState(0);
@@ -110,72 +55,21 @@ export function SettingsSheet() {
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (open) {
-        setL2RpcInput(storedL2Rpc);
-        setL1RpcInput(storedL1Rpc);
-        setBlockRangeInput(String(blockRange));
-        setL1BlockRangeInput(String(l1BlockRange));
-        setDaysInput(String(daysToSearch));
-        setTtlInput(cacheTtl);
-        setTtlCustomInput(String(cacheTtl));
-        setTenderlyOrgInput(tenderlyOrg);
-        setTenderlyProjectInput(tenderlyProject);
-        setTenderlyAccessTokenInput(tenderlyAccessToken);
+        syncFromStorage();
         openSettings();
       } else {
         closeSettings();
       }
     },
-    [
-      storedL2Rpc,
-      storedL1Rpc,
-      blockRange,
-      l1BlockRange,
-      daysToSearch,
-      cacheTtl,
-      tenderlyOrg,
-      tenderlyProject,
-      tenderlyAccessToken,
-      openSettings,
-      closeSettings,
-    ]
+    [syncFromStorage, openSettings, closeSettings]
   );
 
   // Save settings
   const handleSave = useCallback(() => {
-    setStoredL2Rpc(l2RpcInput);
-    setStoredL1Rpc(l1RpcInput);
-    setBlockRange(parseInt(blockRangeInput) || DEFAULT_FORM_VALUES.blockRange);
-    setL1BlockRange(
-      parseInt(l1BlockRangeInput) || DEFAULT_FORM_VALUES.l1BlockRange
-    );
-    setDaysToSearch(parseInt(daysInput) || DEFAULT_FORM_VALUES.daysToSearch);
-    setCacheTtl(ttlInput);
-    setTenderlyOrg(tenderlyOrgInput || DEFAULT_TENDERLY_ORG);
-    setTenderlyProject(tenderlyProjectInput || DEFAULT_TENDERLY_PROJECT);
-    setTenderlyAccessToken(tenderlyAccessTokenInput);
+    saveToStorage();
     closeSettings();
     window.location.reload();
-  }, [
-    l2RpcInput,
-    l1RpcInput,
-    blockRangeInput,
-    l1BlockRangeInput,
-    daysInput,
-    ttlInput,
-    tenderlyOrgInput,
-    tenderlyProjectInput,
-    tenderlyAccessTokenInput,
-    setStoredL2Rpc,
-    setStoredL1Rpc,
-    setBlockRange,
-    setL1BlockRange,
-    setDaysToSearch,
-    setCacheTtl,
-    setTenderlyOrg,
-    setTenderlyProject,
-    setTenderlyAccessToken,
-    closeSettings,
-  ]);
+  }, [saveToStorage, closeSettings]);
 
   // Action handlers
   const handleClearCache = useCallback(() => {
@@ -186,7 +80,7 @@ export function SettingsSheet() {
 
   const handleSkipBundledCacheToggle = useCallback(
     (value: boolean) => {
-      setSkipBundledCache(value);
+      storeSetters.setSkipBundledCache(value);
       const count = clearCache();
       setCacheRefreshKey((k) => k + 1);
       if (count > 0) {
@@ -195,7 +89,7 @@ export function SettingsSheet() {
         );
       }
     },
-    [setSkipBundledCache]
+    [storeSetters]
   );
 
   const handleClearAllSettings = useCallback(() => {
@@ -209,20 +103,6 @@ export function SettingsSheet() {
     clearAllSettings();
     alert("All settings have been reset. The page will reload.");
     window.location.reload();
-  }, []);
-
-  const handleResetDefaults = useCallback(() => {
-    const defaults = getDefaultFormState();
-    setL2RpcInput(defaults.l2RpcInput);
-    setL1RpcInput(defaults.l1RpcInput);
-    setBlockRangeInput(defaults.blockRangeInput);
-    setL1BlockRangeInput(defaults.l1BlockRangeInput);
-    setDaysInput(defaults.daysInput);
-    setTtlInput(defaults.ttlInput);
-    setTtlCustomInput(defaults.ttlCustomInput);
-    setTenderlyOrgInput(defaults.tenderlyOrgInput);
-    setTenderlyProjectInput(defaults.tenderlyProjectInput);
-    setTenderlyAccessTokenInput(defaults.tenderlyAccessTokenInput);
   }, []);
 
   const handleExportSettings = useCallback(() => {
@@ -313,8 +193,8 @@ export function SettingsSheet() {
               <GeneralTab
                 theme={theme}
                 setTheme={setTheme}
-                daysInput={daysInput}
-                setDaysInput={setDaysInput}
+                daysInput={formState.daysInput}
+                setDaysInput={setFormState.setDaysInput}
                 nerdMode={nerdMode}
                 toggleNerdMode={toggleNerdMode}
               />
@@ -322,51 +202,42 @@ export function SettingsSheet() {
 
             <TabsContent value="rpc">
               <RpcTab
-                l2RpcInput={l2RpcInput}
-                setL2RpcInput={setL2RpcInput}
-                l1RpcInput={l1RpcInput}
-                setL1RpcInput={setL1RpcInput}
-                blockRangeInput={blockRangeInput}
-                setBlockRangeInput={setBlockRangeInput}
-                l1BlockRangeInput={l1BlockRangeInput}
-                setL1BlockRangeInput={setL1BlockRangeInput}
+                l2RpcInput={formState.l2RpcInput}
+                setL2RpcInput={setFormState.setL2RpcInput}
+                l1RpcInput={formState.l1RpcInput}
+                setL1RpcInput={setFormState.setL1RpcInput}
+                blockRangeInput={formState.blockRangeInput}
+                setBlockRangeInput={setFormState.setBlockRangeInput}
+                l1BlockRangeInput={formState.l1BlockRangeInput}
+                setL1BlockRangeInput={setFormState.setL1BlockRangeInput}
               />
             </TabsContent>
 
             <TabsContent value="advanced">
               <AdvancedTab
-                ttlInput={ttlInput}
-                setTtlInput={setTtlInput}
-                ttlCustomInput={ttlCustomInput}
-                setTtlCustomInput={setTtlCustomInput}
-                skipBundledCache={skipBundledCache}
+                ttlInput={formState.ttlInput}
+                setTtlInput={setFormState.setTtlInput}
+                ttlCustomInput={formState.ttlCustomInput}
+                setTtlCustomInput={setFormState.setTtlCustomInput}
+                skipBundledCache={storedSettings.skipBundledCache}
                 setSkipBundledCache={handleSkipBundledCacheToggle}
-                tenderlyOrgInput={tenderlyOrgInput}
-                setTenderlyOrgInput={setTenderlyOrgInput}
-                tenderlyProjectInput={tenderlyProjectInput}
-                setTenderlyProjectInput={setTenderlyProjectInput}
-                tenderlyAccessTokenInput={tenderlyAccessTokenInput}
-                setTenderlyAccessTokenInput={setTenderlyAccessTokenInput}
+                tenderlyOrgInput={formState.tenderlyOrgInput}
+                setTenderlyOrgInput={setFormState.setTenderlyOrgInput}
+                tenderlyProjectInput={formState.tenderlyProjectInput}
+                setTenderlyProjectInput={setFormState.setTenderlyProjectInput}
+                tenderlyAccessTokenInput={formState.tenderlyAccessTokenInput}
+                setTenderlyAccessTokenInput={
+                  setFormState.setTenderlyAccessTokenInput
+                }
                 onClearCache={handleClearCache}
                 onExportSettings={handleExportSettings}
                 onImportSettings={handleImportSettings}
-                onResetDefaults={handleResetDefaults}
+                onResetDefaults={resetToDefaults}
                 onClearAllSettings={handleClearAllSettings}
                 cacheStats={cacheStats}
                 totalStorage={totalStorage}
                 nerdMode={nerdMode}
-                storedSettings={{
-                  storedL2Rpc,
-                  storedL1Rpc,
-                  blockRange,
-                  l1BlockRange,
-                  daysToSearch,
-                  cacheTtl,
-                  skipBundledCache,
-                  tenderlyOrg,
-                  tenderlyProject,
-                  tenderlyAccessToken,
-                }}
+                storedSettings={storedSettings}
               />
             </TabsContent>
           </div>
