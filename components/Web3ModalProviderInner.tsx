@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { http } from "viem";
 import { WagmiProvider, type Config } from "wagmi";
 
+import { ARBITRUM_RPC_URL } from "@/config/arbitrum-governance";
 import { env } from "../env";
 
 // Get project ID from environment
@@ -30,7 +31,7 @@ const metadata = {
 // Configure custom transport with rate limiting settings
 // Using Arbitrum's public RPC with batch support
 const customTransports = {
-  [arbitrum.id]: http("https://arb1.arbitrum.io/rpc", {
+  [arbitrum.id]: http(ARBITRUM_RPC_URL, {
     batch: {
       wait: 50, // Wait 50ms to batch requests together
     },
