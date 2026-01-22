@@ -3,6 +3,32 @@
  * Centralizes the logic used across VoteDistributionBar, QuorumIndicator, etc.
  */
 
+import type { ProposalVotes } from "@/types/proposal";
+
+/** Raw votes from ethers BigNumber before formatting */
+export interface RawVotes {
+  forVotes: { toString(): string };
+  againstVotes: { toString(): string };
+  abstainVotes: { toString(): string };
+}
+
+/**
+ * Format raw votes from contract call into ProposalVotes structure.
+ * Consolidates the common pattern of stringifying BigNumber votes.
+ *
+ * @param votes - Raw vote counts from contract (ethers BigNumber compatible)
+ * @param quorum - Optional quorum threshold
+ * @returns Formatted proposal votes
+ */
+export function formatVotes(votes: RawVotes, quorum?: string): ProposalVotes {
+  return {
+    forVotes: votes.forVotes.toString(),
+    againstVotes: votes.againstVotes.toString(),
+    abstainVotes: votes.abstainVotes.toString(),
+    quorum,
+  };
+}
+
 export interface VoteDistribution {
   forPct: number;
   againstPct: number;

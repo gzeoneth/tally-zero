@@ -15,7 +15,8 @@ import {
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { createRpcProvider } from "@/lib/rpc-utils";
 import { getStateName } from "@/lib/state-utils";
-import type { ParsedProposal, ProposalVotes } from "@/types/proposal";
+import { formatVotes } from "@/lib/vote-utils";
+import type { ParsedProposal } from "@/types/proposal";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 /** Options for configuring proposal lookup */
@@ -230,27 +231,5 @@ export function useProposalById({
     isLoading,
     error,
     refetch,
-  };
-}
-
-/**
- * Format raw vote data into ProposalVotes structure
- * @param votes - Raw vote counts from contract
- * @param quorum - Optional quorum threshold
- * @returns Formatted proposal votes
- */
-function formatVotes(
-  votes: {
-    forVotes: ethers.BigNumber;
-    againstVotes: ethers.BigNumber;
-    abstainVotes: ethers.BigNumber;
-  },
-  quorum?: string
-): ProposalVotes {
-  return {
-    forVotes: votes.forVotes.toString(),
-    againstVotes: votes.againstVotes.toString(),
-    abstainVotes: votes.abstainVotes.toString(),
-    quorum,
   };
 }
