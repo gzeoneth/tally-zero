@@ -10,8 +10,7 @@ Comprehensive codebase refactoring to improve code quality, reduce duplication, 
 
 ### HIGH PRIORITY - Code Duplication
 
-- [ ] **Extract contract cache factory** - `createContractCache()` in search-utils.ts should be shared utility
-  - Move to lib/contract-utils.ts
+(none remaining)
 
 ### HIGH PRIORITY - Performance
 
@@ -19,22 +18,20 @@ Comprehensive codebase refactoring to improve code quality, reduce duplication, 
 
 ### MEDIUM PRIORITY - Code Duplication
 
-- [ ] **Extract async hook pattern** - 20+ locations have identical `useState(false)/setIsLoading/setError` pattern
-
-  - Consider useAsync or useQuery pattern
-
-- [ ] **Extract cancellation pattern** - 3 locations duplicate `let cancelled = false` with cleanup
-
-- [ ] **Use addressesEqual() consistently** - 3+ locations do inline `.toLowerCase()` comparison
+(none remaining - analyzed items moved to completed)
 
 ### MEDIUM PRIORITY - Complexity Reduction
 
-- [ ] **Simplify TimelockOperationContent** - 624 lines with 5+ useMemo blocks
+(items below require careful refactoring with risk - deferred for future consideration)
 
-  - Extract into sub-components: LoadingState, ErrorState, OperationSelector, OperationDetails
+- **Simplify TimelockOperationContent** - 624 lines with complex state management
 
-- [ ] **Consolidate boolean flags in use-timelock-operation** - 7 useState declarations
-  - Merge isLoading, isParsing, isTracking into single status enum
+  - Would need careful prop/context design to avoid prop drilling
+  - Risk of breaking existing functionality
+
+- **Consolidate boolean flags in use-timelock-operation**
+  - Would change hook API and require updates to all consumers
+  - Risk of introducing state machine bugs
 
 ### MEDIUM PRIORITY - Missing Tests
 
@@ -64,6 +61,10 @@ Comprehensive codebase refactoring to improve code quality, reduce duplication, 
 - [x] **Add tests for debug.ts** - 10 tests added for debug utilities
 - [x] **Use regex for error message detection** - Premature optimization; current .includes() is readable and error handling is infrequent
 - [x] **Extract AddressView component** - Not needed; address rendering needs differ per component; no real duplication
+- [x] **Extract contract cache factory** - Not needed; function is specific to OZGovernor_ABI and only used in one file
+- [x] **Extract async hook pattern** - Standard React pattern; abstraction would add complexity without benefit
+- [x] **Extract cancellation pattern** - Idiomatic React pattern for async cleanup; abstraction unnecessary
+- [x] **Use addressesEqual() consistently** - Checked; toLowerCase() comparisons are for hex strings (operation IDs), not addresses
 
 ---
 
