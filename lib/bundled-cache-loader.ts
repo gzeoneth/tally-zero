@@ -8,6 +8,7 @@ import {
   STORAGE_KEYS,
 } from "@/config/storage-keys";
 import { findByAddress } from "@/lib/address-utils";
+import { buildLookupMap } from "@/lib/collection-utils";
 import type { ParsedProposal, ProposalStateName } from "@/types/proposal";
 import {
   ARBITRUM_CHAIN_ID,
@@ -317,7 +318,7 @@ export async function extractProposalsFromBundledCache(): Promise<{
 
       const stages = checkpoint.cachedData?.completedStages ?? [];
       // Build a Map for O(1) lookups instead of repeated O(n) find() calls
-      const stageMap = new Map(stages.map((s) => [s.type, s]));
+      const stageMap = buildLookupMap(stages, (s) => s.type);
       const createdStage = stageMap.get("PROPOSAL_CREATED");
       const votingStage = stageMap.get("VOTING_ACTIVE");
 

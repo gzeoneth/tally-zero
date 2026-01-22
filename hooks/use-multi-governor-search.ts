@@ -10,6 +10,7 @@ import {
   extractProposalsFromBundledCache,
   getBundledCacheWatermark,
 } from "@/lib/bundled-cache-loader";
+import { buildLookupMap } from "@/lib/collection-utils";
 import { debug } from "@/lib/debug";
 import {
   parseProposals,
@@ -123,7 +124,7 @@ export function useMultiGovernorSearch({
           );
 
           // Update the proposals with refreshed data
-          const refreshedMap = new Map(refreshed.map((p) => [p.id, p]));
+          const refreshedMap = buildLookupMap(refreshed, (p) => p.id);
           for (let i = 0; i < allProposals.length; i++) {
             const updated = refreshedMap.get(allProposals[i].id);
             if (updated) {

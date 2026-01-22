@@ -13,6 +13,7 @@ import {
   DEFAULT_CHUNKING_CONFIG,
   ETHEREUM_RPC_URL,
 } from "@/config/arbitrum-governance";
+import { buildLookupMap } from "@/lib/collection-utils";
 import { MS_PER_MINUTE, MS_PER_SECOND } from "@/lib/date-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 
@@ -468,7 +469,7 @@ export function getRpcHealthSummary(results: RpcHealthResult[]): {
   const requiredEndpoints = DEFAULT_RPC_ENDPOINTS.filter((e) => e.required);
 
   // Build Map for O(1) lookups instead of O(n) find per endpoint
-  const resultsById = new Map(results.map((r) => [r.id, r]));
+  const resultsById = buildLookupMap(results, (r) => r.id);
 
   const requiredHealthy = requiredEndpoints.every((endpoint) => {
     const result = resultsById.get(endpoint.id);
