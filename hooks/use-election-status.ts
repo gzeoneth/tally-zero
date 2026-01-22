@@ -12,12 +12,12 @@ import {
   type SerializableMemberDetails,
   type SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
-import { ethers } from "ethers";
 import { toast } from "sonner";
 
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
 import { debug } from "@/lib/debug";
 import { getCacheAdapter } from "@/lib/gov-tracker-cache";
+import { getOrCreateProvider } from "@/lib/rpc-utils";
 import {
   ARBITRUM_RPC_URL,
   ETHEREUM_RPC_URL,
@@ -126,8 +126,8 @@ export function useElectionStatus({
       bundledCacheInitializedRef.current = true;
     }
 
-    const l2Provider = new ethers.providers.StaticJsonRpcProvider(l2Url);
-    const l1Provider = new ethers.providers.StaticJsonRpcProvider(l1Url);
+    const l2Provider = getOrCreateProvider(l2Url);
+    const l1Provider = getOrCreateProvider(l1Url);
 
     const tracker = createTracker({
       l2Provider,

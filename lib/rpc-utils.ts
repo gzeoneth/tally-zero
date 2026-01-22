@@ -55,6 +55,30 @@ function evictLruProviders(): void {
 }
 
 /**
+ * Gets or creates an RPC provider without connection validation.
+ * Use this for synchronous provider access (e.g., passing to gov-tracker).
+ * The provider is cached but not validated - first RPC call may fail if URL is bad.
+ *
+ * @param rpcUrl - The JSON-RPC endpoint URL
+ * @returns A cached or new JSON-RPC provider (synchronous)
+ */
+export function getOrCreateProvider(
+  rpcUrl: string
+): ethers.providers.StaticJsonRpcProvider {
+  const cached = providerCache.get(rpcUrl);
+  if (cached) {
+    cached.lastUsed = Date.now();
+    return cached.provider;
+  }
+
+  const provider = new ethers.providers.StaticJsonRpcProvider(rpcUrl);
+
+  evictLruProviders();
+  providerCache.set(rpcUrl, { provider, lastUsed: Date.now() });
+  return provider;
+}
+
+/**
  * Creates and initializes an RPC provider with ready state validation.
  * Caches providers by URL to avoid creating multiple instances.
  * Validates connection by fetching the current block number.

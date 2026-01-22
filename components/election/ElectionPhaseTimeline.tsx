@@ -9,7 +9,6 @@ import {
   type StageType,
   type TrackedStage,
 } from "@gzeoneth/gov-tracker";
-import { ethers } from "ethers";
 import {
   Calendar,
   CheckCircle2,
@@ -20,9 +19,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
-import { ARBITRUM_RPC_URL } from "@/config/arbitrum-governance";
 import { useDeepLink } from "@/context/DeepLinkContext";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
+import { getOrCreateProvider } from "@/lib/rpc-utils";
 
 import { formatDuration, PHASE_METADATA } from "@/config/security-council";
 import { cn } from "@/lib/utils";
@@ -125,7 +124,7 @@ function useFetchMissingTimestamps(
 
     const fetchTimestamps = async () => {
       try {
-        const provider = new ethers.providers.StaticJsonRpcProvider(l2RpcUrl);
+        const provider = getOrCreateProvider(l2RpcUrl);
         const newTimestamps = new Map(timestamps);
 
         const uniqueBlocks = [
@@ -233,8 +232,7 @@ export function ElectionPhaseTimeline({
   const currentIndex = getPhaseIndex(currentPhase);
   const timelockTxHash = getL2TimelockTxHash(stages);
 
-  const l2RpcUrl = l2Rpc || ARBITRUM_RPC_URL;
-  const fetchedTimestamps = useFetchMissingTimestamps(stages, l2RpcUrl);
+  const fetchedTimestamps = useFetchMissingTimestamps(stages, l2Rpc);
 
   const phaseEtas =
     status?.nextElectionTimestamp && currentPhase === "NOT_STARTED"

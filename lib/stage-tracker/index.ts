@@ -15,13 +15,13 @@ import {
   type TrackerOptions,
   type TrackingResult,
 } from "@gzeoneth/gov-tracker";
-import { ethers } from "ethers";
 
 import {
   ARBITRUM_RPC_URL,
   DEFAULT_CHUNKING_CONFIG,
   ETHEREUM_RPC_URL,
 } from "@/config/arbitrum-governance";
+import { getOrCreateProvider } from "@/lib/rpc-utils";
 import type { ProposalTrackingResult } from "@/types/proposal-stage";
 
 /**
@@ -43,8 +43,8 @@ export function createProposalTracker(
     cache?: CacheAdapter;
   }
 ) {
-  const l2Provider = new ethers.providers.StaticJsonRpcProvider(l2RpcUrl);
-  const l1Provider = new ethers.providers.StaticJsonRpcProvider(l1RpcUrl);
+  const l2Provider = getOrCreateProvider(l2RpcUrl);
+  const l1Provider = getOrCreateProvider(l1RpcUrl);
 
   const {
     chunkingConfig: userChunkingConfig,
