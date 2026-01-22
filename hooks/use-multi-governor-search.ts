@@ -246,32 +246,38 @@ export function useMultiGovernorSearch({
   // Subscribe to vote updates and update proposals when votes change
   useEffect(() => {
     return subscribeToVoteUpdates((update: VoteUpdate) => {
-      setProposals((prev) =>
-        prev.map((p) => {
-          if (
-            p.id === update.proposalId &&
-            p.contractAddress.toLowerCase() ===
-              update.governorAddress.toLowerCase()
-          ) {
-            debug.search(
-              "updating votes for proposal %s: for=%s, against=%s",
-              p.id,
-              update.forVotes,
-              update.againstVotes
-            );
-            return {
-              ...p,
-              votes: {
-                forVotes: update.forVotes,
-                againstVotes: update.againstVotes,
-                abstainVotes: update.abstainVotes,
-                quorum: p.votes?.quorum || "0",
-              },
-            };
-          }
-          return p;
-        })
-      );
+      setProposals((prev) => {
+        // Create composite key for O(1) lookup
+        const updateKey = `${update.proposalId}:${update.governorAddress.toLowerCase()}`;
+
+        // Find index of matching proposal (still O(n) but only once)
+        const idx = prev.findIndex(
+          (p) => `${p.id}:${p.contractAddress.toLowerCase()}` === updateKey
+        );
+
+        // No matching proposal found - return unchanged array
+        if (idx === -1) return prev;
+
+        debug.search(
+          "updating votes for proposal %s: for=%s, against=%s",
+          update.proposalId,
+          update.forVotes,
+          update.againstVotes
+        );
+
+        // Create new array with only the updated proposal changed
+        const updated = [...prev];
+        updated[idx] = {
+          ...prev[idx],
+          votes: {
+            forVotes: update.forVotes,
+            againstVotes: update.againstVotes,
+            abstainVotes: update.abstainVotes,
+            quorum: prev[idx].votes?.quorum || "0",
+          },
+        };
+        return updated;
+      });
     });
   }, []);
 
