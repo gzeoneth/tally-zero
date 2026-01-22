@@ -19,6 +19,7 @@ import {
   type DiscoveredTimelockOp,
   type TrackedStage,
   type TrackingCheckpoint,
+  extractOperationId,
   isChildCheckpoint,
 } from "@gzeoneth/gov-tracker";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -92,6 +93,26 @@ function getTimelockName(address: string): string {
     return "Treasury Timelock";
   }
   return "Unknown Timelock";
+}
+
+async function getGovernorOperationIds(
+  cache: Awaited<ReturnType<typeof getCacheAdapter>>
+): Promise<Set<string>> {
+  const operationIds = new Set<string>();
+  const keys = await cache.keys("tx:");
+
+  for (const key of keys) {
+    const checkpoint = await cache.get<TrackingCheckpoint>(key);
+    if (!checkpoint || checkpoint.input?.type !== "governor") continue;
+
+    const stages = checkpoint.cachedData?.completedStages ?? [];
+    const opId = extractOperationId(stages);
+    if (opId) {
+      operationIds.add(opId.toLowerCase());
+    }
+  }
+
+  return operationIds;
 }
 
 /**
@@ -168,6 +189,9 @@ export function useTimelockOpsDiscovery({
 
       const allOps = [...coreOps, ...treasuryOps];
 
+      // Get all operation IDs linked to governor proposals
+      const governorOpIds = await getGovernorOperationIds(cache);
+
       // Check which operations are orphans and track lifecycle status
       const opsWithStatus: TimelockOpWithStatus[] = [];
       const totalOps = allOps.length;
@@ -185,7 +209,13 @@ export function useTimelockOpsDiscovery({
         const checkpoint = await cache.get<TrackingCheckpoint>(cacheKey);
         const isGovernorCheckpoint = checkpoint?.input?.type === "governor";
 
-        const isOrphan = !isChild && !isGovernorCheckpoint;
+        // Check if this operation is linked to a governor proposal via operationId
+        const isLinkedToGovernor = governorOpIds.has(
+          op.operationId.toLowerCase()
+        );
+
+        const isOrphan =
+          !isChild && !isGovernorCheckpoint && !isLinkedToGovernor;
 
         // Track the operation to get lifecycle status
         let lifecycleStatus: LifecycleStatus = "Unknown";
