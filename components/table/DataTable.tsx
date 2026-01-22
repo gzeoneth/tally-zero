@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@components/ui/Table";
 
-import { useMediaQuery } from "@/hooks/use-media-query";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ParsedProposal } from "@/types/proposal";
 import { MobileProposalList } from "@components/table/MobileProposalCard";
 import { DataTablePagination } from "@components/table/Pagination";
@@ -48,24 +48,20 @@ export function DataTable<TData, TValue>({
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
-  // Use media queries for responsive column visibility (more efficient than resize events)
-  const isMobileView = useMediaQuery("(max-width: 639px)");
-  const isSmallScreen = useMediaQuery("(min-width: 640px)");
-  const isMediumScreen = useMediaQuery("(min-width: 768px)");
-  const isLargeScreen = useMediaQuery("(min-width: 1024px)");
-  const isXLScreen = useMediaQuery("(min-width: 1280px)");
+  // Single hook for all breakpoints (more efficient than 5 separate media queries)
+  const { isMobile, sm, md, lg, xl } = useBreakpoint();
 
   // Compute column visibility based on breakpoints
   const columnVisibility = React.useMemo<VisibilityState>(
     () => ({
-      proposer: isXLScreen,
-      votes: isLargeScreen,
-      governorName: isMediumScreen,
-      id: isSmallScreen,
+      proposer: xl,
+      votes: lg,
+      governorName: md,
+      id: sm,
       state: false, // Hidden - lifecycle/status column shows similar info
-      lifecycle: isSmallScreen,
+      lifecycle: sm,
     }),
-    [isXLScreen, isLargeScreen, isMediumScreen, isSmallScreen]
+    [xl, lg, md, sm]
   );
 
   const table = useReactTable({
@@ -100,7 +96,7 @@ export function DataTable<TData, TValue>({
     <div className="space-y-4">
       <DataTableToolbar table={table} />
 
-      {isMobileView ? (
+      {isMobile ? (
         <MobileProposalList proposals={filteredData as ParsedProposal[]} />
       ) : (
         <div className="relative overflow-x-auto">
@@ -163,7 +159,7 @@ export function DataTable<TData, TValue>({
         </div>
       )}
 
-      {isPaginated && !isMobileView && <DataTablePagination table={table} />}
+      {isPaginated && !isMobile && <DataTablePagination table={table} />}
     </div>
   );
 }
