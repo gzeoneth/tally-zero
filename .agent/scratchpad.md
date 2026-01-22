@@ -68,6 +68,7 @@ Comprehensive codebase refactoring to improve code quality, reduce duplication, 
 - [x] **Update CLAUDE.md documentation** - Removed non-existent files, fixed outdated architecture descriptions, updated gov-tracker version
 - [x] **Add tests for use-local-storage hook** - 25 tests added covering localStorage logic, serialization, event handling
 - [x] **VoteDistributionBar components analysis** - Kept separate; different visual purposes (expanded vs compact), duplication is acceptable
+- [x] **Fix useCopyToClipboard memory leak** - Added proper setTimeout cleanup on unmount and when called rapidly
 
 ---
 
