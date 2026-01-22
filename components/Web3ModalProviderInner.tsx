@@ -80,6 +80,3 @@ export default function Web3ModalProviderInner({
     </WagmiProvider>
   );
 }
-
-// Export wagmi config for use elsewhere
-export const wagmiConfig = wagmiAdapter.wagmiConfig;
