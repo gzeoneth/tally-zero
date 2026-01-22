@@ -61,13 +61,9 @@ export function getCurrentStageNumber(stages: ProposalStage[]): number {
  * Check if a proposal has truly completed all stages
  * Uses gov-tracker's areAllStagesComplete for consistent completion detection
  * @param stages - Array of proposal stages to check
- * @param governorAddress - The governor contract address (for UI context only)
  * @returns True if the proposal has completed all expected stages
  */
-export function isProposalFullyExecuted(
-  stages: ProposalStage[],
-  _governorAddress: string
-): boolean {
+export function isProposalFullyExecuted(stages: ProposalStage[]): boolean {
   if (!stages || stages.length === 0) return false;
   return areAllStagesComplete(stages);
 }
@@ -97,7 +93,7 @@ export function getEffectiveDisplayState(
   }
 
   // For Core Governor, check if truly completed
-  if (isProposalFullyExecuted(stages, governorAddress)) {
+  if (isProposalFullyExecuted(stages)) {
     return { display: "Executed", isInProgress: false };
   }
 
@@ -108,10 +104,7 @@ export function getEffectiveDisplayState(
   // If the current stage is the last stage but not fully complete,
   // show the previous completed stage number instead
   let displayStage = currentStage;
-  if (
-    currentStage === totalStages &&
-    !isProposalFullyExecuted(stages, governorAddress)
-  ) {
+  if (currentStage === totalStages && !isProposalFullyExecuted(stages)) {
     // Find the last completed stage
     const completedCount = stages.filter(
       (s) => s.status === "COMPLETED"
