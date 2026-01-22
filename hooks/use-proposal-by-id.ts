@@ -11,10 +11,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ARBITRUM_CHAIN_ID,
   ARBITRUM_GOVERNORS,
-  ARBITRUM_RPC_URL,
 } from "@/config/arbitrum-governance";
-import { STORAGE_KEYS } from "@/config/storage-keys";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { createRpcProvider } from "@/lib/rpc-utils";
 import { getStateName } from "@/lib/state-utils";
 import type { ParsedProposal, ProposalVotes } from "@/types/proposal";
@@ -53,24 +51,19 @@ export function useProposalById({
   enabled = true,
   customRpcUrl,
 }: UseProposalByIdOptions): UseProposalByIdResult {
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
+  const { l2Rpc, isHydrated } = useRpcSettings({ customL2Rpc: customRpcUrl });
 
   const [proposal, setProposal] = useState<ParsedProposal | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
-  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
-
   const refetch = useCallback(() => {
     setFetchTrigger((t) => t + 1);
   }, []);
 
   useEffect(() => {
-    if (!l2RpcHydrated) return;
+    if (!isHydrated) return;
     if (!enabled || !proposalId) {
       setProposal(null);
       setError(null);
@@ -84,7 +77,7 @@ export function useProposalById({
       setError(null);
 
       try {
-        const provider = await createRpcProvider(rpcUrl);
+        const provider = await createRpcProvider(l2Rpc);
 
         // Try each governor until we find the proposal
         for (const governor of ARBITRUM_GOVERNORS) {
@@ -230,7 +223,7 @@ export function useProposalById({
     return () => {
       cancelled = true;
     };
-  }, [l2RpcHydrated, proposalId, enabled, rpcUrl, fetchTrigger]);
+  }, [isHydrated, proposalId, enabled, l2Rpc, fetchTrigger]);
 
   return {
     proposal,

@@ -8,9 +8,7 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ARBITRUM_RPC_URL } from "@/config/arbitrum-governance";
-import { STORAGE_KEYS } from "@/config/storage-keys";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { debug } from "@/lib/debug";
 import {
   getDelegateLabel,
@@ -58,10 +56,7 @@ export function useTopDelegatesNotVoted({
   limit?: number;
   customRpcUrl?: string;
 }) {
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
+  const { l2Rpc, isHydrated } = useRpcSettings({ customL2Rpc: customRpcUrl });
 
   const [delegatesNotVoted, setDelegatesNotVoted] = useState<
     DelegateNotVoted[]
@@ -70,9 +65,7 @@ export function useTopDelegatesNotVoted({
   const [error, setError] = useState<Error | null>(null);
   const [allTopDelegatesVoted, setAllTopDelegatesVoted] = useState(false);
 
-  // Track the last fetched proposal to detect when we need to refetch
   const lastFetchedProposalRef = useRef<string | null>(null);
-  const effectiveRpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   const fetchDelegatesNotVoted = useCallback(async () => {
     if (!proposalId || !governorAddress) {
@@ -99,7 +92,7 @@ export function useTopDelegatesNotVoted({
         return;
       }
 
-      const provider = await createRpcProvider(effectiveRpcUrl);
+      const provider = await createRpcProvider(l2Rpc);
       const governorInterface = new ethers.utils.Interface(OzGovernor_ABI);
 
       const notVoted: DelegateNotVoted[] = [];
@@ -150,11 +143,10 @@ export function useTopDelegatesNotVoted({
     } finally {
       setIsLoading(false);
     }
-  }, [proposalId, governorAddress, limit, effectiveRpcUrl]);
+  }, [proposalId, governorAddress, limit, l2Rpc]);
 
-  // Refetch when proposalId or governorAddress changes
   useEffect(() => {
-    if (!l2RpcHydrated) return;
+    if (!isHydrated) return;
 
     // Create a unique key for this proposal
     const proposalKey = `${proposalId}:${governorAddress}`;
@@ -164,7 +156,7 @@ export function useTopDelegatesNotVoted({
       lastFetchedProposalRef.current = proposalKey;
       fetchDelegatesNotVoted();
     }
-  }, [l2RpcHydrated, proposalId, governorAddress, fetchDelegatesNotVoted]);
+  }, [isHydrated, proposalId, governorAddress, fetchDelegatesNotVoted]);
 
   return {
     delegatesNotVoted,

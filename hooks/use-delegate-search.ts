@@ -8,9 +8,8 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
-import { STORAGE_KEYS } from "@/config/storage-keys";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { ARB_TOKEN } from "@/config/arbitrum-governance";
+import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { compareBigIntDesc } from "@/lib/collection-utils";
 import { debug } from "@/lib/debug";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
@@ -99,10 +98,7 @@ export function useDelegateSearch({
   minVotingPower,
   addressFilter,
 }: UseDelegateSearchOptions): UseDelegateSearchResult {
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
+  const { l2Rpc, isHydrated } = useRpcSettings({ customL2Rpc: customRpcUrl });
 
   const [delegates, setDelegates] = useState<DelegateInfo[]>([]);
   const [totalVotingPower, setTotalVotingPower] = useState<string>("0");
@@ -115,8 +111,6 @@ export function useDelegateSearch({
   const [cache, setCache] = useState<DelegateCache | null>(null);
 
   const refreshedAddresses = useRef<Set<string>>(new Set());
-
-  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   // Load cache on mount - filters are applied in a separate effect
   useEffect(() => {
@@ -168,7 +162,7 @@ export function useDelegateSearch({
 
   const refreshVisibleDelegates = useCallback(
     async (addresses: string[]) => {
-      if (!enabled || !l2RpcHydrated || addresses.length === 0) return;
+      if (!enabled || !isHydrated || addresses.length === 0) return;
 
       const toRefresh = addresses.filter(
         (addr) => !refreshedAddresses.current.has(addr.toLowerCase())
@@ -179,7 +173,7 @@ export function useDelegateSearch({
       setIsRefreshingVisible(true);
 
       try {
-        const provider = await createRpcProvider(rpcUrl);
+        const provider = await createRpcProvider(l2Rpc);
         const tokenInterface = new ethers.utils.Interface(ERC20Votes_ABI);
 
         const calls = toRefresh.map((address) => ({
@@ -243,7 +237,7 @@ export function useDelegateSearch({
         setIsRefreshingVisible(false);
       }
     },
-    [enabled, l2RpcHydrated, rpcUrl, cache, minVotingPower, addressFilter]
+    [enabled, isHydrated, l2Rpc, cache, minVotingPower, addressFilter]
   );
 
   return {
