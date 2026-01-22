@@ -15,6 +15,7 @@ import {
 } from "@/config/arbitrum-governance";
 import { buildLookupMap } from "@/lib/collection-utils";
 import { MS_PER_MINUTE, MS_PER_SECOND } from "@/lib/date-utils";
+import { withTimeout } from "@/lib/delay-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 
 /** RPC endpoint identifier */
@@ -195,17 +196,11 @@ export async function checkRpcHealth(
   try {
     const provider = new ethers.providers.StaticJsonRpcProvider(url);
 
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Request timeout")),
-        HEALTH_CHECK_TIMEOUT
-      );
-    });
-
-    const blockNumber = await Promise.race([
+    const blockNumber = await withTimeout(
       provider.getBlockNumber(),
-      timeoutPromise,
-    ]);
+      HEALTH_CHECK_TIMEOUT,
+      "Request timeout"
+    );
 
     const latencyMs = Date.now() - startTime;
 
@@ -299,24 +294,17 @@ async function testLogSearch(
   chunkSize: number
 ): Promise<{ supported: boolean; error?: string }> {
   try {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Log search timeout")),
-        LOG_SEARCH_TIMEOUT
-      );
-    });
-
     const fromBlock = Math.max(0, currentBlock - chunkSize);
 
-    // Query for any logs in the block range (use a non-existent address to get empty results quickly)
-    await Promise.race([
+    await withTimeout(
       provider.getLogs({
         fromBlock,
         toBlock: currentBlock,
         address: "0x0000000000000000000000000000000000000001",
       }),
-      timeoutPromise,
-    ]);
+      LOG_SEARCH_TIMEOUT,
+      "Log search timeout"
+    );
 
     return { supported: true };
   } catch (error) {
@@ -363,18 +351,11 @@ async function testArchiveData(
   const txHash = ARCHIVE_TEST_TX_HASHES[endpointId];
 
   try {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Archive data test timeout")),
-        ARCHIVE_DATA_TIMEOUT
-      );
-    });
-
-    // Try to fetch an old transaction receipt (~1 year ago)
-    const receipt = await Promise.race([
+    const receipt = await withTimeout(
       provider.getTransactionReceipt(txHash),
-      timeoutPromise,
-    ]);
+      ARCHIVE_DATA_TIMEOUT,
+      "Archive data test timeout"
+    );
 
     // If we get null, the RPC doesn't have archive data
     if (receipt === null) {
