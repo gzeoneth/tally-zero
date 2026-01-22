@@ -38,15 +38,11 @@ Comprehensive codebase refactoring to improve code quality, reduce duplication, 
 
 ### MEDIUM PRIORITY - Missing Tests
 
-- [ ] **Add tests for debug.ts** - isDebugEnabled, enableDebugLogging untested
-
-### LOW PRIORITY - Performance
-
-- [ ] **Use regex for error message detection** - Multiple sequential .includes() checks in error-utils.ts
+(none remaining)
 
 ### LOW PRIORITY - Code Quality
 
-- [ ] **Extract AddressView component** - DecodedCalldataView.tsx repeats address rendering logic
+(none remaining)
 
 ---
 
@@ -65,6 +61,9 @@ Comprehensive codebase refactoring to improve code quality, reduce duplication, 
 - [x] **Add tests for timelock-simulation.ts** - 12 tests added
 - [x] **Convert getStateStyle switch to lookup** - Already uses STATE_STYLE_MAP
 - [x] **Add early exit in delegate batch processing** - Already has break statement and while condition check
+- [x] **Add tests for debug.ts** - 10 tests added for debug utilities
+- [x] **Use regex for error message detection** - Premature optimization; current .includes() is readable and error handling is infrequent
+- [x] **Extract AddressView component** - Not needed; address rendering needs differ per component; no real duplication
 
 ---
 
