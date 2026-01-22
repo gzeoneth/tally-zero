@@ -13,7 +13,9 @@ import {
   DEFAULT_CHUNKING_CONFIG,
   ETHEREUM_RPC_URL,
 } from "@/config/arbitrum-governance";
+import { buildLookupMap } from "@/lib/collection-utils";
 import { MS_PER_MINUTE, MS_PER_SECOND } from "@/lib/date-utils";
+import { withTimeout } from "@/lib/delay-utils";
 import { getErrorMessage } from "@/lib/error-utils";
 
 /** RPC endpoint identifier */
@@ -87,6 +89,8 @@ const HEALTH_CHECK_TIMEOUT = 5 * MS_PER_SECOND; // 5 seconds
 const LOG_SEARCH_TIMEOUT = 10 * MS_PER_SECOND; // 10 seconds for log search
 const ARCHIVE_DATA_TIMEOUT = 10 * MS_PER_SECOND; // 10 seconds for archive data test
 const HEALTH_CACHE_TTL = MS_PER_MINUTE; // 60 seconds cache for health results
+const FAILURE_CACHE_BASE_TTL = 5 * MS_PER_SECOND; // 5 seconds base TTL for failures
+const FAILURE_CACHE_MAX_TTL = 2 * MS_PER_MINUTE; // 2 minutes max TTL for failures
 
 /**
  * Transaction hashes from ~1 year ago for archive data testing.
@@ -108,8 +112,20 @@ const ARCHIVE_TEST_TX_HASHES: Record<RpcId, string> = {
 interface HealthCacheEntry {
   result: RpcHealthResult;
   timestamp: number;
+  failureCount?: number;
 }
 const healthCache = new Map<string, HealthCacheEntry>();
+
+/**
+ * Calculate TTL for failed health checks using exponential backoff
+ *
+ * @param failureCount - Number of consecutive failures
+ * @returns TTL in milliseconds (capped at FAILURE_CACHE_MAX_TTL)
+ */
+function getFailureTtl(failureCount: number): number {
+  const ttl = FAILURE_CACHE_BASE_TTL * Math.pow(2, failureCount - 1);
+  return Math.min(ttl, FAILURE_CACHE_MAX_TTL);
+}
 
 /**
  * Generate a cache key for an RPC health check
@@ -148,8 +164,14 @@ export async function checkRpcHealth(
   // Check cache first (unless skipCache is true)
   if (!skipCache) {
     const cached = healthCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < HEALTH_CACHE_TTL) {
-      return cached.result;
+    if (cached) {
+      const ttl =
+        cached.result.status === "down"
+          ? getFailureTtl(cached.failureCount ?? 1)
+          : HEALTH_CACHE_TTL;
+      if (Date.now() - cached.timestamp < ttl) {
+        return cached.result;
+      }
     }
   }
 
@@ -174,17 +196,11 @@ export async function checkRpcHealth(
   try {
     const provider = new ethers.providers.StaticJsonRpcProvider(url);
 
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Request timeout")),
-        HEALTH_CHECK_TIMEOUT
-      );
-    });
-
-    const blockNumber = await Promise.race([
+    const blockNumber = await withTimeout(
       provider.getBlockNumber(),
-      timeoutPromise,
-    ]);
+      HEALTH_CHECK_TIMEOUT,
+      "Request timeout"
+    );
 
     const latencyMs = Date.now() - startTime;
 
@@ -237,7 +253,12 @@ export async function checkRpcHealth(
       archiveDataSupported: archiveDataResult.supported,
       archiveDataError: archiveDataResult.error,
     };
-    healthCache.set(cacheKey, { result, timestamp: Date.now() });
+    // Reset failure count on success
+    healthCache.set(cacheKey, {
+      result,
+      timestamp: Date.now(),
+      failureCount: 0,
+    });
     return result;
   } catch (error) {
     const latencyMs = Date.now() - startTime;
@@ -249,7 +270,12 @@ export async function checkRpcHealth(
       latencyMs,
       error: errorMessage,
     };
-    // Don't cache failures - allow retry on next request
+
+    // Cache failures with exponential backoff to prevent rapid retries
+    const cached = healthCache.get(cacheKey);
+    const failureCount = (cached?.failureCount ?? 0) + 1;
+    healthCache.set(cacheKey, { result, timestamp: Date.now(), failureCount });
+
     return result;
   }
 }
@@ -268,24 +294,17 @@ async function testLogSearch(
   chunkSize: number
 ): Promise<{ supported: boolean; error?: string }> {
   try {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Log search timeout")),
-        LOG_SEARCH_TIMEOUT
-      );
-    });
-
     const fromBlock = Math.max(0, currentBlock - chunkSize);
 
-    // Query for any logs in the block range (use a non-existent address to get empty results quickly)
-    await Promise.race([
+    await withTimeout(
       provider.getLogs({
         fromBlock,
         toBlock: currentBlock,
         address: "0x0000000000000000000000000000000000000001",
       }),
-      timeoutPromise,
-    ]);
+      LOG_SEARCH_TIMEOUT,
+      "Log search timeout"
+    );
 
     return { supported: true };
   } catch (error) {
@@ -332,18 +351,11 @@ async function testArchiveData(
   const txHash = ARCHIVE_TEST_TX_HASHES[endpointId];
 
   try {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Archive data test timeout")),
-        ARCHIVE_DATA_TIMEOUT
-      );
-    });
-
-    // Try to fetch an old transaction receipt (~1 year ago)
-    const receipt = await Promise.race([
+    const receipt = await withTimeout(
       provider.getTransactionReceipt(txHash),
-      timeoutPromise,
-    ]);
+      ARCHIVE_DATA_TIMEOUT,
+      "Archive data test timeout"
+    );
 
     // If we get null, the RPC doesn't have archive data
     if (receipt === null) {
@@ -436,8 +448,12 @@ export function getRpcHealthSummary(results: RpcHealthResult[]): {
 } {
   const healthyResults = results.filter((r) => r.status === "healthy");
   const requiredEndpoints = DEFAULT_RPC_ENDPOINTS.filter((e) => e.required);
+
+  // Build Map for O(1) lookups instead of O(n) find per endpoint
+  const resultsById = buildLookupMap(results, (r) => r.id);
+
   const requiredHealthy = requiredEndpoints.every((endpoint) => {
-    const result = results.find((r) => r.id === endpoint.id);
+    const result = resultsById.get(endpoint.id);
     return result?.status === "healthy" || result?.status === "degraded";
   });
 

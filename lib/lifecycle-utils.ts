@@ -61,13 +61,9 @@ export function getCurrentStageNumber(stages: ProposalStage[]): number {
  * Check if a proposal has truly completed all stages
  * Uses gov-tracker's areAllStagesComplete for consistent completion detection
  * @param stages - Array of proposal stages to check
- * @param governorAddress - The governor contract address (for UI context only)
  * @returns True if the proposal has completed all expected stages
  */
-export function isProposalFullyExecuted(
-  stages: ProposalStage[],
-  governorAddress: string
-): boolean {
+export function isProposalFullyExecuted(stages: ProposalStage[]): boolean {
   if (!stages || stages.length === 0) return false;
   return areAllStagesComplete(stages);
 }
@@ -97,7 +93,7 @@ export function getEffectiveDisplayState(
   }
 
   // For Core Governor, check if truly completed
-  if (isProposalFullyExecuted(stages, governorAddress)) {
+  if (isProposalFullyExecuted(stages)) {
     return { display: "Executed", isInProgress: false };
   }
 
@@ -108,10 +104,7 @@ export function getEffectiveDisplayState(
   // If the current stage is the last stage but not fully complete,
   // show the previous completed stage number instead
   let displayStage = currentStage;
-  if (
-    currentStage === totalStages &&
-    !isProposalFullyExecuted(stages, governorAddress)
-  ) {
+  if (currentStage === totalStages && !isProposalFullyExecuted(stages)) {
     // Find the last completed stage
     const completedCount = stages.filter(
       (s) => s.status === "COMPLETED"
@@ -160,6 +153,27 @@ export type StateStyleColor =
 /** Icon names for state-dependent display */
 export type StateStyleIcon = "check" | "reload" | "clock" | "cross";
 
+/** Default style for unknown states */
+const DEFAULT_STATE_STYLE: { icon: StateStyleIcon; color: StateStyleColor } = {
+  icon: "clock",
+  color: "text-muted-foreground",
+};
+
+/** Lookup table for state-to-style mapping */
+const STATE_STYLE_MAP: Record<
+  string,
+  { icon: StateStyleIcon; color: StateStyleColor }
+> = {
+  executed: { icon: "check", color: "text-green-600 dark:text-green-400" },
+  active: { icon: "reload", color: "text-blue-600 dark:text-blue-400" },
+  pending: { icon: "reload", color: "text-blue-600 dark:text-blue-400" },
+  queued: { icon: "clock", color: "text-yellow-600 dark:text-yellow-400" },
+  succeeded: { icon: "clock", color: "text-yellow-600 dark:text-yellow-400" },
+  defeated: { icon: "cross", color: "text-red-600 dark:text-red-400" },
+  canceled: { icon: "cross", color: "text-red-600 dark:text-red-400" },
+  expired: { icon: "cross", color: "text-red-600 dark:text-red-400" },
+};
+
 /**
  * Get visual styling (icon and color) for a proposal state
  * @param state - The proposal state
@@ -169,37 +183,6 @@ export function getStateStyle(state: string | null): {
   icon: StateStyleIcon;
   color: StateStyleColor;
 } {
-  const normalizedState = state?.toLowerCase();
-
-  switch (normalizedState) {
-    case "executed":
-      return {
-        icon: "check",
-        color: "text-green-600 dark:text-green-400",
-      };
-    case "active":
-    case "pending":
-      return {
-        icon: "reload",
-        color: "text-blue-600 dark:text-blue-400",
-      };
-    case "queued":
-    case "succeeded":
-      return {
-        icon: "clock",
-        color: "text-yellow-600 dark:text-yellow-400",
-      };
-    case "defeated":
-    case "canceled":
-    case "expired":
-      return {
-        icon: "cross",
-        color: "text-red-600 dark:text-red-400",
-      };
-    default:
-      return {
-        icon: "clock",
-        color: "text-muted-foreground",
-      };
-  }
+  if (!state) return DEFAULT_STATE_STYLE;
+  return STATE_STYLE_MAP[state.toLowerCase()] ?? DEFAULT_STATE_STYLE;
 }

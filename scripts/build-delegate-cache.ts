@@ -142,8 +142,13 @@ async function fetchEventsForRange(
         consecutiveSuccesses = 0;
 
         // Split into smaller ranges and add to front of queue (process in order)
+        // Use < instead of <= to prevent creating ranges when start > range.to
         const subRanges: BlockRange[] = [];
-        for (let start = range.from; start <= range.to; start += newChunkSize) {
+        for (
+          let start = range.from;
+          start < range.to + 1;
+          start += newChunkSize
+        ) {
           const end = Math.min(start + newChunkSize - 1, range.to);
           subRanges.push({ from: start, to: end, chunkSize: newChunkSize });
         }
@@ -274,10 +279,10 @@ function processDelegates(
  * Calculate total voting power from delegates
  */
 function calculateTotalVotingPower(delegates: DelegateInfo[]): string {
-  let total = ethers.BigNumber.from(0);
+  let total = BigInt(0);
 
   for (const delegate of delegates) {
-    total = total.add(ethers.BigNumber.from(delegate.votingPower));
+    total = total + BigInt(delegate.votingPower);
   }
 
   return total.toString();

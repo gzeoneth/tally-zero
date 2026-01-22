@@ -9,6 +9,13 @@
  * - RETRYABLE_EXECUTED: consolidated retryable ticket stage
  */
 
+import type {
+  ChunkingConfig,
+  ProposalType,
+  TimelockLink,
+  TrackedStage,
+} from "@gzeoneth/gov-tracker";
+
 // Re-export types from @gzeoneth/gov-tracker for consistency
 export type {
   Chain,
@@ -17,6 +24,7 @@ export type {
   L2Chain,
   OnProgressCallback,
   TrackedStage as ProposalStage,
+  StageDataMap,
   StageStatus,
   StageTiming,
   StageTransaction,
@@ -25,7 +33,11 @@ export type {
   TrackerOptions,
   TrackingCheckpoint,
   TrackingResult,
+  TypedTrackedStage,
 } from "@gzeoneth/gov-tracker";
+
+// Re-export type guard utilities from @gzeoneth/gov-tracker
+export { getStageData, isStageType } from "@gzeoneth/gov-tracker";
 
 /**
  * Complete proposal tracking result
@@ -35,15 +47,15 @@ export interface ProposalTrackingResult {
   proposalId: string;
   creationTxHash: string;
   governorAddress: string;
-  stages: import("@gzeoneth/gov-tracker").TrackedStage[];
+  stages: TrackedStage[];
   /** Current overall proposal state from governor contract */
   currentState?: string;
   /** Link to timelock cache for stages 4-7 (present after PROPOSAL_QUEUED completes) */
-  timelockLink?: import("@gzeoneth/gov-tracker").TimelockLink;
+  timelockLink?: TimelockLink;
   /** Whether tracking is complete */
   isComplete?: boolean;
   /** Proposal type (constitutional, non-constitutional, election) */
-  proposalType?: import("@gzeoneth/gov-tracker").ProposalType;
+  proposalType?: ProposalType;
 }
 
 /**
@@ -57,5 +69,5 @@ export interface TrackProposalParams {
   governorAddress?: string;
   l2TimelockAddress?: string;
   l1TimelockAddress?: string;
-  chunkingConfig?: Partial<import("@gzeoneth/gov-tracker").ChunkingConfig>;
+  chunkingConfig?: Partial<ChunkingConfig>;
 }

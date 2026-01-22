@@ -8,10 +8,9 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
-import { STORAGE_KEYS } from "@/config/storage-keys";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import { addressesEqual } from "@/lib/address-utils";
+import { ARB_TOKEN } from "@/config/arbitrum-governance";
+import { useRpcSettings } from "@/hooks/use-rpc-settings";
+import { compareBigIntDesc } from "@/lib/collection-utils";
 import { debug } from "@/lib/debug";
 import { getDelegateCacheStats, loadDelegateCache } from "@/lib/delegate-cache";
 import { toError } from "@/lib/error-utils";
@@ -56,6 +55,8 @@ export interface UseDelegateSearchResult {
 
 /**
  * Filter delegates by minimum voting power and/or address search term
+ * Uses single pass filtering for better performance
+ *
  * @param delegates - Array of delegates to filter
  * @param options - Filter options
  * @returns Filtered delegate array
@@ -67,21 +68,23 @@ export function filterDelegates(
     addressFilter?: string;
   }
 ): DelegateInfo[] {
-  let filtered = delegates;
+  const minPower = options.minVotingPower
+    ? BigInt(options.minVotingPower)
+    : null;
+  const searchTerm = options.addressFilter?.toLowerCase().trim() || null;
 
-  if (options.minVotingPower) {
-    const minPower = BigInt(options.minVotingPower);
-    filtered = filtered.filter((d) => BigInt(d.votingPower) >= minPower);
+  // No filters applied
+  if (!minPower && !searchTerm) {
+    return delegates;
   }
 
-  if (options.addressFilter && options.addressFilter.trim()) {
-    const searchTerm = options.addressFilter.toLowerCase().trim();
-    filtered = filtered.filter((d) =>
-      d.address.toLowerCase().includes(searchTerm)
-    );
-  }
-
-  return filtered;
+  // Single pass filter combining both conditions
+  return delegates.filter((d) => {
+    if (minPower && BigInt(d.votingPower) < minPower) return false;
+    if (searchTerm && !d.address.toLowerCase().includes(searchTerm))
+      return false;
+    return true;
+  });
 }
 
 /**
@@ -95,10 +98,7 @@ export function useDelegateSearch({
   minVotingPower,
   addressFilter,
 }: UseDelegateSearchOptions): UseDelegateSearchResult {
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
+  const { l2Rpc, isHydrated } = useRpcSettings({ customL2Rpc: customRpcUrl });
 
   const [delegates, setDelegates] = useState<DelegateInfo[]>([]);
   const [totalVotingPower, setTotalVotingPower] = useState<string>("0");
@@ -111,8 +111,6 @@ export function useDelegateSearch({
   const [cache, setCache] = useState<DelegateCache | null>(null);
 
   const refreshedAddresses = useRef<Set<string>>(new Set());
-
-  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   // Load cache on mount - filters are applied in a separate effect
   useEffect(() => {
@@ -164,7 +162,7 @@ export function useDelegateSearch({
 
   const refreshVisibleDelegates = useCallback(
     async (addresses: string[]) => {
-      if (!enabled || !l2RpcHydrated || addresses.length === 0) return;
+      if (!enabled || !isHydrated || addresses.length === 0) return;
 
       const toRefresh = addresses.filter(
         (addr) => !refreshedAddresses.current.has(addr.toLowerCase())
@@ -175,7 +173,7 @@ export function useDelegateSearch({
       setIsRefreshingVisible(true);
 
       try {
-        const provider = await createRpcProvider(rpcUrl);
+        const provider = await createRpcProvider(l2Rpc);
         const tokenInterface = new ethers.utils.Interface(ERC20Votes_ABI);
 
         const calls = toRefresh.map((address) => ({
@@ -206,17 +204,18 @@ export function useDelegateSearch({
         }
 
         if (successfulResults.length > 0 && cache) {
+          // Build a Map for O(1) lookups instead of O(n) find() in loop
+          const refreshedMap = new Map(
+            successfulResults.map((r) => [r.address.toLowerCase(), r])
+          );
           const updatedDelegates = cache.delegates.map((d) => {
-            const refreshed = successfulResults.find((r) =>
-              addressesEqual(r.address, d.address)
-            );
+            const refreshed = refreshedMap.get(d.address.toLowerCase());
             return refreshed ? { ...d, votingPower: refreshed.votingPower } : d;
           });
 
-          updatedDelegates.sort((a, b) => {
-            const diff = BigInt(b.votingPower) - BigInt(a.votingPower);
-            return diff > BigInt(0) ? 1 : diff < BigInt(0) ? -1 : 0;
-          });
+          updatedDelegates.sort((a, b) =>
+            compareBigIntDesc(a.votingPower, b.votingPower)
+          );
 
           const newCache = { ...cache, delegates: updatedDelegates };
           setCache(newCache);
@@ -238,7 +237,7 @@ export function useDelegateSearch({
         setIsRefreshingVisible(false);
       }
     },
-    [enabled, l2RpcHydrated, rpcUrl, cache, minVotingPower, addressFilter]
+    [enabled, isHydrated, l2Rpc, cache, minVotingPower, addressFilter]
   );
 
   return {

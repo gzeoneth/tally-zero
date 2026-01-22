@@ -8,8 +8,8 @@ import type { ParsedProposal, Proposal } from "@/types/proposal";
 import {
   ARBITRUM_CHAIN_ID,
   ARBITRUM_GOVERNORS,
-  BLOCKS_PER_DAY,
 } from "@config/arbitrum-governance";
+import { BLOCKS_PER_DAY } from "@config/block-times";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 /**
@@ -137,7 +137,15 @@ export async function searchGovernor(
 
   for (const events of allEvents) {
     for (const event of events) {
-      const args = event.args!;
+      const args = event.args;
+      if (!args || args.proposalId === undefined) {
+        debug.search(
+          "skipping event with missing args in tx %s",
+          event.transactionHash
+        );
+        continue;
+      }
+
       // Destructure event args to avoid Array.prototype.values collision
       const {
         proposalId,

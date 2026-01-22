@@ -10,6 +10,11 @@ import type { ProposalStateName } from "@/types/proposal";
 /** State configuration type from table data */
 export type StateValue = (typeof states)[number];
 
+/** Pre-computed Map for O(1) state lookup by normalized value */
+const statesByNormalizedValue = new Map(
+  states.map((state) => [state.value.toLowerCase(), state])
+);
+
 /**
  * Find a state configuration by its value (case-insensitive)
  *
@@ -20,8 +25,7 @@ export function findStateByValue(
   stateValue: string | undefined | null
 ): StateValue | undefined {
   if (!stateValue) return undefined;
-  const normalizedValue = stateValue.toLowerCase();
-  return states.find((state) => state.value.toLowerCase() === normalizedValue);
+  return statesByNormalizedValue.get(stateValue.toLowerCase());
 }
 
 /**

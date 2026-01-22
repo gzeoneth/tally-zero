@@ -10,6 +10,7 @@ import {
   getAllStageTypes,
   useProposalStages,
 } from "@/hooks/use-proposal-stages";
+import { buildLookupMap } from "@/lib/collection-utils";
 import type { ProposalStage, StageType } from "@/types/proposal-stage";
 import { ReloadIcon } from "@radix-ui/react-icons";
 
@@ -58,13 +59,10 @@ export default function ProposalStages({
   const governorType = isTreasuryProposal ? "treasury" : "core";
 
   const allStageTypes = getAllStageTypes();
-  const stageMap = useMemo(() => {
-    const map = new Map<StageType, ProposalStage>();
-    for (const stage of stages) {
-      map.set(stage.type, stage);
-    }
-    return map;
-  }, [stages]);
+  const stageMap = useMemo(
+    () => buildLookupMap(stages, (s) => s.type),
+    [stages]
+  ) as Map<StageType, ProposalStage>;
 
   const isDefeated = result?.currentState?.toLowerCase() === "defeated";
   const isElection = result?.proposalType
@@ -80,24 +78,25 @@ export default function ProposalStages({
       "MEMBER_ELECTION",
     ];
 
+    // Pre-compute index map for O(1) lookups instead of repeated findIndex calls
+    const stageTypeToIndex = new Map(
+      allStageTypes.map((s, idx) => [s.type, idx])
+    );
+    const votingIdx = stageTypeToIndex.get("VOTING_ACTIVE") ?? -1;
+    const l2ExecutedIdx = stageTypeToIndex.get("L2_TIMELOCK") ?? -1;
+
     return allStageTypes.filter((meta) => {
       // Filter out election stages for non-election proposals
       if (!isElection && electionStageTypes.includes(meta.type)) {
         return false;
       }
 
+      const currentIdx = stageTypeToIndex.get(meta.type) ?? -1;
+
       if (isDefeated) {
-        const votingIdx = allStageTypes.findIndex(
-          (s) => s.type === "VOTING_ACTIVE"
-        );
-        const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
         return currentIdx <= votingIdx;
       }
       if (isTreasuryProposal) {
-        const l2ExecutedIdx = allStageTypes.findIndex(
-          (s) => s.type === "L2_TIMELOCK"
-        );
-        const currentIdx = allStageTypes.findIndex((s) => s.type === meta.type);
         return currentIdx <= l2ExecutedIdx;
       }
       return true;
@@ -106,7 +105,6 @@ export default function ProposalStages({
 
   const { estimatedTimes, votingTimeRange } = calculateEstimatedCompletionTimes(
     relevantStageTypes,
-    stages,
     stageMap,
     currentL1Block
   );

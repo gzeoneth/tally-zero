@@ -39,3 +39,9 @@ next-env.d.ts
 
 # opensrc - source code for packages
 opensrc/
+
+# Claude Code instructions (local only)
+CLAUDE.md
+
+# Agent loop metadata
+.agent/summary.md

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateQuorumProgress,
   calculateVoteDistribution,
+  formatVotes,
 } from "./vote-utils";
 
 describe("vote-utils", () => {
@@ -110,6 +111,63 @@ describe("vote-utils", () => {
     it("handles large numbers", () => {
       const result = calculateQuorumProgress("5000000000", "10000000000");
       expect(result.percentage).toBe(50);
+    });
+  });
+
+  describe("formatVotes", () => {
+    it("formats ethers BigNumber-like objects to strings", () => {
+      const mockVotes = {
+        forVotes: { toString: () => "1000000000000000000" },
+        againstVotes: { toString: () => "500000000000000000" },
+        abstainVotes: { toString: () => "200000000000000000" },
+      };
+
+      const result = formatVotes(mockVotes);
+
+      expect(result.forVotes).toBe("1000000000000000000");
+      expect(result.againstVotes).toBe("500000000000000000");
+      expect(result.abstainVotes).toBe("200000000000000000");
+      expect(result.quorum).toBeUndefined();
+    });
+
+    it("includes quorum when provided", () => {
+      const mockVotes = {
+        forVotes: { toString: () => "100" },
+        againstVotes: { toString: () => "50" },
+        abstainVotes: { toString: () => "25" },
+      };
+
+      const result = formatVotes(mockVotes, "1000000000000000000000");
+
+      expect(result.quorum).toBe("1000000000000000000000");
+    });
+
+    it("handles zero votes", () => {
+      const mockVotes = {
+        forVotes: { toString: () => "0" },
+        againstVotes: { toString: () => "0" },
+        abstainVotes: { toString: () => "0" },
+      };
+
+      const result = formatVotes(mockVotes);
+
+      expect(result.forVotes).toBe("0");
+      expect(result.againstVotes).toBe("0");
+      expect(result.abstainVotes).toBe("0");
+    });
+
+    it("works with plain string objects", () => {
+      const mockVotes = {
+        forVotes: "100",
+        againstVotes: "50",
+        abstainVotes: "25",
+      };
+
+      const result = formatVotes(mockVotes);
+
+      expect(result.forVotes).toBe("100");
+      expect(result.againstVotes).toBe("50");
+      expect(result.abstainVotes).toBe("25");
     });
   });
 });

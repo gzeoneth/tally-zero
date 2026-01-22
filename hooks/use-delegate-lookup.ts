@@ -8,12 +8,11 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
 
-import { ARBITRUM_RPC_URL, ARB_TOKEN } from "@/config/arbitrum-governance";
-import { STORAGE_KEYS } from "@/config/storage-keys";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { ARB_TOKEN } from "@/config/arbitrum-governance";
+import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import { addressesEqual, isValidAddress } from "@/lib/address-utils";
 import { debug } from "@/lib/debug";
-import { getDelegateLabel, loadDelegateCache } from "@/lib/delegate-cache";
+import { getDelegateLabel, getDelegateRankInfo } from "@/lib/delegate-cache";
 import { getErrorMessage } from "@/lib/error-utils";
 import { createRpcProvider } from "@/lib/rpc-utils";
 
@@ -73,16 +72,11 @@ export function useDelegateLookup({
   enabled = true,
   customRpcUrl,
 }: UseDelegateLookupOptions): UseDelegateLookupReturn {
-  const [storedL2Rpc, , l2RpcHydrated] = useLocalStorage(
-    STORAGE_KEYS.L2_RPC,
-    ""
-  );
+  const { l2Rpc, isHydrated } = useRpcSettings({ customL2Rpc: customRpcUrl });
 
   const [result, setResult] = useState<DelegateLookupResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const rpcUrl = customRpcUrl || storedL2Rpc || ARBITRUM_RPC_URL;
 
   const fetchDelegateInfo = useCallback(async () => {
     if (!address || !enabled) return;
@@ -96,7 +90,7 @@ export function useDelegateLookup({
     setError(null);
 
     try {
-      const provider = await createRpcProvider(rpcUrl);
+      const provider = await createRpcProvider(l2Rpc);
 
       const contract = new ethers.Contract(
         ARB_TOKEN.address,
@@ -110,21 +104,16 @@ export function useDelegateLookup({
         contract.delegates(address),
       ]);
 
-      // Check if address is in the delegate cache
+      // Get delegate label and rank from cache (O(1) lookups)
+      const label = getDelegateLabel(address);
       let cacheRank: number | undefined;
       let cacheVotingPower: string | undefined;
-      const label = getDelegateLabel(address);
 
       try {
-        const cache = await loadDelegateCache();
-        if (cache) {
-          const index = cache.delegates.findIndex((d) =>
-            addressesEqual(d.address, address)
-          );
-          if (index !== -1) {
-            cacheRank = index + 1;
-            cacheVotingPower = cache.delegates[index].votingPower;
-          }
+        const rankInfo = await getDelegateRankInfo(address);
+        if (rankInfo) {
+          cacheRank = rankInfo.rank;
+          cacheVotingPower = rankInfo.votingPower;
         }
       } catch (cacheErr) {
         debug.delegates("failed to check delegate cache: %O", cacheErr);
@@ -146,17 +135,17 @@ export function useDelegateLookup({
     } finally {
       setIsLoading(false);
     }
-  }, [address, enabled, rpcUrl]);
+  }, [address, enabled, l2Rpc]);
 
   useEffect(() => {
-    if (!l2RpcHydrated) return;
+    if (!isHydrated) return;
     if (address && enabled) {
       fetchDelegateInfo();
     } else {
       setResult(null);
       setError(null);
     }
-  }, [l2RpcHydrated, address, enabled, fetchDelegateInfo]);
+  }, [isHydrated, address, enabled, fetchDelegateInfo]);
 
   return {
     result,

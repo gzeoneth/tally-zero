@@ -28,24 +28,19 @@ interface DelegateLabelsConfig {
 
 const delegateLabels = delegateLabelsData as DelegateLabelsConfig;
 
+// Pre-compute a normalized lookup map for O(1) case-insensitive address lookups
+const normalizedDelegateLabels = new Map<string, string>();
+for (const [addr, label] of Object.entries(delegateLabels.delegates)) {
+  normalizedDelegateLabels.set(addr.toLowerCase(), label);
+}
+
 /**
  * Get the human-readable label for a delegate address
  * @param address - The delegate's Ethereum address
  * @returns The delegate's label if found, undefined otherwise
  */
 export function getDelegateLabel(address: string): string | undefined {
-  if (delegateLabels.delegates[address]) {
-    return delegateLabels.delegates[address];
-  }
-
-  const lowerAddress = address.toLowerCase();
-  for (const [addr, label] of Object.entries(delegateLabels.delegates)) {
-    if (addr.toLowerCase() === lowerAddress) {
-      return label;
-    }
-  }
-
-  return undefined;
+  return normalizedDelegateLabels.get(address.toLowerCase());
 }
 
 /**
@@ -64,6 +59,18 @@ try {
   staticCacheData = require("@data/delegate-cache.json") as DelegateCache;
 } catch {
   staticCacheData = null;
+}
+
+// Pre-computed address-to-rank Map for O(1) rank lookups
+// Built lazily when first delegate rank is requested
+let delegateRankMap: Map<string, number> | null = null;
+
+function buildDelegateRankMap(delegates: DelegateInfo[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (let i = 0; i < delegates.length; i++) {
+    map.set(delegates[i].address.toLowerCase(), i + 1); // 1-indexed rank
+  }
+  return map;
 }
 
 let validatedCacheData: DelegateCache | null = null;
@@ -140,6 +147,32 @@ export async function loadDelegateCache(): Promise<DelegateCache | null> {
 export function clearDelegateCacheData(): void {
   validatedCacheData = null;
   cacheValidated = false;
+  delegateRankMap = null;
+}
+
+/**
+ * Get delegate rank and cached voting power by address
+ * Uses pre-computed Map for O(1) lookup instead of O(n) findIndex
+ * @param address - The delegate's Ethereum address
+ * @returns Object with rank (1-indexed) and votingPower, or undefined if not found
+ */
+export async function getDelegateRankInfo(
+  address: string
+): Promise<{ rank: number; votingPower: string } | undefined> {
+  const cache = await loadDelegateCache();
+  if (!cache) return undefined;
+
+  // Build rank map lazily on first access
+  if (!delegateRankMap) {
+    delegateRankMap = buildDelegateRankMap(cache.delegates);
+  }
+
+  const rank = delegateRankMap.get(address.toLowerCase());
+  if (rank === undefined) return undefined;
+
+  // rank is 1-indexed, so array index is rank - 1
+  const delegate = cache.delegates[rank - 1];
+  return { rank, votingPower: delegate.votingPower };
 }
 
 /**
@@ -182,34 +215,4 @@ export function getTopDelegates(
   limit: number = 100
 ): DelegateInfo[] {
   return cache.delegates.slice(0, limit);
-}
-
-/**
- * Find a delegate by their Ethereum address
- * @param cache - The delegate cache to search
- * @param address - The Ethereum address to look up
- * @returns The delegate info if found, undefined otherwise
- */
-export function findDelegateByAddress(
-  cache: DelegateCache,
-  address: string
-): DelegateInfo | undefined {
-  const normalizedAddress = address.toLowerCase();
-  return cache.delegates.find(
-    (d) => d.address.toLowerCase() === normalizedAddress
-  );
-}
-
-/**
- * Filter delegates by minimum voting power
- * @param cache - The delegate cache to filter
- * @param minPowerWei - Minimum voting power in wei (as string)
- * @returns Array of delegates meeting the minimum power threshold
- */
-export function getDelegatesWithMinPower(
-  cache: DelegateCache,
-  minPowerWei: string
-): DelegateInfo[] {
-  const minPower = BigInt(minPowerWei);
-  return cache.delegates.filter((d) => BigInt(d.votingPower) >= minPower);
 }
