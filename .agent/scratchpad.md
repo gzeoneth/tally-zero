@@ -1,80 +1,119 @@
 # TallyZero Refactoring Scratchpad
 
-## Summary
+## Session: 2026-01-22
 
-Comprehensive codebase refactoring to improve code quality, reduce duplication, fix performance issues, and add missing tests.
+## Analysis Summary
 
----
-
-## Tasks
-
-### HIGH PRIORITY - Code Duplication
-
-(none remaining)
-
-### HIGH PRIORITY - Performance
-
-(none remaining)
-
-### MEDIUM PRIORITY - Code Duplication
-
-(none remaining - analyzed items moved to completed)
-
-### MEDIUM PRIORITY - Complexity Reduction
-
-(items below require careful refactoring with risk - deferred for future consideration)
-
-- **Simplify TimelockOperationContent** - 624 lines with complex state management
-
-  - Would need careful prop/context design to avoid prop drilling
-  - Risk of breaking existing functionality
-
-- **Consolidate boolean flags in use-timelock-operation**
-  - Would change hook API and require updates to all consumers
-  - Risk of introducing state machine bugs
-
-### MEDIUM PRIORITY - Missing Tests
-
-(none remaining)
-
-### LOW PRIORITY - Code Quality
-
-(none remaining)
+Exploration completed. Codebase is mature with strong TypeScript discipline. No critical bugs found. Governance implementation verified against official Arbitrum docs - all correct.
 
 ---
 
-## Completed
+## Completed Tasks
 
-- [x] **Extract `useEffectiveRpcUrl` hook** - Already done via `useRpcSettings` hook
-- [x] **Leverage existing `useRpcSettings` hook** - All hooks now use it
-- [x] **Centralize RPC provider creation** - `createRpcProvider` and `getOrCreateProvider` in rpc-utils.ts
-- [x] **Fix O(n) vote update handler** - Acceptable for small proposal lists, already optimized
-- [x] **Add tests for collection-utils.ts** - 24 tests exist
-- [x] **Add tests for governor-search/search-utils.ts** - 13 tests exist
-- [x] **Create single useBreakpoint hook** - hooks/use-breakpoint.ts created
-- [x] **Simplify SettingsSheet state** - useSettingsForm hook extracted
-- [x] **Remove unused exports** - Cleaned up arbitrum-governance.ts, governor-search, tenderly
-- [x] **Use gov-tracker type guards** - getStageData, isStageType now used
-- [x] **Add tests for timelock-simulation.ts** - 12 tests added
-- [x] **Convert getStateStyle switch to lookup** - Already uses STATE_STYLE_MAP
-- [x] **Add early exit in delegate batch processing** - Already has break statement and while condition check
-- [x] **Add tests for debug.ts** - 10 tests added for debug utilities
-- [x] **Use regex for error message detection** - Premature optimization; current .includes() is readable and error handling is infrequent
-- [x] **Extract AddressView component** - Not needed; address rendering needs differ per component; no real duplication
-- [x] **Extract contract cache factory** - Not needed; function is specific to OZGovernor_ABI and only used in one file
-- [x] **Extract async hook pattern** - Standard React pattern; abstraction would add complexity without benefit
-- [x] **Extract cancellation pattern** - Idiomatic React pattern for async cleanup; abstraction unnecessary
-- [x] **Use addressesEqual() consistently** - Checked; toLowerCase() comparisons are for hex strings (operation IDs), not addresses
-- [x] **Update CLAUDE.md documentation** - Removed non-existent files, fixed outdated architecture descriptions, updated gov-tracker version
-- [x] **Add tests for use-local-storage hook** - 25 tests added covering localStorage logic, serialization, event handling
-- [x] **VoteDistributionBar components analysis** - Kept separate; different visual purposes (expanded vs compact), duplication is acceptable
-- [x] **Fix useCopyToClipboard memory leak** - Added proper setTimeout cleanup on unmount and when called rapidly
+### [x] 1. Extract `useAbortSignal()` hook
+
+**Commit:** 709a8ae
+
+- Created `hooks/use-abort-signal.ts` with unified cancellation pattern
+- Created `hooks/use-abort-signal.test.ts` with comprehensive tests
+
+### [x] 2. Extract `useRpcProvider()` hook
+
+**Commit:** 709a8ae
+
+- Created `hooks/use-rpc-provider.ts` for RPC initialization
+- Refactored `use-multi-governor-search.ts` to use new hook
+
+### [x] 3. Consolidate votes formatting utility
+
+**Commit:** 21adb31
+
+- Added `formatVotes` to `lib/vote-utils.ts`
+- Updated `use-proposal-by-id.ts` to use shared utility
+- Added tests for formatVotes
+
+### [x] 4. Remove unused \_governorAddress parameter
+
+**Commit:** 96d9e33
+
+- Removed unused parameter from `isProposalFullyExecuted()`
+- Updated call sites in `getEffectiveDisplayState()`
+
+### [x] 5. Simplify storage-utils try-catch pattern
+
+**Commit:** 6cb4c17
+
+- Refactored `getStoredJsonString` and `getStoredNumber` to use `getStoredValue`
+- Reduced code duplication from 20 lines
+
+### [x] 6. Use buildLookupMap consistently
+
+**Commit:** 7e6502c
+
+- Updated `use-multi-governor-search.ts`, `rpc-health.ts`, `bundled-cache-loader.ts`
+- Replaced manual `new Map(...map())` with utility function
+
+### [x] 7. Extract `withTimeout` utility
+
+**Commit:** aa33e0b
+
+- Created `withTimeout` helper in `lib/delay-utils.ts`
+- Refactored `lib/rpc-health.ts` to use helper (consolidated 3 instances)
+- Added 6 tests for withTimeout
+
+### [x] 8. Split TimelockOperationContent component
+
+**Commit:** d5b7cbd
+
+- Extracted `TimelockStagesList` to `components/container/timelock/TimelockStagesList.tsx`
+- Main file reduced from 624 to 419 lines
+- Better separation of concerns
+
+### [x] 9. Externalize election phase mapping
+
+**Commit:** c5f8701
+
+- Moved `PHASE_TO_STAGE_TYPES` to `config/security-council.ts`
+- Centralized election configuration
 
 ---
 
-## Notes
+## Skipped Tasks (with reasoning)
 
-- Cache versioning is properly implemented (CACHE_VERSION = 4)
-- No actual legacy code or deprecated APIs found
-- Test coverage improved significantly
-- Codebase is generally well-structured, issues are localized optimizations
+### [~] Extract quorum fetch utility
+
+**Reason:** Minor duplication (6 lines) - extraction would add unnecessary indirection
+
+### [~] Optimize vote update O(n) to O(1)
+
+**Reason:** Current O(n) is fine - updates are infrequent, proposal counts <100
+
+### [~] Document proposal-tracker-manager queue logic
+
+**Reason:** Already well-documented with clear comments and type definitions
+
+### [~] Add contract caching to hooks
+
+**Reason:** Hooks handle single operations - caching only benefits batch operations
+
+### [~] Simplify use-election-status with useReducer
+
+**Reason:** Complexity comes from async orchestration (caching, race conditions), not state transitions. useReducer would add boilerplate without meaningful simplification.
+
+---
+
+## Verification Notes
+
+### Governance Implementation ✓
+
+- All contract addresses match official Arbitrum docs
+- Quorum thresholds correct (4.5% Core, 3% Treasury)
+- Timelock delays correct (8d L2 Core, 3d L2 Treasury, 3d L1)
+- Proposal lifecycle stages accurate
+
+### Code Quality ✓
+
+- Zero `@ts-ignore`, `@ts-expect-error`, or `as any`
+- All setInterval/setTimeout have proper cleanup
+- No empty catch blocks swallowing errors
+- Strong test coverage (44 test files, 772 tests)
