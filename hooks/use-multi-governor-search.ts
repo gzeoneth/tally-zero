@@ -31,6 +31,7 @@ import {
   ARBITRUM_RPC_URL,
 } from "@config/arbitrum-governance";
 import { BLOCKS_PER_DAY } from "@config/block-times";
+import { useRpcProvider } from "./use-rpc-provider";
 
 /** Default block range for chunked RPC queries */
 const DEFAULT_BLOCK_RANGE = 10000000;
@@ -50,26 +51,18 @@ export function useMultiGovernorSearch({
   const [proposals, setProposals] = useState<ParsedProposal[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [providerReady, setProviderReady] = useState(false);
   const [cacheInfo, setCacheInfo] = useState<CacheHitInfo>();
 
   const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
+  const { isReady: providerReady, error: providerError } =
+    useRpcProvider(rpcUrl);
 
-  // Initialize provider using cached factory
+  // Propagate provider initialization error
   useEffect(() => {
-    let cancelled = false;
-    setProviderReady(false);
-    createRpcProvider(rpcUrl)
-      .then(() => {
-        if (!cancelled) setProviderReady(true);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err as Error);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [rpcUrl]);
+    if (providerError) {
+      setError(providerError);
+    }
+  }, [providerError]);
 
   // Search for proposals
   useEffect(() => {
