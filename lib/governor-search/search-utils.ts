@@ -8,8 +8,8 @@ import type { ParsedProposal, Proposal } from "@/types/proposal";
 import {
   ARBITRUM_CHAIN_ID,
   ARBITRUM_GOVERNORS,
-  BLOCKS_PER_DAY,
 } from "@config/arbitrum-governance";
+import { BLOCKS_PER_DAY } from "@config/block-times";
 import OZGovernor_ABI from "@data/OzGovernor_ABI.json";
 
 /**

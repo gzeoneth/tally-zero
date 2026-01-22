@@ -29,8 +29,8 @@ import { ParsedProposal } from "@/types/proposal";
 import {
   ARBITRUM_GOVERNORS,
   ARBITRUM_RPC_URL,
-  BLOCKS_PER_DAY,
 } from "@config/arbitrum-governance";
+import { BLOCKS_PER_DAY } from "@config/block-times";
 
 /** Default block range for chunked RPC queries */
 const DEFAULT_BLOCK_RANGE = 10000000;
