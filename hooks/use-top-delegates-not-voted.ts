@@ -122,12 +122,14 @@ export function useTopDelegatesNotVoted({
               "hasVoted",
               result.returnData
             );
-            if (!voted && notVoted.length < limit) {
+            if (!voted) {
               notVoted.push({
                 address: delegate.address,
                 label: getDelegateLabel(delegate.address),
                 votingPower: delegate.votingPower,
               });
+              // Early exit once we have enough delegates
+              if (notVoted.length >= limit) break;
             }
           }
         }
