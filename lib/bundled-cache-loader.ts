@@ -1,4 +1,11 @@
-import type { CacheAdapter } from "@gzeoneth/gov-tracker";
+import {
+  extractOperationId,
+  extractTimelockLink,
+  type CacheAdapter,
+  type DiscoveryWatermarks,
+  type LoadedWatermarks,
+  type TrackedStage,
+} from "@gzeoneth/gov-tracker";
 
 import {
   BUNDLED_CACHE_BATCH_SIZE,
@@ -150,19 +157,11 @@ export function resetBundledCacheFlag(): void {
   bundledCacheData = null;
 }
 
-/** Bundled cache watermark with L2 block */
-export interface BundledCacheWatermark {
-  l2Block: number;
-  coreGovernorBlock: number;
-  treasuryGovernorBlock: number;
-}
-
 /**
- * Get the L2 block watermark from bundled cache
- * This indicates the block up to which proposals are cached
- * Returns null if bundled cache is disabled
+ * Get discovery watermarks from bundled cache
+ * Returns null if bundled cache is disabled or watermarks unavailable
  */
-export async function getBundledCacheWatermark(): Promise<BundledCacheWatermark | null> {
+export async function getBundledCacheWatermarks(): Promise<LoadedWatermarks | null> {
   const skipBundledCache = getStoredValue<boolean>(
     STORAGE_KEYS.SKIP_BUNDLED_CACHE,
     false
@@ -173,25 +172,20 @@ export async function getBundledCacheWatermark(): Promise<BundledCacheWatermark 
 
   try {
     const cache = await loadBundledCache();
-    const watermarks = cache["discovery:watermarks"] as {
-      lastProcessedBlock?: { l2?: number };
+    const checkpoint = cache["discovery:watermarks"] as {
       cachedData?: {
-        discoveryWatermarks?: {
-          constitutionalGovernor?: number;
-          nonConstitutionalGovernor?: number;
-        };
+        discoveryWatermarks?: DiscoveryWatermarks;
+        watermarkHashes?: Record<string, string>;
       };
     };
 
-    if (!watermarks?.cachedData?.discoveryWatermarks) {
+    if (!checkpoint?.cachedData?.discoveryWatermarks) {
       return null;
     }
 
-    const { discoveryWatermarks } = watermarks.cachedData;
     return {
-      l2Block: watermarks.lastProcessedBlock?.l2 ?? 0,
-      coreGovernorBlock: discoveryWatermarks.constitutionalGovernor ?? 0,
-      treasuryGovernorBlock: discoveryWatermarks.nonConstitutionalGovernor ?? 0,
+      watermarks: checkpoint.cachedData.discoveryWatermarks,
+      hashes: checkpoint.cachedData.watermarkHashes ?? {},
     };
   } catch {
     return null;
@@ -370,5 +364,108 @@ export async function extractProposalsFromBundledCache(): Promise<{
     return { proposals, activeProposalIds };
   } catch {
     return { proposals: [], activeProposalIds: new Set() };
+  }
+}
+
+/**
+ * Extract operation IDs from governor proposals in bundled cache
+ * Returns a Set of operation IDs (lowercase) that are linked to governor proposals
+ */
+export async function extractOperationIdsFromBundledCache(): Promise<
+  Set<string>
+> {
+  const operationIds = new Set<string>();
+
+  const skipBundledCache = getStoredValue<boolean>(
+    STORAGE_KEYS.SKIP_BUNDLED_CACHE,
+    false
+  );
+  if (skipBundledCache) {
+    return operationIds;
+  }
+
+  try {
+    const cache = await loadBundledCache();
+
+    for (const [key, value] of Object.entries(cache)) {
+      if (!key.startsWith("tx:")) continue;
+
+      const checkpoint = value as BundledCheckpoint;
+      if (checkpoint.input?.type !== "governor") continue;
+
+      const stages = checkpoint.cachedData?.completedStages ?? [];
+      const opId = extractOperationId(stages as unknown as TrackedStage[]);
+      if (opId) {
+        operationIds.add(opId.toLowerCase());
+      }
+    }
+
+    debug.cache(
+      "extracted %d operation IDs from bundled cache",
+      operationIds.size
+    );
+    return operationIds;
+  } catch {
+    return new Set();
+  }
+}
+
+/** Timelock operation extracted from bundled cache */
+export interface BundledTimelockOp {
+  operationId: string;
+  timelockAddress: string;
+  scheduledTxHash: string;
+  queueBlock: number;
+  stages: TrackedStage[];
+}
+
+/**
+ * Extract timelock operations from bundled cache
+ * Returns timelock operations that were tracked as part of governor proposals
+ */
+export async function extractTimelockOpsFromBundledCache(): Promise<
+  BundledTimelockOp[]
+> {
+  const ops: BundledTimelockOp[] = [];
+
+  const skipBundledCache = getStoredValue<boolean>(
+    STORAGE_KEYS.SKIP_BUNDLED_CACHE,
+    false
+  );
+  if (skipBundledCache) {
+    return ops;
+  }
+
+  try {
+    const cache = await loadBundledCache();
+
+    for (const [key, value] of Object.entries(cache)) {
+      if (!key.startsWith("tx:")) continue;
+
+      const checkpoint = value as BundledCheckpoint;
+      if (checkpoint.input?.type !== "governor") continue;
+
+      const stages = (checkpoint.cachedData?.completedStages ??
+        []) as unknown as TrackedStage[];
+      const link = extractTimelockLink(stages);
+
+      if (link) {
+        ops.push({
+          operationId: link.operationId.toLowerCase(),
+          timelockAddress: link.timelockAddress,
+          scheduledTxHash: link.txHash,
+          queueBlock: link.queueBlockNumber,
+          stages,
+        });
+      }
+    }
+
+    debug.cache(
+      "extracted %d timelock operations from bundled cache",
+      ops.length
+    );
+    return ops;
+  } catch {
+    return [];
   }
 }

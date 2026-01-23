@@ -271,10 +271,9 @@ describe("gov-tracker integration", () => {
     });
 
     it("returns null for invalid data", () => {
-      // In v0.1.1, decodeRetryableTicket throws on invalid data instead of returning null
-      expect(() => decodeRetryableTicket("0x")).toThrow();
-      expect(() => decodeRetryableTicket("invalid")).toThrow();
-      expect(() => decodeRetryableTicket("0x1234")).toThrow();
+      expect(decodeRetryableTicket("0x")).toBeNull();
+      expect(decodeRetryableTicket("invalid")).toBeNull();
+      expect(decodeRetryableTicket("0x1234")).toBeNull();
     });
 
     it("handles large uint256 values", () => {
