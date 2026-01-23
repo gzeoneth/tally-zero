@@ -6,16 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Progress } from "@/components/ui/Progress";
 import { useTimelockOperation } from "@/hooks/use-timelock-operation";
 import type { TimelockOpWithStatus } from "@/hooks/use-timelock-ops-discovery";
+import { truncateMiddle } from "@/lib/text-utils";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { TimelockStagesDisplay } from "./TimelockStagesDisplay";
 
 interface TimelockOpDetailProps {
   operation: TimelockOpWithStatus;
-}
-
-function truncateHash(hash: string, start = 10, end = 8): string {
-  if (hash.length <= start + end) return hash;
-  return `${hash.slice(0, start)}...${hash.slice(-end)}`;
 }
 
 export function TimelockOpDetail({ operation }: TimelockOpDetailProps) {
@@ -77,7 +73,7 @@ export function TimelockOpDetail({ operation }: TimelockOpDetailProps) {
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 font-mono text-sm hover:underline"
               >
-                {truncateHash(operation.timelockAddress)}
+                {truncateMiddle(operation.timelockAddress)}
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
@@ -89,7 +85,7 @@ export function TimelockOpDetail({ operation }: TimelockOpDetailProps) {
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 font-mono text-sm hover:underline"
               >
-                {truncateHash(operation.scheduledTxHash)}
+                {truncateMiddle(operation.scheduledTxHash)}
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>

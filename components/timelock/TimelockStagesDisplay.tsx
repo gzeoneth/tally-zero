@@ -1,5 +1,6 @@
 "use client";
 
+import { getTxExplorerUrl, type ChainId } from "@/lib/explorer-utils";
 import { cn } from "@/lib/utils";
 import type { ProposalStage, StageStatus } from "@/types/proposal-stage";
 import { getStageMetadata } from "@gzeoneth/gov-tracker";
@@ -33,16 +34,16 @@ function StatusIcon({ status }: { status: StageStatus }) {
   }
 }
 
-function getChainExplorerUrl(chainId: number, txHash: string): string {
+function chainIdToChainName(chainId: number): ChainId {
   switch (chainId) {
     case 1:
-      return `https://etherscan.io/tx/${txHash}`;
+      return "ethereum";
     case 42161:
-      return `https://arbiscan.io/tx/${txHash}`;
+      return "arb1";
     case 42170:
-      return `https://nova.arbiscan.io/tx/${txHash}`;
+      return "nova";
     default:
-      return `https://arbiscan.io/tx/${txHash}`;
+      return "arb1";
   }
 }
 
@@ -138,7 +139,7 @@ const StageItem = memo(function StageItem({
             {stage.transactions.map((tx) => (
               <a
                 key={tx.hash}
-                href={getChainExplorerUrl(tx.chainId, tx.hash)}
+                href={getTxExplorerUrl(tx.hash, chainIdToChainName(tx.chainId))}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground group"

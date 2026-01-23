@@ -428,7 +428,6 @@ export interface BundledTimelockOp {
   timelockAddress: string;
   scheduledTxHash: string;
   queueBlock: number;
-  isLinkedToGovernor: true;
 }
 
 /**
@@ -490,7 +489,6 @@ export async function extractTimelockOpsFromBundledCache(): Promise<
           timelockAddress,
           scheduledTxHash: queueTxHash,
           queueBlock,
-          isLinkedToGovernor: true,
         });
       }
     }

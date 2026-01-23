@@ -229,11 +229,6 @@ export function useTimelockOpsDiscovery({
       // Get all operation IDs linked to governor proposals
       const governorOpIds = await getGovernorOperationIds(cache);
 
-      // Bundled ops are always linked to governor
-      const bundledOpIds = new Set(
-        bundledOps.map((op) => op.operationId.toLowerCase())
-      );
-
       // Check which operations are orphans and track lifecycle status
       const opsWithStatus: TimelockOpWithStatus[] = [];
       const totalOps = allOps.length;
@@ -252,9 +247,9 @@ export function useTimelockOpsDiscovery({
         const isGovernorCheckpoint = checkpoint?.input?.type === "governor";
 
         // Check if this operation is linked to a governor proposal via operationId
-        const opIdLower = op.operationId.toLowerCase();
-        const isLinkedToGovernor =
-          governorOpIds.has(opIdLower) || bundledOpIds.has(opIdLower);
+        const isLinkedToGovernor = governorOpIds.has(
+          op.operationId.toLowerCase()
+        );
 
         const isOrphan =
           !isChild && !isGovernorCheckpoint && !isLinkedToGovernor;

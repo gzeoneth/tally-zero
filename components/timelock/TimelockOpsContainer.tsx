@@ -20,14 +20,10 @@ import {
   type LifecycleStatus,
   type TimelockOpWithStatus,
 } from "@/hooks/use-timelock-ops-discovery";
+import { truncateMiddle } from "@/lib/text-utils";
 import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { TimelockOpDetail } from "./TimelockOpDetail";
-
-function truncateHash(hash: string, start = 10, end = 8): string {
-  if (hash.length <= start + end) return hash;
-  return `${hash.slice(0, start)}...${hash.slice(-end)}`;
-}
 
 function LifecycleStatusBadge({ status }: { status: LifecycleStatus }) {
   const config: Record<LifecycleStatus, { className: string; label: string }> =
@@ -114,7 +110,7 @@ function TimelockOpsList({
               onClick={() => onSelectOperation(op)}
             >
               <TableCell className="font-mono text-sm">
-                {truncateHash(op.operationId)}
+                {truncateMiddle(op.operationId)}
               </TableCell>
               <TableCell>
                 <Badge
@@ -152,7 +148,7 @@ function TimelockOpsList({
                   className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {truncateHash(op.scheduledTxHash, 8, 6)}
+                  {truncateMiddle(op.scheduledTxHash, 8, 6)}
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </TableCell>
