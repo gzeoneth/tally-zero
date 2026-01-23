@@ -122,17 +122,14 @@ async function getGovernorOperationIds(
 
 async function isOrphanTimelockOp(
   key: string,
+  operationId: string,
   checkpoint: TrackingCheckpoint | null,
   governorOperationIds: Set<string>,
   cache: Awaited<ReturnType<typeof getCacheAdapter>>
 ): Promise<boolean> {
   if (await isChildCheckpoint(key, cache)) return false;
   if (checkpoint?.input?.type === "governor") return false;
-
-  const opId = extractOperationId(
-    checkpoint?.cachedData?.completedStages ?? []
-  );
-  if (opId && governorOperationIds.has(opId.toLowerCase())) return false;
+  if (governorOperationIds.has(operationId.toLowerCase())) return false;
 
   return true;
 }
@@ -244,6 +241,7 @@ export function useTimelockOpsDiscovery({
 
         const isOrphan = await isOrphanTimelockOp(
           cacheKey,
+          op.operationId,
           checkpoint,
           governorOpIds,
           cache
