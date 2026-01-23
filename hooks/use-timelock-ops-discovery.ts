@@ -11,7 +11,10 @@
 import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 import { BLOCKS_PER_DAY } from "@/config/block-times";
 import { STORAGE_KEYS } from "@/config/storage-keys";
-import { extractOperationIdsFromBundledCache } from "@/lib/bundled-cache-loader";
+import {
+  extractOperationIdsFromBundledCache,
+  extractTimelockOpsFromBundledCache,
+} from "@/lib/bundled-cache-loader";
 import { getErrorMessage } from "@/lib/error-utils";
 import { getCacheAdapter } from "@/lib/gov-tracker-cache";
 import { createProposalTracker } from "@/lib/stage-tracker";
@@ -196,10 +199,40 @@ export function useTimelockOpsDiscovery({
       if (controller.signal.aborted) return;
       setProgress(60);
 
-      const allOps = [...coreOps, ...treasuryOps];
+      // Get timelock operations from bundled cache (already tracked proposals)
+      const bundledOps = await extractTimelockOpsFromBundledCache();
+
+      if (controller.signal.aborted) return;
+      setProgress(65);
+
+      // Merge discovered ops with bundled cache ops
+      // Use Map to deduplicate by operationId (discovered ops take priority)
+      const opsByOperationId = new Map<string, DiscoveredTimelockOp>();
+
+      // Add bundled ops first (will be overwritten by discovered if same operationId)
+      for (const bundledOp of bundledOps) {
+        opsByOperationId.set(bundledOp.operationId.toLowerCase(), {
+          operationId: bundledOp.operationId,
+          timelockAddress: bundledOp.timelockAddress,
+          scheduledTxHash: bundledOp.scheduledTxHash,
+          queueBlock: bundledOp.queueBlock,
+        });
+      }
+
+      // Add discovered ops (overwrites bundled if same operationId)
+      for (const op of [...coreOps, ...treasuryOps]) {
+        opsByOperationId.set(op.operationId.toLowerCase(), op);
+      }
+
+      const allOps = Array.from(opsByOperationId.values());
 
       // Get all operation IDs linked to governor proposals
       const governorOpIds = await getGovernorOperationIds(cache);
+
+      // Bundled ops are always linked to governor
+      const bundledOpIds = new Set(
+        bundledOps.map((op) => op.operationId.toLowerCase())
+      );
 
       // Check which operations are orphans and track lifecycle status
       const opsWithStatus: TimelockOpWithStatus[] = [];
@@ -219,9 +252,9 @@ export function useTimelockOpsDiscovery({
         const isGovernorCheckpoint = checkpoint?.input?.type === "governor";
 
         // Check if this operation is linked to a governor proposal via operationId
-        const isLinkedToGovernor = governorOpIds.has(
-          op.operationId.toLowerCase()
-        );
+        const opIdLower = op.operationId.toLowerCase();
+        const isLinkedToGovernor =
+          governorOpIds.has(opIdLower) || bundledOpIds.has(opIdLower);
 
         const isOrphan =
           !isChild && !isGovernorCheckpoint && !isLinkedToGovernor;
@@ -247,8 +280,8 @@ export function useTimelockOpsDiscovery({
           lifecycleStatus,
         });
 
-        // Update progress between 60-95%
-        setProgress(60 + Math.floor((i / totalOps) * 35));
+        // Update progress between 70-95%
+        setProgress(70 + Math.floor((i / totalOps) * 25));
       }
 
       if (controller.signal.aborted) return;

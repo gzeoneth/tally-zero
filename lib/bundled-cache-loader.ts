@@ -421,3 +421,86 @@ export async function extractOperationIdsFromBundledCache(): Promise<
     return new Set();
   }
 }
+
+/** Timelock operation extracted from bundled cache */
+export interface BundledTimelockOp {
+  operationId: string;
+  timelockAddress: string;
+  scheduledTxHash: string;
+  queueBlock: number;
+  isLinkedToGovernor: true;
+}
+
+/**
+ * Extract timelock operations from bundled cache
+ * Returns timelock operations that were tracked as part of governor proposals
+ */
+export async function extractTimelockOpsFromBundledCache(): Promise<
+  BundledTimelockOp[]
+> {
+  const ops: BundledTimelockOp[] = [];
+
+  const skipBundledCache = getStoredValue<boolean>(
+    STORAGE_KEYS.SKIP_BUNDLED_CACHE,
+    false
+  );
+  if (skipBundledCache) {
+    return ops;
+  }
+
+  try {
+    const cache = await loadBundledCache();
+
+    for (const [key, value] of Object.entries(cache)) {
+      if (!key.startsWith("tx:")) continue;
+
+      const checkpoint = value as BundledCheckpoint;
+      if (checkpoint.input?.type !== "governor") continue;
+
+      const stages = checkpoint.cachedData?.completedStages ?? [];
+
+      let operationId: string | undefined;
+      let timelockAddress: string | undefined;
+      let queueBlock: number | undefined;
+      let queueTxHash: string | undefined;
+
+      for (const stage of stages) {
+        if (stage.type === "PROPOSAL_QUEUED") {
+          const data = stage.data as Record<string, unknown> | undefined;
+          operationId = data?.operationId as string | undefined;
+          timelockAddress = data?.timelockAddress as string | undefined;
+          if (stage.transactions?.[0]) {
+            queueBlock = stage.transactions[0].blockNumber;
+            queueTxHash = stage.transactions[0].hash;
+          }
+        } else if (stage.type === "L2_TIMELOCK" && !operationId) {
+          const data = stage.data as Record<string, unknown> | undefined;
+          operationId = data?.operationId as string | undefined;
+          timelockAddress = data?.timelockAddress as string | undefined;
+          if (stage.transactions?.[0] && !queueBlock) {
+            queueBlock = stage.transactions[0].blockNumber;
+            queueTxHash = stage.transactions[0].hash;
+          }
+        }
+      }
+
+      if (operationId && timelockAddress && queueBlock && queueTxHash) {
+        ops.push({
+          operationId: operationId.toLowerCase(),
+          timelockAddress,
+          scheduledTxHash: queueTxHash,
+          queueBlock,
+          isLinkedToGovernor: true,
+        });
+      }
+    }
+
+    debug.cache(
+      "extracted %d timelock operations from bundled cache",
+      ops.length
+    );
+    return ops;
+  } catch {
+    return [];
+  }
+}
