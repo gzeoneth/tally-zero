@@ -416,6 +416,7 @@ export interface BundledTimelockOp {
   timelockAddress: string;
   scheduledTxHash: string;
   queueBlock: number;
+  stages: TrackedStage[];
 }
 
 /**
@@ -444,8 +445,9 @@ export async function extractTimelockOpsFromBundledCache(): Promise<
       const checkpoint = value as BundledCheckpoint;
       if (checkpoint.input?.type !== "governor") continue;
 
-      const stages = checkpoint.cachedData?.completedStages ?? [];
-      const link = extractTimelockLink(stages as unknown as TrackedStage[]);
+      const stages = (checkpoint.cachedData?.completedStages ??
+        []) as unknown as TrackedStage[];
+      const link = extractTimelockLink(stages);
 
       if (link) {
         ops.push({
@@ -453,6 +455,7 @@ export async function extractTimelockOpsFromBundledCache(): Promise<
           timelockAddress: link.timelockAddress,
           scheduledTxHash: link.txHash,
           queueBlock: link.queueBlockNumber,
+          stages,
         });
       }
     }

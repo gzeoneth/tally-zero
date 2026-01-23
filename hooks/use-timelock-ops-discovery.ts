@@ -211,6 +211,11 @@ export function useTimelockOpsDiscovery({
       if (controller.signal.aborted) return;
       setProgress(65);
 
+      // Build a map of bundled ops with their stages for lifecycle status
+      const bundledStagesMap = new Map(
+        bundledOps.map((op) => [op.operationId.toLowerCase(), op.stages])
+      );
+
       // Merge: bundled first, then live (live wins on conflict)
       const liveOps = [...coreOps, ...treasuryOps];
       const merged = new Map(
@@ -224,11 +229,8 @@ export function useTimelockOpsDiscovery({
       }
 
       const allOps = Array.from(merged.values());
-
-      // Get all operation IDs linked to governor proposals
       const governorOpIds = await getGovernorOperationIds(cache);
 
-      // Check which operations are orphans and track lifecycle status
       const opsWithStatus: TimelockOpWithStatus[] = [];
       const totalOps = allOps.length;
 
@@ -236,6 +238,7 @@ export function useTimelockOpsDiscovery({
         if (controller.signal.aborted) return;
 
         const op = allOps[i];
+        const opIdLower = op.operationId.toLowerCase();
         const cacheKey = `tx:${op.scheduledTxHash.toLowerCase()}`;
         const checkpoint = await cache.get<TrackingCheckpoint>(cacheKey);
 
@@ -247,18 +250,24 @@ export function useTimelockOpsDiscovery({
           cache
         );
 
+        // Use bundled stages if available, otherwise track via RPC
         let lifecycleStatus: LifecycleStatus = "Unknown";
-        try {
-          const results = await tracker.trackByTxHash(
-            op.scheduledTxHash,
-            op.operationId
-          );
-          if (results.length > 0) {
-            lifecycleStatus =
-              PHASE_TO_STATUS[getLifecyclePhase(results[0].stages)];
+        const bundledStages = bundledStagesMap.get(opIdLower);
+        if (bundledStages && bundledStages.length > 0) {
+          lifecycleStatus = PHASE_TO_STATUS[getLifecyclePhase(bundledStages)];
+        } else {
+          try {
+            const results = await tracker.trackByTxHash(
+              op.scheduledTxHash,
+              op.operationId
+            );
+            if (results.length > 0) {
+              lifecycleStatus =
+                PHASE_TO_STATUS[getLifecyclePhase(results[0].stages)];
+            }
+          } catch {
+            // If tracking fails, status remains "Unknown"
           }
-        } catch {
-          // If tracking fails, status remains "Unknown"
         }
 
         opsWithStatus.push({
