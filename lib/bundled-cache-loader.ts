@@ -1,7 +1,10 @@
-import type {
-  CacheAdapter,
-  DiscoveryWatermarks,
-  LoadedWatermarks,
+import {
+  extractOperationId,
+  extractTimelockLink,
+  type CacheAdapter,
+  type DiscoveryWatermarks,
+  type LoadedWatermarks,
+  type TrackedStage,
 } from "@gzeoneth/gov-tracker";
 
 import {
@@ -391,15 +394,9 @@ export async function extractOperationIdsFromBundledCache(): Promise<
       if (checkpoint.input?.type !== "governor") continue;
 
       const stages = checkpoint.cachedData?.completedStages ?? [];
-
-      for (const stage of stages) {
-        if (stage.type === "PROPOSAL_QUEUED" || stage.type === "L2_TIMELOCK") {
-          const opId = stage.data?.operationId;
-          if (typeof opId === "string" && opId.length > 0) {
-            operationIds.add(opId.toLowerCase());
-            break;
-          }
-        }
+      const opId = extractOperationId(stages as unknown as TrackedStage[]);
+      if (opId) {
+        operationIds.add(opId.toLowerCase());
       }
     }
 
@@ -448,38 +445,14 @@ export async function extractTimelockOpsFromBundledCache(): Promise<
       if (checkpoint.input?.type !== "governor") continue;
 
       const stages = checkpoint.cachedData?.completedStages ?? [];
+      const link = extractTimelockLink(stages as unknown as TrackedStage[]);
 
-      let operationId: string | undefined;
-      let timelockAddress: string | undefined;
-      let queueBlock: number | undefined;
-      let queueTxHash: string | undefined;
-
-      for (const stage of stages) {
-        if (stage.type === "PROPOSAL_QUEUED") {
-          const data = stage.data as Record<string, unknown> | undefined;
-          operationId = data?.operationId as string | undefined;
-          timelockAddress = data?.timelockAddress as string | undefined;
-          if (stage.transactions?.[0]) {
-            queueBlock = stage.transactions[0].blockNumber;
-            queueTxHash = stage.transactions[0].hash;
-          }
-        } else if (stage.type === "L2_TIMELOCK" && !operationId) {
-          const data = stage.data as Record<string, unknown> | undefined;
-          operationId = data?.operationId as string | undefined;
-          timelockAddress = data?.timelockAddress as string | undefined;
-          if (stage.transactions?.[0] && !queueBlock) {
-            queueBlock = stage.transactions[0].blockNumber;
-            queueTxHash = stage.transactions[0].hash;
-          }
-        }
-      }
-
-      if (operationId && timelockAddress && queueBlock && queueTxHash) {
+      if (link) {
         ops.push({
-          operationId: operationId.toLowerCase(),
-          timelockAddress,
-          scheduledTxHash: queueTxHash,
-          queueBlock,
+          operationId: link.operationId.toLowerCase(),
+          timelockAddress: link.timelockAddress,
+          scheduledTxHash: link.txHash,
+          queueBlock: link.queueBlockNumber,
         });
       }
     }

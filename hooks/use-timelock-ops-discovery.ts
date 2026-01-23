@@ -99,27 +99,42 @@ async function getGovernorOperationIds(
 ): Promise<Set<string>> {
   const operationIds = new Set<string>();
 
-  // First, extract from bundled cache (pre-built proposals)
   const bundledOpIds = await extractOperationIdsFromBundledCache();
   for (const opId of bundledOpIds) {
     operationIds.add(opId);
   }
 
-  // Then, check runtime cache for any newly tracked proposals
   const keys = await cache.keys("tx:");
-
   for (const key of keys) {
     const checkpoint = await cache.get<TrackingCheckpoint>(key);
     if (!checkpoint || checkpoint.input?.type !== "governor") continue;
 
-    const stages = checkpoint.cachedData?.completedStages ?? [];
-    const opId = extractOperationId(stages);
+    const opId = extractOperationId(
+      checkpoint.cachedData?.completedStages ?? []
+    );
     if (opId) {
       operationIds.add(opId.toLowerCase());
     }
   }
 
   return operationIds;
+}
+
+async function isOrphanTimelockOp(
+  key: string,
+  checkpoint: TrackingCheckpoint | null,
+  governorOperationIds: Set<string>,
+  cache: Awaited<ReturnType<typeof getCacheAdapter>>
+): Promise<boolean> {
+  if (await isChildCheckpoint(key, cache)) return false;
+  if (checkpoint?.input?.type === "governor") return false;
+
+  const opId = extractOperationId(
+    checkpoint?.cachedData?.completedStages ?? []
+  );
+  if (opId && governorOperationIds.has(opId.toLowerCase())) return false;
+
+  return true;
 }
 
 /**
@@ -194,32 +209,24 @@ export function useTimelockOpsDiscovery({
       if (controller.signal.aborted) return;
       setProgress(60);
 
-      // Get timelock operations from bundled cache (already tracked proposals)
       const bundledOps = await extractTimelockOpsFromBundledCache();
 
       if (controller.signal.aborted) return;
       setProgress(65);
 
-      // Merge discovered ops with bundled cache ops
-      // Use Map to deduplicate by operationId (discovered ops take priority)
-      const opsByOperationId = new Map<string, DiscoveredTimelockOp>();
-
-      // Add bundled ops first (will be overwritten by discovered if same operationId)
-      for (const bundledOp of bundledOps) {
-        opsByOperationId.set(bundledOp.operationId.toLowerCase(), {
-          operationId: bundledOp.operationId,
-          timelockAddress: bundledOp.timelockAddress,
-          scheduledTxHash: bundledOp.scheduledTxHash,
-          queueBlock: bundledOp.queueBlock,
-        });
+      // Merge: bundled first, then live (live wins on conflict)
+      const liveOps = [...coreOps, ...treasuryOps];
+      const merged = new Map(
+        bundledOps.map((op) => [
+          op.operationId.toLowerCase(),
+          op as DiscoveredTimelockOp,
+        ])
+      );
+      for (const op of liveOps) {
+        merged.set(op.operationId.toLowerCase(), op);
       }
 
-      // Add discovered ops (overwrites bundled if same operationId)
-      for (const op of [...coreOps, ...treasuryOps]) {
-        opsByOperationId.set(op.operationId.toLowerCase(), op);
-      }
-
-      const allOps = Array.from(opsByOperationId.values());
+      const allOps = Array.from(merged.values());
 
       // Get all operation IDs linked to governor proposals
       const governorOpIds = await getGovernorOperationIds(cache);
@@ -233,23 +240,15 @@ export function useTimelockOpsDiscovery({
 
         const op = allOps[i];
         const cacheKey = `tx:${op.scheduledTxHash.toLowerCase()}`;
-
-        // Check if this operation has a parent checkpoint
-        const isChild = await isChildCheckpoint(cacheKey, cache);
-
-        // Also check if there's a governor checkpoint for this tx
         const checkpoint = await cache.get<TrackingCheckpoint>(cacheKey);
-        const isGovernorCheckpoint = checkpoint?.input?.type === "governor";
 
-        // Check if this operation is linked to a governor proposal via operationId
-        const isLinkedToGovernor = governorOpIds.has(
-          op.operationId.toLowerCase()
+        const isOrphan = await isOrphanTimelockOp(
+          cacheKey,
+          checkpoint,
+          governorOpIds,
+          cache
         );
 
-        const isOrphan =
-          !isChild && !isGovernorCheckpoint && !isLinkedToGovernor;
-
-        // Track the operation to get lifecycle status
         let lifecycleStatus: LifecycleStatus = "Unknown";
         try {
           const results = await tracker.trackByTxHash(
@@ -257,8 +256,8 @@ export function useTimelockOpsDiscovery({
             op.operationId
           );
           if (results.length > 0) {
-            const phase = getLifecyclePhase(results[0].stages);
-            lifecycleStatus = PHASE_TO_STATUS[phase];
+            lifecycleStatus =
+              PHASE_TO_STATUS[getLifecyclePhase(results[0].stages)];
           }
         } catch {
           // If tracking fails, status remains "Unknown"
@@ -271,7 +270,6 @@ export function useTimelockOpsDiscovery({
           lifecycleStatus,
         });
 
-        // Update progress between 70-95%
         setProgress(70 + Math.floor((i / totalOps) * 25));
       }
 
