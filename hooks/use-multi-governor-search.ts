@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 
 import {
   extractProposalsFromBundledCache,
-  getBundledCacheWatermark,
+  getBundledCacheWatermarks,
 } from "@/lib/bundled-cache-loader";
 import { buildLookupMap } from "@/lib/collection-utils";
 import { debug } from "@/lib/debug";
@@ -89,10 +89,10 @@ export function useMultiGovernorSearch({
         if (cancelled || abortController.signal.aborted) return;
 
         // Extract proposals directly from bundled cache (no RPC calls)
-        const [{ proposals: cachedProposals, activeProposalIds }, watermark] =
+        const [{ proposals: cachedProposals, activeProposalIds }, watermarks] =
           await Promise.all([
             extractProposalsFromBundledCache(),
-            getBundledCacheWatermark(),
+            getBundledCacheWatermarks(),
           ]);
 
         setProgress(10);
@@ -100,7 +100,8 @@ export function useMultiGovernorSearch({
 
         const allProposals: ParsedProposal[] = [...cachedProposals];
         const cachedCount = cachedProposals.length;
-        let cacheWatermarkBlock = watermark?.l2Block ?? 0;
+        let cacheWatermarkBlock =
+          watermarks?.watermarks.constitutionalGovernor ?? 0;
 
         debug.search(
           "extracted %d proposals from cache (%d active)",
@@ -137,7 +138,7 @@ export function useMultiGovernorSearch({
         if (cancelled || abortController.signal.aborted) return;
 
         // Determine the starting block for fresh RPC search
-        if (watermark) {
+        if (watermarks) {
           debug.search(
             "bundled cache watermark at L2 block %d",
             cacheWatermarkBlock
@@ -145,7 +146,7 @@ export function useMultiGovernorSearch({
         }
 
         // Only scan blocks after the watermark (or from userStartBlock if no watermark)
-        const rpcStartBlock = watermark
+        const rpcStartBlock = watermarks
           ? Math.max(cacheWatermarkBlock + 1, userStartBlock)
           : userStartBlock;
 
