@@ -11,6 +11,7 @@
 import { DEFAULT_FORM_VALUES } from "@/config/arbitrum-governance";
 import { BLOCKS_PER_DAY } from "@/config/block-times";
 import { STORAGE_KEYS } from "@/config/storage-keys";
+import { extractOperationIdsFromBundledCache } from "@/lib/bundled-cache-loader";
 import { getErrorMessage } from "@/lib/error-utils";
 import { getCacheAdapter } from "@/lib/gov-tracker-cache";
 import { createProposalTracker } from "@/lib/stage-tracker";
@@ -99,6 +100,14 @@ async function getGovernorOperationIds(
   cache: Awaited<ReturnType<typeof getCacheAdapter>>
 ): Promise<Set<string>> {
   const operationIds = new Set<string>();
+
+  // First, extract from bundled cache (pre-built proposals)
+  const bundledOpIds = await extractOperationIdsFromBundledCache();
+  for (const opId of bundledOpIds) {
+    operationIds.add(opId);
+  }
+
+  // Then, check runtime cache for any newly tracked proposals
   const keys = await cache.keys("tx:");
 
   for (const key of keys) {

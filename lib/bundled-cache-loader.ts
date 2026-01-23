@@ -372,3 +372,52 @@ export async function extractProposalsFromBundledCache(): Promise<{
     return { proposals: [], activeProposalIds: new Set() };
   }
 }
+
+/**
+ * Extract operation IDs from governor proposals in bundled cache
+ * Returns a Set of operation IDs (lowercase) that are linked to governor proposals
+ */
+export async function extractOperationIdsFromBundledCache(): Promise<
+  Set<string>
+> {
+  const operationIds = new Set<string>();
+
+  const skipBundledCache = getStoredValue<boolean>(
+    STORAGE_KEYS.SKIP_BUNDLED_CACHE,
+    false
+  );
+  if (skipBundledCache) {
+    return operationIds;
+  }
+
+  try {
+    const cache = await loadBundledCache();
+
+    for (const [key, value] of Object.entries(cache)) {
+      if (!key.startsWith("tx:")) continue;
+
+      const checkpoint = value as BundledCheckpoint;
+      if (checkpoint.input?.type !== "governor") continue;
+
+      const stages = checkpoint.cachedData?.completedStages ?? [];
+
+      for (const stage of stages) {
+        if (stage.type === "PROPOSAL_QUEUED" || stage.type === "L2_TIMELOCK") {
+          const opId = stage.data?.operationId;
+          if (typeof opId === "string" && opId.length > 0) {
+            operationIds.add(opId.toLowerCase());
+            break;
+          }
+        }
+      }
+    }
+
+    debug.cache(
+      "extracted %d operation IDs from bundled cache",
+      operationIds.size
+    );
+    return operationIds;
+  } catch {
+    return new Set();
+  }
+}
