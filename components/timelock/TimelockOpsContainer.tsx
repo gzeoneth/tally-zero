@@ -28,6 +28,18 @@ import { TimelockOpDetail } from "./TimelockOpDetail";
 function LifecycleStatusBadge({ status }: { status: LifecycleStatus }) {
   const config: Record<LifecycleStatus, { className: string; label: string }> =
     {
+      Created: {
+        className: "bg-slate-500/10 text-slate-700 dark:text-slate-300",
+        label: "Created",
+      },
+      Voting: {
+        className: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
+        label: "Voting",
+      },
+      Queued: {
+        className: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+        label: "Queued",
+      },
       "L2 Pending": {
         className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300",
         label: "L2 Pending",
@@ -36,7 +48,7 @@ function LifecycleStatusBadge({ status }: { status: LifecycleStatus }) {
         className: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
         label: "L2 Executed",
       },
-      "L2→L1 Pending": {
+      "L2→L1": {
         className: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
         label: "L2→L1",
       },
@@ -48,9 +60,17 @@ function LifecycleStatusBadge({ status }: { status: LifecycleStatus }) {
         className: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
         label: "L1 Executed",
       },
+      Finalizing: {
+        className: "bg-teal-500/10 text-teal-700 dark:text-teal-300",
+        label: "Finalizing",
+      },
       Completed: {
         className: "bg-green-500/10 text-green-700 dark:text-green-300",
         label: "Completed",
+      },
+      Failed: {
+        className: "bg-red-500/10 text-red-700 dark:text-red-300",
+        label: "Failed",
       },
       Unknown: {
         className: "bg-gray-500/10 text-gray-700 dark:text-gray-300",

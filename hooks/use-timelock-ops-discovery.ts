@@ -21,23 +21,29 @@ import { createProposalTracker } from "@/lib/stage-tracker";
 import {
   ADDRESSES,
   type DiscoveredTimelockOp,
-  type TrackedStage,
+  type LifecyclePhase,
   type TrackingCheckpoint,
   extractOperationId,
+  getLifecyclePhase,
   isChildCheckpoint,
 } from "@gzeoneth/gov-tracker";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "./use-local-storage";
 import { useRpcSettings } from "./use-rpc-settings";
 
-/** Lifecycle status for display */
+/** Lifecycle status for display (mapped from gov-tracker's LifecyclePhase) */
 export type LifecycleStatus =
+  | "Created"
+  | "Voting"
+  | "Queued"
   | "L2 Pending"
   | "L2 Executed"
-  | "L2→L1 Pending"
+  | "L2→L1"
   | "L1 Pending"
   | "L1 Executed"
+  | "Finalizing"
   | "Completed"
+  | "Failed"
   | "Unknown";
 
 /** Discovered timelock operation with orphan status */
@@ -47,31 +53,20 @@ export interface TimelockOpWithStatus extends DiscoveredTimelockOp {
   lifecycleStatus: LifecycleStatus;
 }
 
-function deriveLifecycleStatus(stages: TrackedStage[]): LifecycleStatus {
-  if (stages.length === 0) return "Unknown";
-
-  const stageMap = new Map(stages.map((s) => [s.type, s]));
-
-  const retryable = stageMap.get("RETRYABLE_EXECUTED");
-  if (retryable?.status === "COMPLETED") return "Completed";
-
-  const l1Timelock = stageMap.get("L1_TIMELOCK");
-  if (l1Timelock?.status === "COMPLETED") return "L1 Executed";
-  if (l1Timelock?.status === "PENDING" || l1Timelock?.status === "READY")
-    return "L1 Pending";
-
-  const l2ToL1 = stageMap.get("L2_TO_L1_MESSAGE");
-  if (l2ToL1?.status === "PENDING" || l2ToL1?.status === "READY")
-    return "L2→L1 Pending";
-  if (l2ToL1?.status === "COMPLETED") return "L1 Pending";
-
-  const l2Timelock = stageMap.get("L2_TIMELOCK");
-  if (l2Timelock?.status === "COMPLETED") return "L2 Executed";
-  if (l2Timelock?.status === "PENDING" || l2Timelock?.status === "READY")
-    return "L2 Pending";
-
-  return "Unknown";
-}
+const PHASE_TO_STATUS: Record<LifecyclePhase, LifecycleStatus> = {
+  proposal_created: "Created",
+  voting: "Voting",
+  queued: "Queued",
+  l2_timelock_pending: "L2 Pending",
+  l2_timelock_executed: "L2 Executed",
+  l2_to_l1_pending: "L2→L1",
+  l1_timelock_pending: "L1 Pending",
+  l1_timelock_executed: "L1 Executed",
+  retryables_pending: "Finalizing",
+  completed: "Completed",
+  failed: "Failed",
+  unknown: "Unknown",
+};
 
 /** Options for timelock discovery */
 interface UseTimelockOpsDiscoveryOptions {
@@ -262,7 +257,8 @@ export function useTimelockOpsDiscovery({
             op.operationId
           );
           if (results.length > 0) {
-            lifecycleStatus = deriveLifecycleStatus(results[0].stages);
+            const phase = getLifecyclePhase(results[0].stages);
+            lifecycleStatus = PHASE_TO_STATUS[phase];
           }
         } catch {
           // If tracking fails, status remains "Unknown"

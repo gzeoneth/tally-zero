@@ -1,4 +1,8 @@
-import type { CacheAdapter } from "@gzeoneth/gov-tracker";
+import type {
+  CacheAdapter,
+  DiscoveryWatermarks,
+  LoadedWatermarks,
+} from "@gzeoneth/gov-tracker";
 
 import {
   BUNDLED_CACHE_BATCH_SIZE,
@@ -150,19 +154,11 @@ export function resetBundledCacheFlag(): void {
   bundledCacheData = null;
 }
 
-/** Bundled cache watermark with L2 block */
-export interface BundledCacheWatermark {
-  l2Block: number;
-  coreGovernorBlock: number;
-  treasuryGovernorBlock: number;
-}
-
 /**
- * Get the L2 block watermark from bundled cache
- * This indicates the block up to which proposals are cached
- * Returns null if bundled cache is disabled
+ * Get discovery watermarks from bundled cache
+ * Returns null if bundled cache is disabled or watermarks unavailable
  */
-export async function getBundledCacheWatermark(): Promise<BundledCacheWatermark | null> {
+export async function getBundledCacheWatermarks(): Promise<LoadedWatermarks | null> {
   const skipBundledCache = getStoredValue<boolean>(
     STORAGE_KEYS.SKIP_BUNDLED_CACHE,
     false
@@ -173,25 +169,20 @@ export async function getBundledCacheWatermark(): Promise<BundledCacheWatermark 
 
   try {
     const cache = await loadBundledCache();
-    const watermarks = cache["discovery:watermarks"] as {
-      lastProcessedBlock?: { l2?: number };
+    const checkpoint = cache["discovery:watermarks"] as {
       cachedData?: {
-        discoveryWatermarks?: {
-          constitutionalGovernor?: number;
-          nonConstitutionalGovernor?: number;
-        };
+        discoveryWatermarks?: DiscoveryWatermarks;
+        watermarkHashes?: Record<string, string>;
       };
     };
 
-    if (!watermarks?.cachedData?.discoveryWatermarks) {
+    if (!checkpoint?.cachedData?.discoveryWatermarks) {
       return null;
     }
 
-    const { discoveryWatermarks } = watermarks.cachedData;
     return {
-      l2Block: watermarks.lastProcessedBlock?.l2 ?? 0,
-      coreGovernorBlock: discoveryWatermarks.constitutionalGovernor ?? 0,
-      treasuryGovernorBlock: discoveryWatermarks.nonConstitutionalGovernor ?? 0,
+      watermarks: checkpoint.cachedData.discoveryWatermarks,
+      hashes: checkpoint.cachedData.watermarkHashes ?? {},
     };
   } catch {
     return null;
