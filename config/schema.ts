@@ -55,6 +55,12 @@ export const voteSchema = z.object({
   }),
 });
 
+/** Schema for election vote submission (contender/nominee voting) */
+export const electionVoteSchema = z.object({
+  targetAddress: z.string().regex(ETH_ADDRESS_REGEX, "Invalid address"),
+  voteAmount: z.string().min(1, "Enter vote amount"),
+});
+
 /** Schema for validating proposal data structure */
 export const proposalSchema = z.object({
   id: z.string(),
