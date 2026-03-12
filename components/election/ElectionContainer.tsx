@@ -1,9 +1,14 @@
 "use client";
 
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, FlaskConical } from "lucide-react";
 
 import { DeepLinkHandler } from "@/components/container/DeepLinkHandler";
+import { Badge } from "@/components/ui/Badge";
+import { PHASE_METADATA } from "@/config/security-council";
+import { STORAGE_KEYS } from "@/config/storage-keys";
+import { useNerdMode } from "@/context/NerdModeContext";
 import { useElectionStatus } from "@/hooks/use-election-status";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import type { ElectionPhase } from "@/types/election";
 import { ElectionActionCard } from "./ElectionActionCard";
@@ -12,8 +17,23 @@ import { ElectionSelector } from "./ElectionSelector";
 import { ElectionStatusCard } from "./ElectionStatusCard";
 import { NomineeList } from "./NomineeList";
 
+const ACTIONABLE_PHASES: ElectionPhase[] = [
+  "CONTENDER_SUBMISSION",
+  "NOMINEE_SELECTION",
+  "MEMBER_ELECTION",
+];
+
+function isActionablePhase(phase: string): phase is ElectionPhase {
+  return ACTIONABLE_PHASES.includes(phase as ElectionPhase);
+}
+
 export function ElectionContainer(): React.ReactElement {
   const { l2Rpc, l1Rpc, l1ChunkSize, l2ChunkSize } = useRpcSettings();
+  const { nerdMode } = useNerdMode();
+  const [phaseOverride] = useLocalStorage<string>(
+    STORAGE_KEYS.ELECTION_PHASE_OVERRIDE,
+    ""
+  );
 
   const {
     status,
@@ -34,7 +54,11 @@ export function ElectionContainer(): React.ReactElement {
     refreshInterval: 60000,
   });
 
-  const currentPhase: ElectionPhase = selectedElection?.phase ?? "NOT_STARTED";
+  const realPhase: ElectionPhase = selectedElection?.phase ?? "NOT_STARTED";
+  const hasOverride = nerdMode && isActionablePhase(phaseOverride);
+  const currentPhase: ElectionPhase = hasOverride
+    ? (phaseOverride as ElectionPhase)
+    : realPhase;
 
   if (error) {
     return (
@@ -51,8 +75,35 @@ export function ElectionContainer(): React.ReactElement {
     );
   }
 
+  const overrideElection = hasOverride
+    ? selectedElection ?? allElections[allElections.length - 1] ?? null
+    : selectedElection;
+
+  const overrideNomineeDetails = hasOverride
+    ? nomineeDetails ?? (allElections.length > 0 ? nomineeDetails : null)
+    : nomineeDetails;
+
+  const overrideMemberDetails = hasOverride
+    ? memberDetails ?? (allElections.length > 0 ? memberDetails : null)
+    : memberDetails;
+
   return (
     <div className="space-y-6">
+      {hasOverride && (
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
+          <FlaskConical className="h-4 w-4 text-yellow-500 shrink-0" />
+          <span className="text-sm text-yellow-500">
+            Phase override active:{" "}
+            <Badge variant="secondary" className="text-yellow-500 ml-1">
+              {PHASE_METADATA[currentPhase].name}
+            </Badge>
+          </span>
+          <span className="text-xs text-muted-foreground ml-auto">
+            Disable in Settings → Governance Tools
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-4">
         <ElectionSelector
           allElections={allElections}
@@ -86,9 +137,9 @@ export function ElectionContainer(): React.ReactElement {
 
       <ElectionActionCard
         phase={currentPhase}
-        selectedElection={selectedElection}
-        nomineeDetails={nomineeDetails}
-        memberDetails={memberDetails}
+        selectedElection={overrideElection}
+        nomineeDetails={overrideNomineeDetails}
+        memberDetails={overrideMemberDetails}
       />
 
       <DeepLinkHandler proposals={[]} />
