@@ -19,6 +19,8 @@ import { NOMINEE_ELECTION_GOVERNOR_ABI } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
 
+import { CandidateProfileForm } from "./CandidateProfileForm";
+
 const NOMINEE_GOVERNOR_ADDRESS =
   SC_CONTRACTS.NOMINEE_ELECTION_GOVERNOR as `0x${string}`;
 
@@ -123,9 +125,12 @@ export function ContenderSignupForm({
 
   if (isAlreadyContender) {
     return (
-      <div className="flex items-center gap-2 text-sm text-green-500 p-4">
-        <CheckCircle2 className="h-4 w-4" />
-        You are already registered as a contender
+      <div className="space-y-4 p-4">
+        <div className="flex items-center gap-2 text-sm text-green-500">
+          <CheckCircle2 className="h-4 w-4" />
+          You are registered as a contender
+        </div>
+        <CandidateProfileForm proposalId={proposalId} />
       </div>
     );
   }

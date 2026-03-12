@@ -13,8 +13,10 @@ import {
   MEMBER_ELECTION_GOVERNOR_ABI,
 } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
+import { useCandidateProfiles } from "@/hooks/use-candidate-profiles";
 import { formatVotingPower } from "@/lib/format-utils";
 
+import { CandidateProfileCard } from "./CandidateProfileCard";
 import { ElectionVoteRow } from "./ElectionVoteRow";
 import { VotingPowerSummary } from "./VotingPowerSummary";
 
@@ -33,6 +35,7 @@ export function NomineeVoteForm({
   fullWeightDeadline,
 }: NomineeVoteFormProps): React.ReactElement {
   const { address, isConnected } = useAccount();
+  const { profiles } = useCandidateProfiles(proposalId);
   const { data: currentBlock } = useBlockNumber({ watch: true });
 
   const { data: snapshotBlock } = useReadContract({
@@ -109,18 +112,23 @@ export function NomineeVoteForm({
         </div>
       ) : (
         <div className="space-y-3">
-          {nominees.map((nominee) => (
-            <ElectionVoteRow
-              key={nominee.address}
-              proposalId={proposalId}
-              targetAddress={nominee.address}
-              governorAddress={MEMBER_GOVERNOR_ADDRESS}
-              governorAbi={MEMBER_ELECTION_GOVERNOR_ABI}
-              availableVotes={availableVotes}
-              onVoteSuccess={refetchUsedVotes}
-              infoSlot={<NomineeInfo nominee={nominee} />}
-            />
-          ))}
+          {nominees.map((nominee) => {
+            const profile = profiles.get(nominee.address.toLowerCase());
+            return (
+              <div key={nominee.address} className="space-y-1">
+                {profile && <CandidateProfileCard profile={profile} />}
+                <ElectionVoteRow
+                  proposalId={proposalId}
+                  targetAddress={nominee.address}
+                  governorAddress={MEMBER_GOVERNOR_ADDRESS}
+                  governorAbi={MEMBER_ELECTION_GOVERNOR_ABI}
+                  availableVotes={availableVotes}
+                  onVoteSuccess={refetchUsedVotes}
+                  infoSlot={<NomineeInfo nominee={nominee} />}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

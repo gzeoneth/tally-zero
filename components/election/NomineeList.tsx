@@ -19,10 +19,12 @@ import {
 } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { useCandidateProfiles } from "@/hooks/use-candidate-profiles";
 import { getDelegateLabel } from "@/lib/delegate-cache";
 import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 import { formatVotingPower } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
+import type { CandidateProfile } from "@/types/eas";
 import type { ElectionPhase } from "@/types/election";
 
 type ViewMode = "nominees" | "results";
@@ -58,6 +60,8 @@ export function NomineeList({
   phase,
   electionIndex,
 }: NomineeListProps): React.ReactElement | null {
+  const { profiles } = useCandidateProfiles(nomineeDetails?.proposalId);
+
   const hasMemberResults =
     memberDetails &&
     (phase === "MEMBER_ELECTION" ||
@@ -123,11 +127,13 @@ export function NomineeList({
           <MemberElectionResults
             details={memberDetails}
             electionIndex={electionIndex}
+            profiles={profiles}
           />
         ) : (
           <NomineeElectionList
             details={nomineeDetails}
             electionIndex={electionIndex}
+            profiles={profiles}
           />
         )}
       </CardContent>
@@ -138,9 +144,11 @@ export function NomineeList({
 function NomineeElectionList({
   details,
   electionIndex,
+  profiles,
 }: {
   details: NomineeElectionDetails;
   electionIndex?: number;
+  profiles: Map<string, CandidateProfile>;
 }): React.ReactElement {
   const { compliantNominees, excludedNominees, quorumThreshold } = details;
   const threshold = formatVotingPower(quorumThreshold.toString());
@@ -165,6 +173,7 @@ function NomineeElectionList({
                 electionIndex={electionIndex}
                 round={1}
                 isCompliant
+                profileName={profiles.get(nominee.address.toLowerCase())?.name}
               />
             ))}
           </div>
@@ -185,6 +194,7 @@ function NomineeElectionList({
                 electionIndex={electionIndex}
                 round={1}
                 isExcluded
+                profileName={profiles.get(nominee.address.toLowerCase())?.name}
               />
             ))}
           </div>
@@ -203,9 +213,11 @@ function NomineeElectionList({
 function MemberElectionResults({
   details,
   electionIndex,
+  profiles,
 }: {
   details: MemberElectionDetails;
   electionIndex?: number;
+  profiles: Map<string, CandidateProfile>;
 }): React.ReactElement {
   return (
     <div className="space-y-4">
@@ -218,7 +230,8 @@ function MemberElectionResults({
 
       <div className="space-y-2">
         {details.nominees.map((nominee, index: number) => {
-          const label = getDelegateLabel(nominee.address);
+          const profileName = profiles.get(nominee.address.toLowerCase())?.name;
+          const label = profileName || getDelegateLabel(nominee.address);
           const explorerUrl = getAddressExplorerUrl(nominee.address);
           const tallyUrl =
             electionIndex !== undefined
@@ -305,6 +318,7 @@ function NomineeRow({
   round,
   isCompliant,
   isExcluded,
+  profileName,
 }: {
   address: string;
   votes: string;
@@ -312,8 +326,9 @@ function NomineeRow({
   round?: 1 | 2;
   isCompliant?: boolean;
   isExcluded?: boolean;
+  profileName?: string;
 }): React.ReactElement {
-  const label = getDelegateLabel(address);
+  const label = profileName || getDelegateLabel(address);
   const explorerUrl = getAddressExplorerUrl(address);
   const tallyUrl =
     electionIndex !== undefined && round !== undefined

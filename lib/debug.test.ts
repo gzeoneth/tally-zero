@@ -51,6 +51,7 @@ describe("debug", () => {
       expect(debug.storage).toBeDefined();
       expect(debug.lifecycle).toBeDefined();
       expect(debug.calldata).toBeDefined();
+      expect(debug.eas).toBeDefined();
       expect(debug.app).toBeDefined();
     });
 
@@ -118,6 +119,7 @@ describe("debug", () => {
         "storage",
         "lifecycle",
         "calldata",
+        "eas",
         "app",
       ];
 
@@ -131,7 +133,7 @@ describe("debug", () => {
       const { debug } = await import("./debug");
 
       const namespaceCount = Object.keys(debug).length;
-      expect(namespaceCount).toBe(10);
+      expect(namespaceCount).toBe(11);
     });
   });
 });

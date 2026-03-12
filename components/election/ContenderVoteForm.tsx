@@ -12,8 +12,10 @@ import {
   NOMINEE_ELECTION_GOVERNOR_ABI,
 } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
+import { useCandidateProfiles } from "@/hooks/use-candidate-profiles";
 import { formatVotingPower } from "@/lib/format-utils";
 
+import { CandidateProfileCard } from "./CandidateProfileCard";
 import { ElectionVoteRow } from "./ElectionVoteRow";
 import { VotingPowerSummary } from "./VotingPowerSummary";
 
@@ -32,6 +34,7 @@ export function ContenderVoteForm({
   quorumThreshold,
 }: ContenderVoteFormProps): React.ReactElement {
   const { address, isConnected } = useAccount();
+  const { profiles } = useCandidateProfiles(proposalId);
 
   const { data: snapshotBlock } = useReadContract({
     address: NOMINEE_GOVERNOR_ADDRESS,
@@ -90,17 +93,22 @@ export function ContenderVoteForm({
         </div>
       ) : (
         <div className="space-y-3">
-          {contenders.map((contender) => (
-            <ElectionVoteRow
-              key={contender.address}
-              proposalId={proposalId}
-              targetAddress={contender.address}
-              governorAddress={NOMINEE_GOVERNOR_ADDRESS}
-              governorAbi={NOMINEE_ELECTION_GOVERNOR_ABI}
-              availableVotes={availableVotes}
-              onVoteSuccess={refetchUsedVotes}
-            />
-          ))}
+          {contenders.map((contender) => {
+            const profile = profiles.get(contender.address.toLowerCase());
+            return (
+              <div key={contender.address} className="space-y-1">
+                {profile && <CandidateProfileCard profile={profile} />}
+                <ElectionVoteRow
+                  proposalId={proposalId}
+                  targetAddress={contender.address}
+                  governorAddress={NOMINEE_GOVERNOR_ADDRESS}
+                  governorAbi={NOMINEE_ELECTION_GOVERNOR_ABI}
+                  availableVotes={availableVotes}
+                  onVoteSuccess={refetchUsedVotes}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
