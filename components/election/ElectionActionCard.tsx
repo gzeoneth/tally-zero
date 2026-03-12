@@ -109,7 +109,6 @@ function getPhaseContent({
             proposalId={selectedElection.memberProposalId}
             nominees={memberDetails.nominees}
             fullWeightDeadline={memberDetails.fullWeightDeadline}
-            proposalDeadline={memberDetails.proposalDeadline}
           />
         ),
       };

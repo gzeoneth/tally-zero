@@ -31,23 +31,11 @@ import { proposalSchema, voteSchema } from "@config/schema";
 import { formatVotingPower } from "@lib/format-utils";
 import { toast } from "sonner";
 
+import { ERC20_VOTES_ABI } from "@config/election-abi";
 import OZ_Governor_ABI from "@data/OzGovernor_ABI.json";
 import { delay } from "@lib/delay-utils";
 import { getSimulationErrorMessage } from "@lib/error-utils";
 import { useEffect, useMemo } from "react";
-
-const ERC20_VOTES_ABI = [
-  {
-    inputs: [
-      { name: "account", type: "address" },
-      { name: "blockNumber", type: "uint256" },
-    ],
-    name: "getPastVotes",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
 
 export default function VoteForm({
   proposal,
