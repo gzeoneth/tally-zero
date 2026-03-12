@@ -10,6 +10,9 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { STORAGE_KEYS } from "@/config/storage-keys";
+import { useNerdMode } from "@/context/NerdModeContext";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { getDelegateLabel } from "@/lib/delegate-cache";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
 import { getAddressExplorerUrl } from "@/lib/explorer-utils";
@@ -34,6 +37,13 @@ export function ElectionVoteRow({
   onVoteSuccess,
   infoSlot,
 }: ElectionVoteRowProps): React.ReactElement {
+  const { nerdMode } = useNerdMode();
+  const [phaseOverride] = useLocalStorage<string>(
+    STORAGE_KEYS.ELECTION_PHASE_OVERRIDE,
+    ""
+  );
+  const isOverrideActive = nerdMode && !!phaseOverride;
+
   const [amount, setAmount] = useState("");
   const label = getDelegateLabel(targetAddress);
   const explorerUrl = getAddressExplorerUrl(targetAddress);
@@ -93,8 +103,23 @@ export function ElectionVoteRow({
   const handleVote = useCallback(() => {
     if (simulateData?.request) {
       writeContract(simulateData.request);
+    } else if (isOverrideActive && encodedParams) {
+      writeContract({
+        address: governorAddress,
+        abi: governorAbi,
+        functionName: "castVoteWithReasonAndParams",
+        args: [BigInt(proposalId), 1, "", encodedParams],
+      });
     }
-  }, [simulateData, writeContract]);
+  }, [
+    simulateData,
+    writeContract,
+    isOverrideActive,
+    encodedParams,
+    governorAddress,
+    governorAbi,
+    proposalId,
+  ]);
 
   const exceedsAvailable =
     voteAmountWei !== undefined &&
@@ -144,7 +169,11 @@ export function ElectionVoteRow({
           <Button
             size="sm"
             onClick={handleVote}
-            disabled={!simulateData?.request || exceedsAvailable}
+            disabled={
+              (!simulateData?.request &&
+                !(isOverrideActive && encodedParams)) ||
+              exceedsAvailable
+            }
             className="shrink-0"
           >
             Vote
@@ -155,11 +184,14 @@ export function ElectionVoteRow({
       {exceedsAvailable && (
         <p className="text-xs text-red-500">Exceeds available voting power</p>
       )}
-      {simulationErrorMessage && amount && !exceedsAvailable && (
-        <p className="text-xs text-red-500 dark:text-red-400">
-          {simulationErrorMessage}
-        </p>
-      )}
+      {simulationErrorMessage &&
+        amount &&
+        !exceedsAvailable &&
+        !isOverrideActive && (
+          <p className="text-xs text-red-500 dark:text-red-400">
+            {simulationErrorMessage}
+          </p>
+        )}
     </div>
   );
 }
