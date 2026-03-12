@@ -6,6 +6,7 @@ import { DeepLinkHandler } from "@/components/container/DeepLinkHandler";
 import { useElectionStatus } from "@/hooks/use-election-status";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
 import type { ElectionPhase } from "@/types/election";
+import { ElectionActionCard } from "./ElectionActionCard";
 import { ElectionPhaseTimeline } from "./ElectionPhaseTimeline";
 import { ElectionSelector } from "./ElectionSelector";
 import { ElectionStatusCard } from "./ElectionStatusCard";
@@ -82,6 +83,13 @@ export function ElectionContainer(): React.ReactElement {
           electionIndex={selectedElection?.electionIndex}
         />
       </div>
+
+      <ElectionActionCard
+        phase={currentPhase}
+        selectedElection={selectedElection}
+        nomineeDetails={nomineeDetails}
+        memberDetails={memberDetails}
+      />
 
       <DeepLinkHandler proposals={[]} />
     </div>
