@@ -7,6 +7,12 @@ import { Badge } from "@/components/ui/Badge";
 import { PHASE_METADATA } from "@/config/security-council";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useNerdMode } from "@/context/NerdModeContext";
+import type {
+  ElectionProposalStatus,
+  SerializableMemberDetails,
+  SerializableNomineeDetails,
+} from "@gzeoneth/gov-tracker";
+
 import { useElectionStatus } from "@/hooks/use-election-status";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
@@ -27,6 +33,66 @@ function isActionablePhase(phase: string): phase is ElectionPhase {
   return ACTIONABLE_PHASES.includes(phase as ElectionPhase);
 }
 
+function getOverrideData({
+  hasOverride,
+  selectedElection,
+  nomineeDetails,
+  memberDetails,
+  allElections,
+  nomineeDetailsMap,
+  memberDetailsMap,
+}: {
+  hasOverride: boolean;
+  selectedElection: ElectionProposalStatus | null;
+  nomineeDetails: SerializableNomineeDetails | null;
+  memberDetails: SerializableMemberDetails | null;
+  allElections: ElectionProposalStatus[];
+  nomineeDetailsMap: Record<number, SerializableNomineeDetails | null>;
+  memberDetailsMap: Record<number, SerializableMemberDetails | null>;
+}): {
+  overrideElection: ElectionProposalStatus | null;
+  overrideNomineeDetails: SerializableNomineeDetails | null;
+  overrideMemberDetails: SerializableMemberDetails | null;
+} {
+  if (!hasOverride) {
+    return {
+      overrideElection: selectedElection,
+      overrideNomineeDetails: nomineeDetails,
+      overrideMemberDetails: memberDetails,
+    };
+  }
+
+  // If the selected election already has data, use it
+  if (selectedElection && (nomineeDetails || memberDetails)) {
+    return {
+      overrideElection: selectedElection,
+      overrideNomineeDetails: nomineeDetails,
+      overrideMemberDetails: memberDetails,
+    };
+  }
+
+  // Search backwards for the most recent election with data
+  for (let i = allElections.length - 1; i >= 0; i--) {
+    const election = allElections[i];
+    const nd = nomineeDetailsMap[election.electionIndex];
+    const md = memberDetailsMap[election.electionIndex];
+    if (nd || md) {
+      return {
+        overrideElection: election,
+        overrideNomineeDetails: nd ?? null,
+        overrideMemberDetails: md ?? null,
+      };
+    }
+  }
+
+  return {
+    overrideElection:
+      selectedElection ?? allElections[allElections.length - 1] ?? null,
+    overrideNomineeDetails: null,
+    overrideMemberDetails: null,
+  };
+}
+
 export function ElectionContainer(): React.ReactElement {
   const { l2Rpc, l1Rpc, l1ChunkSize, l2ChunkSize } = useRpcSettings();
   const { nerdMode } = useNerdMode();
@@ -41,6 +107,8 @@ export function ElectionContainer(): React.ReactElement {
     selectedElection,
     nomineeDetails,
     memberDetails,
+    nomineeDetailsMap,
+    memberDetailsMap,
     isLoading,
     error,
     refresh,
@@ -75,17 +143,16 @@ export function ElectionContainer(): React.ReactElement {
     );
   }
 
-  const overrideElection = hasOverride
-    ? selectedElection ?? allElections[allElections.length - 1] ?? null
-    : selectedElection;
-
-  const overrideNomineeDetails = hasOverride
-    ? nomineeDetails ?? (allElections.length > 0 ? nomineeDetails : null)
-    : nomineeDetails;
-
-  const overrideMemberDetails = hasOverride
-    ? memberDetails ?? (allElections.length > 0 ? memberDetails : null)
-    : memberDetails;
+  const { overrideElection, overrideNomineeDetails, overrideMemberDetails } =
+    getOverrideData({
+      hasOverride,
+      selectedElection,
+      nomineeDetails,
+      memberDetails,
+      allElections,
+      nomineeDetailsMap,
+      memberDetailsMap,
+    });
 
   return (
     <div className="space-y-6">

@@ -55,6 +55,8 @@ export interface UseElectionStatusResult {
   selectedElection: ElectionProposalStatus | null;
   nomineeDetails: NomineeElectionDetails;
   memberDetails: MemberElectionDetails;
+  nomineeDetailsMap: Record<number, NomineeElectionDetails>;
+  memberDetailsMap: Record<number, MemberElectionDetails>;
   isLoading: boolean;
   error: Error | null;
   refresh: () => void;
@@ -346,6 +348,8 @@ export function useElectionStatus({
     selectedElection,
     nomineeDetails,
     memberDetails,
+    nomineeDetailsMap,
+    memberDetailsMap,
     isLoading,
     error,
     refresh,
