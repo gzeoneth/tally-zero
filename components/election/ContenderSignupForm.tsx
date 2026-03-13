@@ -3,17 +3,17 @@
 import { useEffect, useMemo } from "react";
 import {
   useAccount,
+  useEstimateGas,
   useReadContract,
+  useSendTransaction,
   useSignTypedData,
-  useSimulateContract,
-  useWriteContract,
 } from "wagmi";
 
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { CheckCircle2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
-import { getAddContenderTypedData } from "@gzeoneth/gov-tracker";
+import { prepareContenderRegistration } from "@gzeoneth/gov-tracker";
 
 import { Button } from "@/components/ui/Button";
 import { NOMINEE_ELECTION_GOVERNOR_ABI } from "@/config/election-abi";
@@ -48,6 +48,11 @@ export function ContenderSignupForm({
       query: { enabled: isConnected && !!address },
     });
 
+  const registration = useMemo(() => {
+    if (!governorName) return undefined;
+    return prepareContenderRegistration(governorName, proposalId);
+  }, [governorName, proposalId]);
+
   const {
     data: signature,
     signTypedData,
@@ -55,29 +60,28 @@ export function ContenderSignupForm({
     reset: resetSignature,
   } = useSignTypedData();
 
-  const {
-    data: simulateData,
-    error: simulateError,
-    isError: isSimulateError,
-  } = useSimulateContract({
-    address: NOMINEE_GOVERNOR_ADDRESS,
-    abi: NOMINEE_ELECTION_GOVERNOR_ABI,
-    functionName: "addContender",
-    args: signature ? [BigInt(proposalId), signature] : undefined,
-    query: { enabled: !!signature },
+  const prepared = useMemo(() => {
+    if (!signature || !registration) return undefined;
+    return registration.buildTransaction(signature);
+  }, [signature, registration]);
+
+  const { error: estimateError, isError: isEstimateError } = useEstimateGas({
+    to: prepared?.to as `0x${string}`,
+    data: prepared?.data as `0x${string}`,
+    query: { enabled: !!prepared },
   });
 
   const simulationErrorMessage = useMemo(() => {
-    if (!isSimulateError || !simulateError) return null;
-    return getSimulationErrorMessage(simulateError);
-  }, [isSimulateError, simulateError]);
+    if (!isEstimateError || !estimateError) return null;
+    return getSimulationErrorMessage(estimateError);
+  }, [isEstimateError, estimateError]);
 
   const {
     data: txHash,
     isPending: isWriting,
     isSuccess,
-    writeContract,
-  } = useWriteContract();
+    sendTransaction,
+  } = useSendTransaction();
 
   useEffect(() => {
     if (txHash) {
@@ -88,15 +92,18 @@ export function ContenderSignupForm({
   }, [txHash, refetchContender, resetSignature]);
 
   useEffect(() => {
-    if (simulateData?.request) {
-      writeContract(simulateData.request);
+    if (prepared && !isEstimateError) {
+      sendTransaction({
+        to: prepared.to as `0x${string}`,
+        data: prepared.data as `0x${string}`,
+      });
     }
-  }, [simulateData, writeContract]);
+  }, [prepared, isEstimateError, sendTransaction]);
 
   function handleSign(): void {
-    if (!governorName) return;
+    if (!registration) return;
 
-    const td = getAddContenderTypedData(governorName, proposalId);
+    const td = registration.typedData;
     signTypedData({
       domain: {
         ...td.domain,
@@ -154,7 +161,7 @@ export function ContenderSignupForm({
           {isSigning ? "Signing..." : "Submitting..."}
         </Button>
       ) : (
-        <Button onClick={handleSign} disabled={!governorName}>
+        <Button onClick={handleSign} disabled={!registration}>
           Register as Contender
         </Button>
       )}
