@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { encodeAbiParameters } from "viem";
 import { useSimulateContract, useWriteContract } from "wagmi";
+
+import { encodeElectionVoteParams } from "@gzeoneth/gov-tracker";
 
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { ExternalLink } from "lucide-react";
@@ -61,10 +62,10 @@ export function ElectionVoteRow({
 
   const encodedParams = useMemo(() => {
     if (!voteAmountWei) return undefined;
-    return encodeAbiParameters(
-      [{ type: "address" }, { type: "uint256" }],
-      [targetAddress as `0x${string}`, voteAmountWei]
-    );
+    return encodeElectionVoteParams(
+      targetAddress,
+      voteAmountWei.toString()
+    ) as `0x${string}`;
   }, [targetAddress, voteAmountWei]);
 
   const {

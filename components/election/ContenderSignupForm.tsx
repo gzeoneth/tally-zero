@@ -13,8 +13,9 @@ import { ReloadIcon } from "@radix-ui/react-icons";
 import { CheckCircle2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
+import { getAddContenderTypedData } from "@gzeoneth/gov-tracker";
+
 import { Button } from "@/components/ui/Button";
-import { ARBITRUM_CHAIN_ID } from "@/config/arbitrum-governance";
 import { NOMINEE_ELECTION_GOVERNOR_ABI } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
@@ -95,19 +96,16 @@ export function ContenderSignupForm({
   function handleSign(): void {
     if (!governorName) return;
 
+    const td = getAddContenderTypedData(governorName, proposalId);
     signTypedData({
       domain: {
-        name: governorName,
-        version: "1",
-        chainId: BigInt(ARBITRUM_CHAIN_ID),
-        verifyingContract: NOMINEE_GOVERNOR_ADDRESS,
+        ...td.domain,
+        verifyingContract: td.domain.verifyingContract as `0x${string}`,
       },
-      types: {
-        AddContenderMessage: [{ name: "proposalId", type: "uint256" }],
-      },
-      primaryType: "AddContenderMessage",
+      types: td.types,
+      primaryType: td.primaryType,
       message: {
-        proposalId: BigInt(proposalId),
+        proposalId: BigInt(td.message.proposalId),
       },
     });
   }
