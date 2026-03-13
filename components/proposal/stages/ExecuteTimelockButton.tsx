@@ -2,18 +2,21 @@
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import TimelockABI from "@/data/ArbitrumTimelock_ABI.json";
 import type { TimelockOperationInfo } from "@/hooks/use-timelock-operation";
-import { hashOperation, validateSalt } from "@gzeoneth/gov-tracker";
+import {
+  hashOperation,
+  prepareTimelockExecuteCalldata,
+  validateSalt,
+} from "@gzeoneth/gov-tracker";
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { BigNumber } from "ethers";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   useAccount,
-  useSimulateContract,
+  useEstimateGas,
+  useSendTransaction,
   useWaitForTransactionReceipt,
-  useWriteContract,
 } from "wagmi";
 
 const ZERO_BYTES32 =
@@ -78,33 +81,37 @@ export function ExecuteTimelockButton({
   const effectiveSalt =
     validatedSalt ?? (zeroSaltMatches ? ZERO_BYTES32 : null);
 
+  const prepared = useMemo(() => {
+    if (!effectiveSalt) return undefined;
+    return prepareTimelockExecuteCalldata(
+      operation.timelockAddress,
+      { ...baseParams, salt: effectiveSalt },
+      operation.operationId
+    );
+  }, [
+    effectiveSalt,
+    operation.timelockAddress,
+    operation.operationId,
+    baseParams,
+  ]);
+
   const {
-    data: simulateData,
-    error: simulateError,
-    isLoading: isSimulating,
-  } = useSimulateContract({
-    address: operation.timelockAddress as `0x${string}`,
-    abi: TimelockABI,
-    functionName: "execute",
-    args: [
-      operation.target as `0x${string}`,
-      BigInt(operation.value),
-      operation.data as `0x${string}`,
-      operation.predecessor as `0x${string}`,
-      effectiveSalt as `0x${string}`,
-    ],
-    value: BigInt(operation.value),
-    query: {
-      enabled: isConnected && effectiveSalt !== null,
-    },
+    error: estimateError,
+    isError: isEstimateError,
+    isLoading: isEstimating,
+  } = useEstimateGas({
+    to: prepared?.to as `0x${string}`,
+    data: prepared?.data as `0x${string}`,
+    value: BigInt(prepared?.value ?? "0"),
+    query: { enabled: !!prepared && isConnected },
   });
 
   const {
     data: txHash,
-    isPending: isWriting,
-    writeContract,
-    error: writeError,
-  } = useWriteContract();
+    isPending: isSending,
+    sendTransaction,
+    error: sendError,
+  } = useSendTransaction();
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({
@@ -119,15 +126,18 @@ export function ExecuteTimelockButton({
   }, [isConfirmed, txHash, onSuccess]);
 
   useEffect(() => {
-    if (writeError) {
-      toast.error(`Transaction failed: ${writeError.message}`);
+    if (sendError) {
+      toast.error(`Transaction failed: ${sendError.message}`);
     }
-  }, [writeError]);
+  }, [sendError]);
 
   const handleExecute = () => {
-    if (simulateData?.request) {
-      writeContract(simulateData.request);
-    }
+    if (!prepared || isEstimateError) return;
+    sendTransaction({
+      to: prepared.to as `0x${string}`,
+      data: prepared.data as `0x${string}`,
+      value: BigInt(prepared.value),
+    });
   };
 
   if (!isConnected) {
@@ -165,7 +175,7 @@ export function ExecuteTimelockButton({
     );
   }
 
-  if (isSimulating) {
+  if (isEstimating) {
     return (
       <Button size="sm" disabled>
         <ReloadIcon className="h-3 w-3 mr-1 animate-spin" />
@@ -174,8 +184,8 @@ export function ExecuteTimelockButton({
     );
   }
 
-  if (simulateError) {
-    const errorMsg = simulateError.message.toLowerCase();
+  if (isEstimateError && estimateError) {
+    const errorMsg = estimateError.message.toLowerCase();
     if (
       errorMsg.includes("not ready") ||
       errorMsg.includes("operation is not ready")
@@ -197,13 +207,13 @@ export function ExecuteTimelockButton({
       );
     }
     return (
-      <div className="text-xs text-red-500" title={simulateError.message}>
+      <div className="text-xs text-red-500" title={estimateError.message}>
         Cannot execute (simulation failed)
       </div>
     );
   }
 
-  if (isWriting || isConfirming) {
+  if (isSending || isConfirming) {
     return (
       <Button size="sm" disabled>
         <ReloadIcon className="h-3 w-3 mr-1 animate-spin" />
@@ -221,7 +231,11 @@ export function ExecuteTimelockButton({
   }
 
   return (
-    <Button size="sm" onClick={handleExecute} disabled={!simulateData?.request}>
+    <Button
+      size="sm"
+      onClick={handleExecute}
+      disabled={!prepared || isEstimateError}
+    >
       Execute Operation
     </Button>
   );
