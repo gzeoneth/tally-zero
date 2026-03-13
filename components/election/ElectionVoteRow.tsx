@@ -1,9 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSimulateContract, useWriteContract } from "wagmi";
+import { useEstimateGas, useSendTransaction } from "wagmi";
 
-import { encodeElectionVoteParams } from "@gzeoneth/gov-tracker";
+import {
+  VOTE_SUPPORT,
+  encodeElectionVoteParams,
+  prepareCastVoteWithReasonAndParams,
+} from "@gzeoneth/gov-tracker";
 
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { ExternalLink } from "lucide-react";
@@ -23,7 +27,6 @@ interface ElectionVoteRowProps {
   proposalId: string;
   targetAddress: string;
   governorAddress: `0x${string}`;
-  governorAbi: readonly Record<string, unknown>[];
   availableVotes: bigint | undefined;
   onVoteSuccess: () => void;
   infoSlot?: React.ReactNode;
@@ -33,7 +36,6 @@ export function ElectionVoteRow({
   proposalId,
   targetAddress,
   governorAddress,
-  governorAbi,
   availableVotes,
   onVoteSuccess,
   infoSlot,
@@ -60,38 +62,37 @@ export function ElectionVoteRow({
     }
   }, [amount]);
 
-  const encodedParams = useMemo(() => {
+  const prepared = useMemo(() => {
     if (!voteAmountWei) return undefined;
-    return encodeElectionVoteParams(
+    const params = encodeElectionVoteParams(
       targetAddress,
       voteAmountWei.toString()
-    ) as `0x${string}`;
-  }, [targetAddress, voteAmountWei]);
+    );
+    return prepareCastVoteWithReasonAndParams(
+      proposalId,
+      VOTE_SUPPORT.FOR,
+      "",
+      params,
+      governorAddress
+    );
+  }, [proposalId, targetAddress, voteAmountWei, governorAddress]);
 
-  const {
-    data: simulateData,
-    error: simulateError,
-    isError: isSimulateError,
-  } = useSimulateContract({
-    address: governorAddress,
-    abi: governorAbi,
-    functionName: "castVoteWithReasonAndParams",
-    args: encodedParams
-      ? [BigInt(proposalId), 1, "", encodedParams]
-      : undefined,
-    query: { enabled: !!encodedParams },
+  const { error: estimateError, isError: isEstimateError } = useEstimateGas({
+    to: prepared?.to as `0x${string}`,
+    data: prepared?.data as `0x${string}`,
+    query: { enabled: !!prepared },
   });
 
   const simulationErrorMessage = useMemo(() => {
-    if (!isSimulateError || !simulateError) return null;
-    return getSimulationErrorMessage(simulateError);
-  }, [isSimulateError, simulateError]);
+    if (!isEstimateError || !estimateError) return null;
+    return getSimulationErrorMessage(estimateError);
+  }, [isEstimateError, estimateError]);
 
   const {
     data: txHash,
     isPending: isWriting,
-    writeContract,
-  } = useWriteContract();
+    sendTransaction,
+  } = useSendTransaction();
 
   useEffect(() => {
     if (txHash) {
@@ -102,25 +103,14 @@ export function ElectionVoteRow({
   }, [txHash, label, targetAddress, onVoteSuccess]);
 
   const handleVote = useCallback(() => {
-    if (simulateData?.request) {
-      writeContract(simulateData.request);
-    } else if (isOverrideActive && encodedParams) {
-      writeContract({
-        address: governorAddress,
-        abi: governorAbi,
-        functionName: "castVoteWithReasonAndParams",
-        args: [BigInt(proposalId), 1, "", encodedParams],
+    if (!prepared) return;
+    if (!isEstimateError || isOverrideActive) {
+      sendTransaction({
+        to: prepared.to as `0x${string}`,
+        data: prepared.data as `0x${string}`,
       });
     }
-  }, [
-    simulateData,
-    writeContract,
-    isOverrideActive,
-    encodedParams,
-    governorAddress,
-    governorAbi,
-    proposalId,
-  ]);
+  }, [prepared, isEstimateError, isOverrideActive, sendTransaction]);
 
   const exceedsAvailable =
     voteAmountWei !== undefined &&
@@ -171,8 +161,8 @@ export function ElectionVoteRow({
             size="sm"
             onClick={handleVote}
             disabled={
-              (!simulateData?.request &&
-                !(isOverrideActive && encodedParams)) ||
+              !prepared ||
+              (isEstimateError && !isOverrideActive) ||
               exceedsAvailable
             }
             className="shrink-0"

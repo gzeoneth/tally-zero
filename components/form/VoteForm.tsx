@@ -6,9 +6,9 @@ import { z } from "zod";
 
 import {
   useAccount,
+  useEstimateGas,
   useReadContract,
-  useSimulateContract,
-  useWriteContract,
+  useSendTransaction,
 } from "wagmi";
 
 import { Button } from "@components/ui/Button";
@@ -27,7 +27,7 @@ import { RadioGroup, RadioGroupItem } from "@components/ui/RadioGroup";
 import { ReloadIcon } from "@radix-ui/react-icons";
 
 import type { VoteSupport } from "@gzeoneth/gov-tracker";
-import { VOTE_SUPPORT } from "@gzeoneth/gov-tracker";
+import { VOTE_SUPPORT, prepareCastVote } from "@gzeoneth/gov-tracker";
 
 import { ARB_TOKEN } from "@config/arbitrum-governance";
 import { proposalSchema, voteSchema } from "@config/schema";
@@ -35,7 +35,6 @@ import { formatVotingPower } from "@lib/format-utils";
 import { toast } from "sonner";
 
 import { ERC20_VOTES_ABI } from "@config/election-abi";
-import OZ_Governor_ABI from "@data/OzGovernor_ABI.json";
 import { delay } from "@lib/delay-utils";
 import { getSimulationErrorMessage } from "@lib/error-utils";
 import { useEffect, useMemo } from "react";
@@ -67,35 +66,29 @@ export default function VoteForm({
       },
     });
 
-  const {
-    data: simulateData,
-    error: prepareError,
-    isError: isPrepareError,
-  } = useSimulateContract({
-    abi: OZ_Governor_ABI,
-    address: `0x${proposal.contractAddress.slice(2)}` as `0x${string}`,
-    functionName: "castVote",
-    args: [
-      BigInt(proposal.id),
-      voteValue ? (parseInt(voteValue) as VoteSupport) : VOTE_SUPPORT.AGAINST,
-    ],
-    query: {
-      enabled: !!voteValue && isConnected,
-    },
+  const prepared = useMemo(() => {
+    if (!voteValue) return undefined;
+    const support = parseInt(voteValue) as VoteSupport;
+    return prepareCastVote(proposal.id, support, proposal.contractAddress);
+  }, [proposal.id, proposal.contractAddress, voteValue]);
+
+  const { error: estimateError, isError: isEstimateError } = useEstimateGas({
+    to: prepared?.to as `0x${string}`,
+    data: prepared?.data as `0x${string}`,
+    query: { enabled: !!prepared && isConnected },
   });
 
-  // Parse simulation error for user-friendly display
   const simulationErrorMessage = useMemo(() => {
-    if (!isPrepareError || !prepareError) return null;
-    return getSimulationErrorMessage(prepareError);
-  }, [isPrepareError, prepareError]);
+    if (!isEstimateError || !estimateError) return null;
+    return getSimulationErrorMessage(estimateError);
+  }, [isEstimateError, estimateError]);
 
   const {
     data: hash,
     isPending: isLoading,
     isSuccess,
-    writeContract,
-  } = useWriteContract();
+    sendTransaction,
+  } = useSendTransaction();
 
   useEffect(() => {
     if (hash) {
@@ -104,10 +97,12 @@ export default function VoteForm({
   }, [hash]);
 
   async function onSubmit(_values: z.infer<typeof voteSchema>) {
+    if (!prepared) return;
     await delay(500);
-    if (simulateData?.request) {
-      writeContract(simulateData.request);
-    }
+    sendTransaction({
+      to: prepared.to as `0x${string}`,
+      data: prepared.data as `0x${string}`,
+    });
   }
 
   return (
@@ -219,7 +214,7 @@ export default function VoteForm({
                   Voted
                 </Button>
               ) : (
-                <Button type="submit" disabled={!simulateData?.request}>
+                <Button type="submit" disabled={!prepared || isEstimateError}>
                   Vote
                 </Button>
               )

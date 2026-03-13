@@ -96,7 +96,6 @@ export function ContenderVoteForm({
               proposalId={proposalId}
               targetAddress={contender.address}
               governorAddress={NOMINEE_GOVERNOR_ADDRESS}
-              governorAbi={NOMINEE_ELECTION_GOVERNOR_ABI}
               availableVotes={availableVotes}
               onVoteSuccess={refetchUsedVotes}
             />

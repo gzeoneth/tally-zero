@@ -115,7 +115,6 @@ export function NomineeVoteForm({
               proposalId={proposalId}
               targetAddress={nominee.address}
               governorAddress={MEMBER_GOVERNOR_ADDRESS}
-              governorAbi={MEMBER_ELECTION_GOVERNOR_ABI}
               availableVotes={availableVotes}
               onVoteSuccess={refetchUsedVotes}
               infoSlot={<NomineeInfo nominee={nominee} />}
