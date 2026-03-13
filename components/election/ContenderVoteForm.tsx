@@ -4,13 +4,15 @@ import { useMemo } from "react";
 import { useAccount, useReadContract } from "wagmi";
 
 import type { SerializableContender } from "@gzeoneth/gov-tracker";
+import {
+  erc20VotesAbi,
+  nomineeElectionGovernorReadAbi,
+} from "@gzeoneth/gov-tracker";
 import { Wallet } from "lucide-react";
 
 import { ARB_TOKEN } from "@/config/arbitrum-governance";
-import { NOMINEE_ELECTION_GOVERNOR_ABI } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
 import { formatVotingPower } from "@/lib/format-utils";
-import { erc20VotesAbi } from "@gzeoneth/gov-tracker";
 
 import { ElectionVoteRow } from "./ElectionVoteRow";
 import { VotingPowerSummary } from "./VotingPowerSummary";
@@ -33,7 +35,7 @@ export function ContenderVoteForm({
 
   const { data: snapshotBlock } = useReadContract({
     address: NOMINEE_GOVERNOR_ADDRESS,
-    abi: NOMINEE_ELECTION_GOVERNOR_ABI,
+    abi: nomineeElectionGovernorReadAbi,
     functionName: "proposalSnapshot",
     args: [BigInt(proposalId)],
   });
@@ -48,7 +50,7 @@ export function ContenderVoteForm({
 
   const { data: usedVotes, refetch: refetchUsedVotes } = useReadContract({
     address: NOMINEE_GOVERNOR_ADDRESS,
-    abi: NOMINEE_ELECTION_GOVERNOR_ABI,
+    abi: nomineeElectionGovernorReadAbi,
     functionName: "votesUsed",
     args: address ? [BigInt(proposalId), address] : undefined,
     query: { enabled: isConnected && !!address },

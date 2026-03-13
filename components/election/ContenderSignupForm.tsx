@@ -13,10 +13,12 @@ import { ReloadIcon } from "@radix-ui/react-icons";
 import { CheckCircle2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
-import { prepareContenderRegistration } from "@gzeoneth/gov-tracker";
+import {
+  nomineeElectionGovernorReadAbi,
+  prepareContenderRegistration,
+} from "@gzeoneth/gov-tracker";
 
 import { Button } from "@/components/ui/Button";
-import { NOMINEE_ELECTION_GOVERNOR_ABI } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
 
@@ -34,7 +36,7 @@ export function ContenderSignupForm({
 
   const { data: governorName } = useReadContract({
     address: NOMINEE_GOVERNOR_ADDRESS,
-    abi: NOMINEE_ELECTION_GOVERNOR_ABI,
+    abi: nomineeElectionGovernorReadAbi,
     functionName: "name",
     query: { staleTime: Infinity },
   });
@@ -42,7 +44,7 @@ export function ContenderSignupForm({
   const { data: isAlreadyContender, refetch: refetchContender } =
     useReadContract({
       address: NOMINEE_GOVERNOR_ADDRESS,
-      abi: NOMINEE_ELECTION_GOVERNOR_ABI,
+      abi: nomineeElectionGovernorReadAbi,
       functionName: "isContender",
       args: address ? [BigInt(proposalId), address] : undefined,
       query: { enabled: isConnected && !!address },

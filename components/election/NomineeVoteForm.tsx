@@ -4,12 +4,14 @@ import { useMemo } from "react";
 import { useAccount, useBlockNumber, useReadContract } from "wagmi";
 
 import type { SerializableMemberNominee } from "@gzeoneth/gov-tracker";
-import { erc20VotesAbi } from "@gzeoneth/gov-tracker";
+import {
+  erc20VotesAbi,
+  memberElectionGovernorReadAbi,
+} from "@gzeoneth/gov-tracker";
 import { AlertCircle, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { ARB_TOKEN } from "@/config/arbitrum-governance";
-import { MEMBER_ELECTION_GOVERNOR_ABI } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
 import { formatVotingPower } from "@/lib/format-utils";
 
@@ -35,7 +37,7 @@ export function NomineeVoteForm({
 
   const { data: snapshotBlock } = useReadContract({
     address: MEMBER_GOVERNOR_ADDRESS,
-    abi: MEMBER_ELECTION_GOVERNOR_ABI,
+    abi: memberElectionGovernorReadAbi,
     functionName: "proposalSnapshot",
     args: [BigInt(proposalId)],
   });
@@ -50,7 +52,7 @@ export function NomineeVoteForm({
 
   const { data: usedVotes, refetch: refetchUsedVotes } = useReadContract({
     address: MEMBER_GOVERNOR_ADDRESS,
-    abi: MEMBER_ELECTION_GOVERNOR_ABI,
+    abi: memberElectionGovernorReadAbi,
     functionName: "votesUsed",
     args: address ? [BigInt(proposalId), address] : undefined,
     query: { enabled: isConnected && !!address },
