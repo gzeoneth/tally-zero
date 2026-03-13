@@ -26,6 +26,9 @@ import {
 import { RadioGroup, RadioGroupItem } from "@components/ui/RadioGroup";
 import { ReloadIcon } from "@radix-ui/react-icons";
 
+import type { VoteSupport } from "@gzeoneth/gov-tracker";
+import { VOTE_SUPPORT } from "@gzeoneth/gov-tracker";
+
 import { ARB_TOKEN } from "@config/arbitrum-governance";
 import { proposalSchema, voteSchema } from "@config/schema";
 import { formatVotingPower } from "@lib/format-utils";
@@ -72,7 +75,10 @@ export default function VoteForm({
     abi: OZ_Governor_ABI,
     address: `0x${proposal.contractAddress.slice(2)}` as `0x${string}`,
     functionName: "castVote",
-    args: [BigInt(proposal.id), voteValue ? parseInt(voteValue) : 0],
+    args: [
+      BigInt(proposal.id),
+      voteValue ? (parseInt(voteValue) as VoteSupport) : VOTE_SUPPORT.AGAINST,
+    ],
     query: {
       enabled: !!voteValue && isConnected,
     },
@@ -150,7 +156,7 @@ export default function VoteForm({
                       <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-white/20 dark:hover:bg-white/10 hover:backdrop-blur-sm">
                         <FormItem className="flex items-center space-x-3 space-y-0 py-2 px-2">
                           <FormControl>
-                            <RadioGroupItem value="1" />
+                            <RadioGroupItem value={String(VOTE_SUPPORT.FOR)} />
                           </FormControl>
                           <FormLabel className="font-normal">
                             I&apos;m in favor of this proposal
@@ -160,7 +166,9 @@ export default function VoteForm({
                       <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-white/20 dark:hover:bg-white/10 hover:backdrop-blur-sm">
                         <FormItem className="flex items-center space-x-3 space-y-0  py-2 px-2">
                           <FormControl>
-                            <RadioGroupItem value="0" />
+                            <RadioGroupItem
+                              value={String(VOTE_SUPPORT.AGAINST)}
+                            />
                           </FormControl>
                           <FormLabel className="font-normal">
                             Against the proposal
@@ -170,7 +178,9 @@ export default function VoteForm({
                       <div className="-mx-2 flex items-start space-x-4 rounded-md transition-all hover:bg-white/20 dark:hover:bg-white/10 hover:backdrop-blur-sm">
                         <FormItem className="flex items-center space-x-3 space-y-0 py-2 px-2">
                           <FormControl>
-                            <RadioGroupItem value="2" />
+                            <RadioGroupItem
+                              value={String(VOTE_SUPPORT.ABSTAIN)}
+                            />
                           </FormControl>
                           <FormLabel className="font-normal">
                             I&apos;m abstaining
