@@ -4,14 +4,12 @@ import { useMemo } from "react";
 import { useAccount, useBlockNumber, useReadContract } from "wagmi";
 
 import type { SerializableMemberNominee } from "@gzeoneth/gov-tracker";
+import { erc20VotesAbi } from "@gzeoneth/gov-tracker";
 import { AlertCircle, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { ARB_TOKEN } from "@/config/arbitrum-governance";
-import {
-  ERC20_VOTES_ABI,
-  MEMBER_ELECTION_GOVERNOR_ABI,
-} from "@/config/election-abi";
+import { MEMBER_ELECTION_GOVERNOR_ABI } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
 import { formatVotingPower } from "@/lib/format-utils";
 
@@ -44,7 +42,7 @@ export function NomineeVoteForm({
 
   const { data: totalVotingPower } = useReadContract({
     address: ARB_TOKEN.address as `0x${string}`,
-    abi: ERC20_VOTES_ABI,
+    abi: erc20VotesAbi,
     functionName: "getPastVotes",
     args: address && snapshotBlock ? [address, snapshotBlock] : undefined,
     query: { enabled: isConnected && !!address && !!snapshotBlock },

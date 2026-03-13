@@ -27,17 +27,19 @@ import { RadioGroup, RadioGroupItem } from "@components/ui/RadioGroup";
 import { ReloadIcon } from "@radix-ui/react-icons";
 
 import type { VoteSupport } from "@gzeoneth/gov-tracker";
-import { VOTE_SUPPORT, prepareCastVote } from "@gzeoneth/gov-tracker";
+import {
+  VOTE_SUPPORT,
+  erc20VotesAbi,
+  prepareCastVote,
+} from "@gzeoneth/gov-tracker";
 
 import { ARB_TOKEN } from "@config/arbitrum-governance";
 import { proposalSchema, voteSchema } from "@config/schema";
-import { formatVotingPower } from "@lib/format-utils";
-import { toast } from "sonner";
-
-import { ERC20_VOTES_ABI } from "@config/election-abi";
 import { delay } from "@lib/delay-utils";
 import { getSimulationErrorMessage } from "@lib/error-utils";
+import { formatVotingPower } from "@lib/format-utils";
 import { useEffect, useMemo } from "react";
+import { toast } from "sonner";
 
 export default function VoteForm({
   proposal,
@@ -58,7 +60,7 @@ export default function VoteForm({
   const { data: votingPower, isLoading: isLoadingVotingPower } =
     useReadContract({
       address: ARB_TOKEN.address as `0x${string}`,
-      abi: ERC20_VOTES_ABI,
+      abi: erc20VotesAbi,
       functionName: "getPastVotes",
       args: address && startBlock ? [address, startBlock] : undefined,
       query: {

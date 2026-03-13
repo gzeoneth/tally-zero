@@ -64,7 +64,7 @@ export const L1_TIMELOCK = {
  * ARB Token Contract
  */
 export const ARB_TOKEN = {
-  address: "0x912CE59144191C1204E64559FE8253a0e49E6548",
+  address: ADDRESSES.ARB_TOKEN,
   name: "ARB Token",
 } as const;
 

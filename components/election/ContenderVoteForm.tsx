@@ -7,12 +7,10 @@ import type { SerializableContender } from "@gzeoneth/gov-tracker";
 import { Wallet } from "lucide-react";
 
 import { ARB_TOKEN } from "@/config/arbitrum-governance";
-import {
-  ERC20_VOTES_ABI,
-  NOMINEE_ELECTION_GOVERNOR_ABI,
-} from "@/config/election-abi";
+import { NOMINEE_ELECTION_GOVERNOR_ABI } from "@/config/election-abi";
 import { SC_CONTRACTS } from "@/config/security-council";
 import { formatVotingPower } from "@/lib/format-utils";
+import { erc20VotesAbi } from "@gzeoneth/gov-tracker";
 
 import { ElectionVoteRow } from "./ElectionVoteRow";
 import { VotingPowerSummary } from "./VotingPowerSummary";
@@ -42,7 +40,7 @@ export function ContenderVoteForm({
 
   const { data: totalVotingPower } = useReadContract({
     address: ARB_TOKEN.address as `0x${string}`,
-    abi: ERC20_VOTES_ABI,
+    abi: erc20VotesAbi,
     functionName: "getPastVotes",
     args: address && snapshotBlock ? [address, snapshotBlock] : undefined,
     query: { enabled: isConnected && !!address && !!snapshotBlock },

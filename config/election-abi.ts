@@ -116,16 +116,3 @@ export const MEMBER_ELECTION_GOVERNOR_ABI = [
     type: "function",
   },
 ] as const;
-
-export const ERC20_VOTES_ABI = [
-  {
-    name: "getPastVotes",
-    inputs: [
-      { name: "account", type: "address" },
-      { name: "blockNumber", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
