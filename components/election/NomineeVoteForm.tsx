@@ -1,17 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
-import { useAccount, useBlockNumber, useReadContract } from "wagmi";
+import { useAccount, useBlockNumber } from "wagmi";
 
 import type { SerializableMemberNominee } from "@gzeoneth/gov-tracker";
-import {
-  erc20VotesAbi,
-  memberElectionGovernorReadAbi,
-} from "@gzeoneth/gov-tracker";
+import { memberElectionGovernorReadAbi } from "@gzeoneth/gov-tracker";
 import { AlertCircle, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { useElectionContracts } from "@/hooks/use-election-contracts";
+import { useElectionVotingPower } from "@/hooks/use-election-voting-power";
 import { formatVotingPower } from "@/lib/format-utils";
 
 import { ElectionVoteRow } from "./ElectionVoteRow";
@@ -28,40 +25,17 @@ export function NomineeVoteForm({
   nominees,
   fullWeightDeadline,
 }: NomineeVoteFormProps): React.ReactElement {
-  const { address, isConnected } = useAccount();
-  const { memberGovernor, arbToken, chainId } = useElectionContracts();
+  const { isConnected } = useAccount();
+  const { memberGovernor, chainId } = useElectionContracts();
   const governorAddress = memberGovernor as `0x${string}`;
   const { data: currentBlock } = useBlockNumber({ watch: true });
 
-  const { data: snapshotBlock } = useReadContract({
-    address: governorAddress,
-    abi: memberElectionGovernorReadAbi,
-    functionName: "proposalSnapshot",
-    args: [BigInt(proposalId)],
-  });
-
-  const { data: totalVotingPower } = useReadContract({
-    address: arbToken as `0x${string}`,
-    abi: erc20VotesAbi,
-    functionName: "getPastVotes",
-    args: address && snapshotBlock ? [address, snapshotBlock] : undefined,
-    query: { enabled: isConnected && !!address && !!snapshotBlock },
-  });
-
-  const { data: usedVotes, refetch: refetchUsedVotes } = useReadContract({
-    address: governorAddress,
-    abi: memberElectionGovernorReadAbi,
-    functionName: "votesUsed",
-    args: address ? [BigInt(proposalId), address] : undefined,
-    query: { enabled: isConnected && !!address },
-  });
-
-  const availableVotes = useMemo(() => {
-    if (totalVotingPower === undefined || usedVotes === undefined)
-      return undefined;
-    const avail = totalVotingPower - usedVotes;
-    return avail > BigInt(0) ? avail : BigInt(0);
-  }, [totalVotingPower, usedVotes]);
+  const { totalVotingPower, usedVotes, availableVotes, refetchUsedVotes } =
+    useElectionVotingPower({
+      proposalId,
+      governorAddress,
+      governorReadAbi: memberElectionGovernorReadAbi,
+    });
 
   const isFullWeight =
     currentBlock !== undefined && currentBlock <= BigInt(fullWeightDeadline);

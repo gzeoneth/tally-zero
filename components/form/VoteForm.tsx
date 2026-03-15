@@ -35,6 +35,7 @@ import {
 
 import { ARB_TOKEN } from "@config/arbitrum-governance";
 import { proposalSchema, voteSchema } from "@config/schema";
+import { toHex } from "@lib/address-utils";
 import { delay } from "@lib/delay-utils";
 import { getSimulationErrorMessage } from "@lib/error-utils";
 import { formatVotingPower } from "@lib/format-utils";
@@ -75,8 +76,8 @@ export default function VoteForm({
   }, [proposal.id, proposal.contractAddress, voteValue]);
 
   const { error: estimateError, isError: isEstimateError } = useEstimateGas({
-    to: prepared?.to as `0x${string}`,
-    data: prepared?.data as `0x${string}`,
+    to: toHex(prepared?.to ?? ""),
+    data: toHex(prepared?.data ?? ""),
     query: { enabled: !!prepared && isConnected },
   });
 
@@ -102,8 +103,8 @@ export default function VoteForm({
     if (!prepared) return;
     await delay(500);
     sendTransaction({
-      to: prepared.to as `0x${string}`,
-      data: prepared.data as `0x${string}`,
+      to: toHex(prepared.to),
+      data: toHex(prepared.data),
     });
   }
 

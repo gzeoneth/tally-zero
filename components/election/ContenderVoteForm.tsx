@@ -1,16 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount } from "wagmi";
 
 import type { SerializableContender } from "@gzeoneth/gov-tracker";
-import {
-  erc20VotesAbi,
-  nomineeElectionGovernorReadAbi,
-} from "@gzeoneth/gov-tracker";
+import { nomineeElectionGovernorReadAbi } from "@gzeoneth/gov-tracker";
 import { Wallet } from "lucide-react";
 
 import { useElectionContracts } from "@/hooks/use-election-contracts";
+import { useElectionVotingPower } from "@/hooks/use-election-voting-power";
 import { formatVotingPower } from "@/lib/format-utils";
 
 import { ElectionVoteRow } from "./ElectionVoteRow";
@@ -27,39 +24,16 @@ export function ContenderVoteForm({
   contenders,
   quorumThreshold,
 }: ContenderVoteFormProps): React.ReactElement {
-  const { address, isConnected } = useAccount();
-  const { nomineeGovernor, arbToken, chainId } = useElectionContracts();
+  const { isConnected } = useAccount();
+  const { nomineeGovernor, chainId } = useElectionContracts();
   const governorAddress = nomineeGovernor as `0x${string}`;
 
-  const { data: snapshotBlock } = useReadContract({
-    address: governorAddress,
-    abi: nomineeElectionGovernorReadAbi,
-    functionName: "proposalSnapshot",
-    args: [BigInt(proposalId)],
-  });
-
-  const { data: totalVotingPower } = useReadContract({
-    address: arbToken as `0x${string}`,
-    abi: erc20VotesAbi,
-    functionName: "getPastVotes",
-    args: address && snapshotBlock ? [address, snapshotBlock] : undefined,
-    query: { enabled: isConnected && !!address && !!snapshotBlock },
-  });
-
-  const { data: usedVotes, refetch: refetchUsedVotes } = useReadContract({
-    address: governorAddress,
-    abi: nomineeElectionGovernorReadAbi,
-    functionName: "votesUsed",
-    args: address ? [BigInt(proposalId), address] : undefined,
-    query: { enabled: isConnected && !!address },
-  });
-
-  const availableVotes = useMemo(() => {
-    if (totalVotingPower === undefined || usedVotes === undefined)
-      return undefined;
-    const avail = totalVotingPower - usedVotes;
-    return avail > BigInt(0) ? avail : BigInt(0);
-  }, [totalVotingPower, usedVotes]);
+  const { totalVotingPower, usedVotes, availableVotes, refetchUsedVotes } =
+    useElectionVotingPower({
+      proposalId,
+      governorAddress,
+      governorReadAbi: nomineeElectionGovernorReadAbi,
+    });
 
   if (!isConnected) {
     return (

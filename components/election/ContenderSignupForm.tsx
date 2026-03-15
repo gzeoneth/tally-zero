@@ -20,6 +20,7 @@ import {
 
 import { Button } from "@/components/ui/Button";
 import { useElectionContracts } from "@/hooks/use-election-contracts";
+import { toHex } from "@/lib/address-utils";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
 
 interface ContenderSignupFormProps {
@@ -72,8 +73,8 @@ export function ContenderSignupForm({
   }, [signature, registration]);
 
   const { error: estimateError, isError: isEstimateError } = useEstimateGas({
-    to: prepared?.to as `0x${string}`,
-    data: prepared?.data as `0x${string}`,
+    to: toHex(prepared?.to ?? ""),
+    data: toHex(prepared?.data ?? ""),
     query: { enabled: !!prepared },
   });
 
@@ -97,15 +98,6 @@ export function ContenderSignupForm({
     }
   }, [txHash, refetchContender, resetSignature]);
 
-  useEffect(() => {
-    if (prepared && !isEstimateError) {
-      sendTransaction({
-        to: prepared.to as `0x${string}`,
-        data: prepared.data as `0x${string}`,
-      });
-    }
-  }, [prepared, isEstimateError, sendTransaction]);
-
   function handleSign(): void {
     if (!registration) return;
 
@@ -120,6 +112,14 @@ export function ContenderSignupForm({
       message: {
         proposalId: BigInt(td.message.proposalId),
       },
+    });
+  }
+
+  function handleSubmit(): void {
+    if (!prepared || isEstimateError) return;
+    sendTransaction({
+      to: toHex(prepared.to),
+      data: toHex(prepared.data),
     });
   }
 
@@ -141,8 +141,6 @@ export function ContenderSignupForm({
     );
   }
 
-  const isPending = isSigning || isWriting;
-
   return (
     <div className="space-y-4 p-4">
       <p className="text-sm text-muted-foreground">
@@ -161,10 +159,19 @@ export function ContenderSignupForm({
           <CheckCircle2 className="h-4 w-4 mr-2" />
           Registered
         </Button>
-      ) : isPending ? (
+      ) : isWriting ? (
         <Button disabled>
           <ReloadIcon className="h-4 w-4 mr-2 animate-spin" />
-          {isSigning ? "Signing..." : "Submitting..."}
+          Submitting...
+        </Button>
+      ) : prepared ? (
+        <Button onClick={handleSubmit} disabled={isEstimateError}>
+          Submit Registration
+        </Button>
+      ) : isSigning ? (
+        <Button disabled>
+          <ReloadIcon className="h-4 w-4 mr-2 animate-spin" />
+          Signing...
         </Button>
       ) : (
         <Button onClick={handleSign} disabled={!registration}>

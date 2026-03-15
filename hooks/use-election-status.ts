@@ -34,6 +34,17 @@ import {
 type NomineeElectionDetails = SerializableNomineeDetails | null;
 type MemberElectionDetails = SerializableMemberDetails | null;
 
+const NOMINEE_GOV_ABI = [
+  "function state(uint256 proposalId) view returns (uint8)",
+  "function electionIndexToCohort(uint256 electionIndex) view returns (uint8)",
+  "function proposalVettingDeadline(uint256 proposalId) view returns (uint256)",
+  "function compliantNomineeCount(uint256 proposalId) view returns (uint256)",
+] as const;
+
+const MEMBER_GOV_ABI = [
+  "function state(uint256 proposalId) view returns (uint8)",
+] as const;
+
 function isCorsOrNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const msg = error.message.toLowerCase();
@@ -84,9 +95,7 @@ export function useElectionStatus({
   nomineeGovernorAddress,
   memberGovernorAddress,
 }: UseElectionStatusOptions = {}): UseElectionStatusResult {
-  const hasAddressOverrides = !!(
-    nomineeGovernorAddress || memberGovernorAddress
-  );
+  const hasAddressOverrides = !!nomineeGovernorAddress;
   const [status, setStatus] = useState<ElectionStatus | null>(null);
   const [allElections, setAllElections] = useState<ElectionProposalStatus[]>(
     []
@@ -176,6 +185,8 @@ export function useElectionStatus({
     : null;
 
   const fetchWithOverrides = useCallback(async () => {
+    if (!nomineeGovernorAddress) return;
+
     const l2Provider = getOrCreateProvider(l2Url);
     const l1Provider = getOrCreateProvider(l1Url);
 
@@ -202,16 +213,8 @@ export function useElectionStatus({
     const nDetails: Record<number, NomineeElectionDetails> = {};
     const mDetails: Record<number, MemberElectionDetails> = {};
 
-    const govIface = new ethers.utils.Interface([
-      "function state(uint256 proposalId) view returns (uint8)",
-      "function electionIndexToCohort(uint256 electionIndex) view returns (uint8)",
-      "function proposalVettingDeadline(uint256 proposalId) view returns (uint256)",
-      "function compliantNomineeCount(uint256 proposalId) view returns (uint256)",
-    ]);
-
-    const memberGovIface = new ethers.utils.Interface([
-      "function state(uint256 proposalId) view returns (uint8)",
-    ]);
+    const govIface = new ethers.utils.Interface([...NOMINEE_GOV_ABI]);
+    const memberGovIface = new ethers.utils.Interface([...MEMBER_GOV_ABI]);
 
     for (let i = 0; i < count; i++) {
       try {
@@ -221,7 +224,7 @@ export function useElectionStatus({
           nomineeGovernorAddress
         );
         const gov = new ethers.Contract(
-          nomineeGovernorAddress!,
+          nomineeGovernorAddress,
           govIface,
           l2Provider
         );

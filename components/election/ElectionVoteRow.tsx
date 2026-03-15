@@ -13,11 +13,14 @@ import { ReloadIcon } from "@radix-ui/react-icons";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
+import { utils as ethersUtils } from "ethers";
+
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { STORAGE_KEYS } from "@/config/storage-keys";
 import { useNerdMode } from "@/context/NerdModeContext";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { toHex } from "@/lib/address-utils";
 import { getDelegateLabel } from "@/lib/delegate-cache";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
 import { getAddressExplorerUrl } from "@/lib/explorer-utils";
@@ -54,11 +57,10 @@ export function ElectionVoteRow({
   const explorerUrl = getAddressExplorerUrl(targetAddress);
 
   const voteAmountWei = useMemo(() => {
-    if (!amount || isNaN(Number(amount))) return undefined;
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
+      return undefined;
     try {
-      const parsed = parseFloat(amount);
-      if (parsed <= 0) return undefined;
-      return BigInt(Math.floor(parsed * 1e18));
+      return ethersUtils.parseEther(amount).toBigInt();
     } catch {
       return undefined;
     }
@@ -81,8 +83,8 @@ export function ElectionVoteRow({
   }, [proposalId, targetAddress, voteAmountWei, governorAddress, chainId]);
 
   const { error: estimateError, isError: isEstimateError } = useEstimateGas({
-    to: prepared?.to as `0x${string}`,
-    data: prepared?.data as `0x${string}`,
+    to: toHex(prepared?.to ?? ""),
+    data: toHex(prepared?.data ?? ""),
     query: { enabled: !!prepared },
   });
 
@@ -109,8 +111,8 @@ export function ElectionVoteRow({
     if (!prepared) return;
     if (!isEstimateError || isOverrideActive) {
       sendTransaction({
-        to: prepared.to as `0x${string}`,
-        data: prepared.data as `0x${string}`,
+        to: toHex(prepared.to),
+        data: toHex(prepared.data),
       });
     }
   }, [prepared, isEstimateError, isOverrideActive, sendTransaction]);

@@ -24,14 +24,19 @@ import { ElectionSelector } from "./ElectionSelector";
 import { ElectionStatusCard } from "./ElectionStatusCard";
 import { NomineeList } from "./NomineeList";
 
-const ACTIONABLE_PHASES: ElectionPhase[] = [
+type ActionablePhase =
+  | "CONTENDER_SUBMISSION"
+  | "NOMINEE_SELECTION"
+  | "MEMBER_ELECTION";
+
+const ACTIONABLE_PHASES: ActionablePhase[] = [
   "CONTENDER_SUBMISSION",
   "NOMINEE_SELECTION",
   "MEMBER_ELECTION",
 ];
 
-function isActionablePhase(phase: string): phase is ElectionPhase {
-  return ACTIONABLE_PHASES.includes(phase as ElectionPhase);
+function isActionablePhase(phase: string): phase is ActionablePhase {
+  return (ACTIONABLE_PHASES as readonly string[]).includes(phase);
 }
 
 function getOverrideData({
