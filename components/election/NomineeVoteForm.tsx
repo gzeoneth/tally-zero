@@ -18,12 +18,14 @@ interface NomineeVoteFormProps {
   proposalId: string;
   nominees: SerializableMemberNominee[];
   fullWeightDeadline: number;
+  bypassSimulation?: boolean;
 }
 
 export function NomineeVoteForm({
   proposalId,
   nominees,
   fullWeightDeadline,
+  bypassSimulation = false,
 }: NomineeVoteFormProps): React.ReactElement {
   const { isConnected } = useAccount();
   const { memberGovernor, chainId } = useElectionContracts();
@@ -91,6 +93,7 @@ export function NomineeVoteForm({
               availableVotes={availableVotes}
               onVoteSuccess={refetchUsedVotes}
               infoSlot={<NomineeInfo nominee={nominee} />}
+              bypassSimulation={bypassSimulation}
             />
           ))}
         </div>

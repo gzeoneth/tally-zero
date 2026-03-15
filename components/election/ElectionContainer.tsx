@@ -219,6 +219,7 @@ export function ElectionContainer(): React.ReactElement {
         selectedElection={overrideElection}
         nomineeDetails={overrideNomineeDetails}
         memberDetails={overrideMemberDetails}
+        bypassSimulation={hasOverride}
       />
 
       <DeepLinkHandler proposals={[]} />

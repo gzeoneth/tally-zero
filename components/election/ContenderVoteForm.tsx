@@ -17,12 +17,14 @@ interface ContenderVoteFormProps {
   proposalId: string;
   contenders: SerializableContender[];
   quorumThreshold: string;
+  bypassSimulation?: boolean;
 }
 
 export function ContenderVoteForm({
   proposalId,
   contenders,
   quorumThreshold,
+  bypassSimulation = false,
 }: ContenderVoteFormProps): React.ReactElement {
   const { isConnected } = useAccount();
   const { nomineeGovernor, chainId } = useElectionContracts();
@@ -71,6 +73,7 @@ export function ContenderVoteForm({
               chainId={chainId}
               availableVotes={availableVotes}
               onVoteSuccess={refetchUsedVotes}
+              bypassSimulation={bypassSimulation}
             />
           ))}
         </div>

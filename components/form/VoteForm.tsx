@@ -36,7 +36,6 @@ import {
 import { ARB_TOKEN } from "@config/arbitrum-governance";
 import { proposalSchema, voteSchema } from "@config/schema";
 import { toHex } from "@lib/address-utils";
-import { delay } from "@lib/delay-utils";
 import { getSimulationErrorMessage } from "@lib/error-utils";
 import { formatVotingPower } from "@lib/format-utils";
 import { useEffect, useMemo } from "react";
@@ -99,9 +98,8 @@ export default function VoteForm({
     }
   }, [hash]);
 
-  async function onSubmit(_values: z.infer<typeof voteSchema>) {
+  function onSubmit(_values: z.infer<typeof voteSchema>) {
     if (!prepared) return;
-    await delay(500);
     sendTransaction({
       to: toHex(prepared.to),
       data: toHex(prepared.data),

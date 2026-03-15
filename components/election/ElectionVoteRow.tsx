@@ -17,9 +17,6 @@ import { utils as ethersUtils } from "ethers";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { STORAGE_KEYS } from "@/config/storage-keys";
-import { useNerdMode } from "@/context/NerdModeContext";
-import { useLocalStorage } from "@/hooks/use-local-storage";
 import { toHex } from "@/lib/address-utils";
 import { getDelegateLabel } from "@/lib/delegate-cache";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
@@ -34,6 +31,7 @@ interface ElectionVoteRowProps {
   availableVotes: bigint | undefined;
   onVoteSuccess: () => void;
   infoSlot?: React.ReactNode;
+  bypassSimulation?: boolean;
 }
 
 export function ElectionVoteRow({
@@ -44,14 +42,8 @@ export function ElectionVoteRow({
   availableVotes,
   onVoteSuccess,
   infoSlot,
+  bypassSimulation = false,
 }: ElectionVoteRowProps): React.ReactElement {
-  const { nerdMode } = useNerdMode();
-  const [phaseOverride] = useLocalStorage<string>(
-    STORAGE_KEYS.ELECTION_PHASE_OVERRIDE,
-    ""
-  );
-  const isOverrideActive = nerdMode && !!phaseOverride;
-
   const [amount, setAmount] = useState("");
   const label = getDelegateLabel(targetAddress);
   const explorerUrl = getAddressExplorerUrl(targetAddress);
@@ -109,13 +101,13 @@ export function ElectionVoteRow({
 
   const handleVote = useCallback(() => {
     if (!prepared) return;
-    if (!isEstimateError || isOverrideActive) {
+    if (!isEstimateError || bypassSimulation) {
       sendTransaction({
         to: toHex(prepared.to),
         data: toHex(prepared.data),
       });
     }
-  }, [prepared, isEstimateError, isOverrideActive, sendTransaction]);
+  }, [prepared, isEstimateError, bypassSimulation, sendTransaction]);
 
   const exceedsAvailable =
     voteAmountWei !== undefined &&
@@ -167,7 +159,7 @@ export function ElectionVoteRow({
             onClick={handleVote}
             disabled={
               !prepared ||
-              (isEstimateError && !isOverrideActive) ||
+              (isEstimateError && !bypassSimulation) ||
               exceedsAvailable
             }
             className="shrink-0"
@@ -183,7 +175,7 @@ export function ElectionVoteRow({
       {simulationErrorMessage &&
         amount &&
         !exceedsAvailable &&
-        !isOverrideActive && (
+        !bypassSimulation && (
           <p className="text-xs text-red-500 dark:text-red-400">
             {simulationErrorMessage}
           </p>

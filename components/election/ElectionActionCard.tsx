@@ -25,6 +25,7 @@ interface ElectionActionCardProps {
   selectedElection: ElectionProposalStatus | null;
   nomineeDetails: SerializableNomineeDetails | null;
   memberDetails: SerializableMemberDetails | null;
+  bypassSimulation?: boolean;
 }
 
 export function ElectionActionCard({
@@ -32,6 +33,7 @@ export function ElectionActionCard({
   selectedElection,
   nomineeDetails,
   memberDetails,
+  bypassSimulation = false,
 }: ElectionActionCardProps): React.ReactElement | null {
   if (!selectedElection) return null;
 
@@ -40,6 +42,7 @@ export function ElectionActionCard({
     selectedElection,
     nomineeDetails,
     memberDetails,
+    bypassSimulation,
   });
 
   if (!content) return null;
@@ -62,6 +65,7 @@ interface PhaseContentInput {
   selectedElection: ElectionProposalStatus;
   nomineeDetails: SerializableNomineeDetails | null;
   memberDetails: SerializableMemberDetails | null;
+  bypassSimulation: boolean;
 }
 
 function getPhaseContent({
@@ -69,6 +73,7 @@ function getPhaseContent({
   selectedElection,
   nomineeDetails,
   memberDetails,
+  bypassSimulation,
 }: PhaseContentInput): {
   title: string;
   form: React.ReactElement;
@@ -95,6 +100,7 @@ function getPhaseContent({
             proposalId={selectedElection.nomineeProposalId}
             contenders={nomineeDetails.contenders}
             quorumThreshold={nomineeDetails.quorumThreshold}
+            bypassSimulation={bypassSimulation}
           />
         ),
       };
@@ -109,6 +115,7 @@ function getPhaseContent({
             proposalId={selectedElection.memberProposalId}
             nominees={memberDetails.nominees}
             fullWeightDeadline={memberDetails.fullWeightDeadline}
+            bypassSimulation={bypassSimulation}
           />
         ),
       };
