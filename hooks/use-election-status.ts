@@ -7,6 +7,7 @@ import {
   createTracker,
   getAllElectionStatuses,
   getElectionCount,
+  getElectionStatus,
   getMemberElectionDetails,
   getNomineeElectionDetails,
   serializeMemberDetails,
@@ -263,6 +264,14 @@ export function useElectionStatus({
         }
         if (checkpoint.memberDetails) {
           cachedMemberDetails[i] = checkpoint.memberDetails;
+        }
+      } else {
+        try {
+          const liveStatus = await getElectionStatus(l2Provider, i);
+          debug.app("Election %d fetched live: %s", i, liveStatus.phase);
+          cachedElections.push(liveStatus);
+        } catch (err) {
+          debug.app("Election %d live fetch failed: %O", i, err);
         }
       }
     }
