@@ -31,8 +31,8 @@ export function ContenderSignupForm({
   proposalId,
 }: ContenderSignupFormProps): React.ReactElement {
   const { address, isConnected } = useAccount();
-  const { nomineeGovernor, chainId } = useElectionContracts();
-  const governorAddress = nomineeGovernor as `0x${string}`;
+  const { nomineeGovernorAddress, chainId } = useElectionContracts();
+  const governorAddress = nomineeGovernorAddress;
 
   const { data: governorName } = useReadContract({
     address: governorAddress,

@@ -14,7 +14,6 @@ const EMPTY_OVERRIDES: Overrides = {};
 const FIELDS: { key: keyof Overrides; label: string }[] = [
   { key: "nomineeGovernor", label: "Nominee Election Governor" },
   { key: "memberGovernor", label: "Member Election Governor" },
-  { key: "securityCouncilManager", label: "Security Council Manager" },
   { key: "arbToken", label: "ARB Token" },
 ];
 

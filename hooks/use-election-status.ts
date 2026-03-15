@@ -6,20 +6,18 @@ import {
   checkElectionStatus,
   createTracker,
   getElectionCount,
-  getElectionProposalId,
+  getElectionStatus,
   getMemberElectionDetails,
   getNomineeElectionDetails,
-  PROPOSAL_STATE_LABEL,
   serializeMemberDetails,
   serializeNomineeDetails,
-  type ElectionPhase,
+  type ElectionConfig,
   type ElectionProposalStatus,
   type ElectionStatus,
   type ChunkingConfig as GovTrackerChunkingConfig,
   type SerializableMemberDetails,
   type SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
-import { ethers } from "ethers";
 import { toast } from "sonner";
 
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
@@ -33,17 +31,6 @@ import {
 
 type NomineeElectionDetails = SerializableNomineeDetails | null;
 type MemberElectionDetails = SerializableMemberDetails | null;
-
-const NOMINEE_GOV_ABI = [
-  "function state(uint256 proposalId) view returns (uint8)",
-  "function electionIndexToCohort(uint256 electionIndex) view returns (uint8)",
-  "function proposalVettingDeadline(uint256 proposalId) view returns (uint256)",
-  "function compliantNomineeCount(uint256 proposalId) view returns (uint256)",
-] as const;
-
-const MEMBER_GOV_ABI = [
-  "function state(uint256 proposalId) view returns (uint8)",
-] as const;
 
 function isCorsOrNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -95,7 +82,9 @@ export function useElectionStatus({
   nomineeGovernorAddress,
   memberGovernorAddress,
 }: UseElectionStatusOptions = {}): UseElectionStatusResult {
-  const hasAddressOverrides = !!nomineeGovernorAddress;
+  const hasAddressOverrides = !!(
+    nomineeGovernorAddress && memberGovernorAddress
+  );
   const [status, setStatus] = useState<ElectionStatus | null>(null);
   const [allElections, setAllElections] = useState<ElectionProposalStatus[]>(
     []
@@ -184,22 +173,34 @@ export function useElectionStatus({
     ? memberDetailsMap[selectedElection.electionIndex] ?? null
     : null;
 
+  const electionConfig = useMemo<ElectionConfig | undefined>(() => {
+    if (!nomineeGovernorAddress || !memberGovernorAddress) return undefined;
+    return {
+      nomineeGovernorAddress: nomineeGovernorAddress as `0x${string}`,
+      memberGovernorAddress: memberGovernorAddress as `0x${string}`,
+      chainId: 42161,
+    };
+  }, [nomineeGovernorAddress, memberGovernorAddress]);
+
   const fetchWithOverrides = useCallback(async () => {
-    if (!nomineeGovernorAddress) return;
+    if (!electionConfig) return;
 
     const l2Provider = getOrCreateProvider(l2Url);
     const l1Provider = getOrCreateProvider(l1Url);
 
     debug.app("Fetching election data with address overrides...");
 
-    const count = await getElectionCount(l2Provider, nomineeGovernorAddress);
+    const count = await getElectionCount(
+      l2Provider,
+      electionConfig.nomineeGovernorAddress
+    );
     debug.app("Election count (override): %d", count);
 
     try {
       const electionStatus = await checkElectionStatus(
         l2Provider,
         l1Provider,
-        nomineeGovernorAddress
+        electionConfig.nomineeGovernorAddress
       );
       setStatus(electionStatus);
     } catch (err) {
@@ -213,103 +214,31 @@ export function useElectionStatus({
     const nDetails: Record<number, NomineeElectionDetails> = {};
     const mDetails: Record<number, MemberElectionDetails> = {};
 
-    const govIface = new ethers.utils.Interface([...NOMINEE_GOV_ABI]);
-    const memberGovIface = new ethers.utils.Interface([...MEMBER_GOV_ABI]);
-
     for (let i = 0; i < count; i++) {
       try {
-        const proposalId = await getElectionProposalId(
-          i,
+        const result = await getElectionStatus(
           l2Provider,
-          nomineeGovernorAddress
+          l1Provider,
+          i,
+          electionConfig
         );
-        const gov = new ethers.Contract(
-          nomineeGovernorAddress,
-          govIface,
-          l2Provider
-        );
-        const [stateNum, cohort, vettingDeadline, compliantCount] =
-          await Promise.all([
-            gov.state(proposalId).then((r: unknown) => Number(r)),
-            gov
-              .electionIndexToCohort(i)
-              .then((r: unknown) => Number(r) as 0 | 1),
-            gov
-              .proposalVettingDeadline(proposalId)
-              .then((r: unknown) => Number(r)),
-            gov
-              .compliantNomineeCount(proposalId)
-              .then((r: unknown) => Number(r)),
-          ]);
-
-        const stateName = (PROPOSAL_STATE_LABEL[stateNum] ??
-          "pending") as string;
-        let phase: ElectionPhase = "NOT_STARTED";
-        if (stateName === "pending") phase = "CONTENDER_SUBMISSION";
-        else if (stateName === "active") phase = "NOMINEE_SELECTION";
-        else if (stateName === "succeeded" || stateName === "queued")
-          phase = "MEMBER_ELECTION";
-        else if (stateName === "executed") phase = "COMPLETED";
-        else if (stateName === "defeated" || stateName === "canceled")
-          phase = "COMPLETED";
-
-        let memberProposalId: string | null = null;
-        let memberProposalState: ElectionProposalStatus["memberProposalState"] =
-          null;
-
-        if (stateName === "executed" && memberGovernorAddress) {
-          try {
-            const memberPid = await getElectionProposalId(
-              i,
-              l2Provider,
-              memberGovernorAddress
-            );
-            memberProposalId = memberPid;
-            const memberGov = new ethers.Contract(
-              memberGovernorAddress,
-              memberGovIface,
-              l2Provider
-            );
-            const mState = Number(await memberGov.state(memberPid));
-            const mStateName = PROPOSAL_STATE_LABEL[mState] ?? "pending";
-            memberProposalState =
-              mStateName as ElectionProposalStatus["memberProposalState"];
-            if (mStateName === "active") phase = "MEMBER_ELECTION";
-            else if (mStateName === "succeeded") phase = "PENDING_EXECUTION";
-          } catch (err) {
-            debug.app(
-              "Failed to get member proposal for election %d: %O",
-              i,
-              err
-            );
-          }
-        }
-
         elections.push({
           electionIndex: i,
-          phase,
-          cohort,
-          nomineeProposalId: proposalId,
-          memberProposalId,
-          nomineeProposalState:
-            stateName as ElectionProposalStatus["nomineeProposalState"],
-          memberProposalState,
-          compliantNomineeCount: compliantCount,
-          targetNomineeCount: 6,
-          vettingDeadline,
-          isInVettingPeriod: false,
-          canProceedToMemberPhase: false,
-          canExecuteMember: false,
-        });
+          phase: result.phase,
+          nomineeProposalId: result.nomineeProposalId,
+          memberProposalId: result.memberProposalId,
+          nomineeProposalState: result.nomineeProposalState,
+          memberProposalState: result.memberProposalState,
+        } as ElectionProposalStatus);
       } catch (err) {
-        debug.app("Failed to build status for election %d: %O", i, err);
+        debug.app("Failed to get status for election %d: %O", i, err);
       }
 
       try {
         const nd = await getNomineeElectionDetails(
           i,
           l2Provider,
-          nomineeGovernorAddress
+          electionConfig.nomineeGovernorAddress
         );
         if (nd) nDetails[i] = serializeNomineeDetails(nd);
       } catch (err) {
@@ -319,8 +248,7 @@ export function useElectionStatus({
         const md = await getMemberElectionDetails(
           i,
           l2Provider,
-          memberGovernorAddress,
-          nomineeGovernorAddress
+          electionConfig.memberGovernorAddress
         );
         if (md) mDetails[i] = serializeMemberDetails(md);
       } catch (err) {
@@ -332,7 +260,7 @@ export function useElectionStatus({
     setNomineeDetailsMap(nDetails);
     setMemberDetailsMap(mDetails);
     initialLoadDoneRef.current = true;
-  }, [l2Url, l1Url, nomineeGovernorAddress, memberGovernorAddress]);
+  }, [l2Url, l1Url, electionConfig]);
 
   const fetchDefault = useCallback(async () => {
     const { tracker, l2Provider, l1Provider } = await getTracker();

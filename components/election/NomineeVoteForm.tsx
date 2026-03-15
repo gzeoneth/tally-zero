@@ -28,8 +28,8 @@ export function NomineeVoteForm({
   bypassSimulation = false,
 }: NomineeVoteFormProps): React.ReactElement {
   const { isConnected } = useAccount();
-  const { memberGovernor, chainId } = useElectionContracts();
-  const governorAddress = memberGovernor as `0x${string}`;
+  const { memberGovernorAddress, chainId } = useElectionContracts();
+  const governorAddress = memberGovernorAddress;
   const { data: currentBlock } = useBlockNumber({ watch: true });
 
   const { totalVotingPower, usedVotes, availableVotes, refetchUsedVotes } =

@@ -27,8 +27,8 @@ export function ContenderVoteForm({
   bypassSimulation = false,
 }: ContenderVoteFormProps): React.ReactElement {
   const { isConnected } = useAccount();
-  const { nomineeGovernor, chainId } = useElectionContracts();
-  const governorAddress = nomineeGovernor as `0x${string}`;
+  const { nomineeGovernorAddress, chainId } = useElectionContracts();
+  const governorAddress = nomineeGovernorAddress;
 
   const { totalVotingPower, usedVotes, availableVotes, refetchUsedVotes } =
     useElectionVotingPower({

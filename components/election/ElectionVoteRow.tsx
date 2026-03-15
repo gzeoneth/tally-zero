@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEstimateGas, useSendTransaction } from "wagmi";
 
-import {
-  VOTE_SUPPORT,
-  encodeElectionVoteParams,
-  prepareCastVoteWithReasonAndParams,
-} from "@gzeoneth/gov-tracker";
+import { prepareNomineeElectionVote } from "@gzeoneth/gov-tracker";
 
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { ExternalLink } from "lucide-react";
@@ -60,15 +56,11 @@ export function ElectionVoteRow({
 
   const prepared = useMemo(() => {
     if (!voteAmountWei) return undefined;
-    const params = encodeElectionVoteParams(
-      targetAddress,
-      voteAmountWei.toString()
-    );
-    return prepareCastVoteWithReasonAndParams(
+    return prepareNomineeElectionVote(
       proposalId,
-      VOTE_SUPPORT.FOR,
+      targetAddress,
+      voteAmountWei.toString(),
       "",
-      params,
       governorAddress,
       chainId
     );
