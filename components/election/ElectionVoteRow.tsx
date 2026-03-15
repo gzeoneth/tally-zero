@@ -27,6 +27,7 @@ interface ElectionVoteRowProps {
   proposalId: string;
   targetAddress: string;
   governorAddress: `0x${string}`;
+  chainId?: number;
   availableVotes: bigint | undefined;
   onVoteSuccess: () => void;
   infoSlot?: React.ReactNode;
@@ -36,6 +37,7 @@ export function ElectionVoteRow({
   proposalId,
   targetAddress,
   governorAddress,
+  chainId,
   availableVotes,
   onVoteSuccess,
   infoSlot,
@@ -73,9 +75,10 @@ export function ElectionVoteRow({
       VOTE_SUPPORT.FOR,
       "",
       params,
-      governorAddress
+      governorAddress,
+      chainId
     );
-  }, [proposalId, targetAddress, voteAmountWei, governorAddress]);
+  }, [proposalId, targetAddress, voteAmountWei, governorAddress, chainId]);
 
   const { error: estimateError, isError: isEstimateError } = useEstimateGas({
     to: prepared?.to as `0x${string}`,

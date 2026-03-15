@@ -6,12 +6,20 @@ import {
   checkElectionStatus,
   createTracker,
   getElectionCount,
+  getElectionProposalId,
+  getMemberElectionDetails,
+  getNomineeElectionDetails,
+  PROPOSAL_STATE_LABEL,
+  serializeMemberDetails,
+  serializeNomineeDetails,
+  type ElectionPhase,
   type ElectionProposalStatus,
   type ElectionStatus,
   type ChunkingConfig as GovTrackerChunkingConfig,
   type SerializableMemberDetails,
   type SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
+import { ethers } from "ethers";
 import { toast } from "sonner";
 
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
@@ -46,6 +54,8 @@ export interface UseElectionStatusOptions {
   l2ChunkSize?: number;
   refreshInterval?: number;
   selectedElectionIndex?: number | null;
+  nomineeGovernorAddress?: string;
+  memberGovernorAddress?: string;
 }
 
 export interface UseElectionStatusResult {
@@ -71,7 +81,12 @@ export function useElectionStatus({
   l2ChunkSize,
   refreshInterval = 60000,
   selectedElectionIndex: initialSelectedIndex = null,
+  nomineeGovernorAddress,
+  memberGovernorAddress,
 }: UseElectionStatusOptions = {}): UseElectionStatusResult {
+  const hasAddressOverrides = !!(
+    nomineeGovernorAddress || memberGovernorAddress
+  );
   const [status, setStatus] = useState<ElectionStatus | null>(null);
   const [allElections, setAllElections] = useState<ElectionProposalStatus[]>(
     []
@@ -160,6 +175,205 @@ export function useElectionStatus({
     ? memberDetailsMap[selectedElection.electionIndex] ?? null
     : null;
 
+  const fetchWithOverrides = useCallback(async () => {
+    const l2Provider = getOrCreateProvider(l2Url);
+    const l1Provider = getOrCreateProvider(l1Url);
+
+    debug.app("Fetching election data with address overrides...");
+
+    const count = await getElectionCount(l2Provider, nomineeGovernorAddress);
+    debug.app("Election count (override): %d", count);
+
+    try {
+      const electionStatus = await checkElectionStatus(
+        l2Provider,
+        l1Provider,
+        nomineeGovernorAddress
+      );
+      setStatus(electionStatus);
+    } catch (err) {
+      debug.app(
+        "checkElectionStatus failed in override mode (non-fatal): %O",
+        err
+      );
+    }
+
+    const elections: ElectionProposalStatus[] = [];
+    const nDetails: Record<number, NomineeElectionDetails> = {};
+    const mDetails: Record<number, MemberElectionDetails> = {};
+
+    const govIface = new ethers.utils.Interface([
+      "function state(uint256 proposalId) view returns (uint8)",
+      "function electionIndexToCohort(uint256 electionIndex) view returns (uint8)",
+      "function proposalVettingDeadline(uint256 proposalId) view returns (uint256)",
+      "function compliantNomineeCount(uint256 proposalId) view returns (uint256)",
+    ]);
+
+    const memberGovIface = new ethers.utils.Interface([
+      "function state(uint256 proposalId) view returns (uint8)",
+    ]);
+
+    for (let i = 0; i < count; i++) {
+      try {
+        const proposalId = await getElectionProposalId(
+          i,
+          l2Provider,
+          nomineeGovernorAddress
+        );
+        const gov = new ethers.Contract(
+          nomineeGovernorAddress!,
+          govIface,
+          l2Provider
+        );
+        const [stateNum, cohort, vettingDeadline, compliantCount] =
+          await Promise.all([
+            gov.state(proposalId).then((r: unknown) => Number(r)),
+            gov
+              .electionIndexToCohort(i)
+              .then((r: unknown) => Number(r) as 0 | 1),
+            gov
+              .proposalVettingDeadline(proposalId)
+              .then((r: unknown) => Number(r)),
+            gov
+              .compliantNomineeCount(proposalId)
+              .then((r: unknown) => Number(r)),
+          ]);
+
+        const stateName = (PROPOSAL_STATE_LABEL[stateNum] ??
+          "pending") as string;
+        let phase: ElectionPhase = "NOT_STARTED";
+        if (stateName === "pending") phase = "CONTENDER_SUBMISSION";
+        else if (stateName === "active") phase = "NOMINEE_SELECTION";
+        else if (stateName === "succeeded" || stateName === "queued")
+          phase = "MEMBER_ELECTION";
+        else if (stateName === "executed") phase = "COMPLETED";
+        else if (stateName === "defeated" || stateName === "canceled")
+          phase = "COMPLETED";
+
+        let memberProposalId: string | null = null;
+        let memberProposalState: ElectionProposalStatus["memberProposalState"] =
+          null;
+
+        if (stateName === "executed" && memberGovernorAddress) {
+          try {
+            const memberPid = await getElectionProposalId(
+              i,
+              l2Provider,
+              memberGovernorAddress
+            );
+            memberProposalId = memberPid;
+            const memberGov = new ethers.Contract(
+              memberGovernorAddress,
+              memberGovIface,
+              l2Provider
+            );
+            const mState = Number(await memberGov.state(memberPid));
+            const mStateName = PROPOSAL_STATE_LABEL[mState] ?? "pending";
+            memberProposalState =
+              mStateName as ElectionProposalStatus["memberProposalState"];
+            if (mStateName === "active") phase = "MEMBER_ELECTION";
+            else if (mStateName === "succeeded") phase = "PENDING_EXECUTION";
+          } catch (err) {
+            debug.app(
+              "Failed to get member proposal for election %d: %O",
+              i,
+              err
+            );
+          }
+        }
+
+        elections.push({
+          electionIndex: i,
+          phase,
+          cohort,
+          nomineeProposalId: proposalId,
+          memberProposalId,
+          nomineeProposalState:
+            stateName as ElectionProposalStatus["nomineeProposalState"],
+          memberProposalState,
+          compliantNomineeCount: compliantCount,
+          targetNomineeCount: 6,
+          vettingDeadline,
+          isInVettingPeriod: false,
+          canProceedToMemberPhase: false,
+          canExecuteMember: false,
+        });
+      } catch (err) {
+        debug.app("Failed to build status for election %d: %O", i, err);
+      }
+
+      try {
+        const nd = await getNomineeElectionDetails(
+          i,
+          l2Provider,
+          nomineeGovernorAddress
+        );
+        if (nd) nDetails[i] = serializeNomineeDetails(nd);
+      } catch (err) {
+        debug.app("Failed to get nominee details for election %d: %O", i, err);
+      }
+      try {
+        const md = await getMemberElectionDetails(
+          i,
+          l2Provider,
+          memberGovernorAddress,
+          nomineeGovernorAddress
+        );
+        if (md) mDetails[i] = serializeMemberDetails(md);
+      } catch (err) {
+        debug.app("Failed to get member details for election %d: %O", i, err);
+      }
+    }
+
+    setAllElections(elections);
+    setNomineeDetailsMap(nDetails);
+    setMemberDetailsMap(mDetails);
+    initialLoadDoneRef.current = true;
+  }, [l2Url, l1Url, nomineeGovernorAddress, memberGovernorAddress]);
+
+  const fetchDefault = useCallback(async () => {
+    const { tracker, l2Provider, l1Provider } = await getTracker();
+
+    debug.app("Fetching SC election status (lightweight)...");
+
+    const electionCount = await getElectionCount(l2Provider);
+    debug.app("Election count: %d", electionCount);
+
+    const cachedElections: ElectionProposalStatus[] = [];
+    const cachedNomineeDetails: Record<number, NomineeElectionDetails> = {};
+    const cachedMemberDetails: Record<number, MemberElectionDetails> = {};
+
+    for (let i = 0; i < electionCount; i++) {
+      const checkpoint = await tracker.getElectionCheckpoint(i);
+      if (checkpoint) {
+        debug.cache("Election %d loaded from cache", i);
+        cachedElections.push(checkpoint.status);
+        if (checkpoint.nomineeDetails) {
+          cachedNomineeDetails[i] = checkpoint.nomineeDetails;
+        }
+        if (checkpoint.memberDetails) {
+          cachedMemberDetails[i] = checkpoint.memberDetails;
+        }
+      }
+    }
+
+    setAllElections(cachedElections);
+    setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
+    setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
+
+    initialLoadDoneRef.current = true;
+
+    const electionStatus = await checkElectionStatus(l2Provider, l1Provider);
+    setStatus(electionStatus);
+
+    debug.app(
+      "Election status: count=%d, canCreate=%s, cached=%d",
+      electionStatus.electionCount,
+      electionStatus.canCreateElection,
+      cachedElections.length
+    );
+  }, [getTracker]);
+
   const fetchElectionData = useCallback(async () => {
     if (!enabled) return;
 
@@ -167,46 +381,11 @@ export function useElectionStatus({
     setError(null);
 
     try {
-      const { tracker, l2Provider, l1Provider } = await getTracker();
-
-      debug.app("Fetching SC election status (lightweight)...");
-
-      const electionCount = await getElectionCount(l2Provider);
-      debug.app("Election count: %d", electionCount);
-
-      const cachedElections: ElectionProposalStatus[] = [];
-      const cachedNomineeDetails: Record<number, NomineeElectionDetails> = {};
-      const cachedMemberDetails: Record<number, MemberElectionDetails> = {};
-
-      for (let i = 0; i < electionCount; i++) {
-        const checkpoint = await tracker.getElectionCheckpoint(i);
-        if (checkpoint) {
-          debug.cache("Election %d loaded from cache", i);
-          cachedElections.push(checkpoint.status);
-          if (checkpoint.nomineeDetails) {
-            cachedNomineeDetails[i] = checkpoint.nomineeDetails;
-          }
-          if (checkpoint.memberDetails) {
-            cachedMemberDetails[i] = checkpoint.memberDetails;
-          }
-        }
+      if (hasAddressOverrides) {
+        await fetchWithOverrides();
+      } else {
+        await fetchDefault();
       }
-
-      setAllElections(cachedElections);
-      setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
-      setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
-
-      initialLoadDoneRef.current = true;
-
-      const electionStatus = await checkElectionStatus(l2Provider, l1Provider);
-      setStatus(electionStatus);
-
-      debug.app(
-        "Election status: count=%d, canCreate=%s, cached=%d",
-        electionStatus.electionCount,
-        electionStatus.canCreateElection,
-        cachedElections.length
-      );
     } catch (err) {
       debug.app("Election status error: %O", err);
       const error = err instanceof Error ? err : new Error(String(err));
@@ -231,7 +410,7 @@ export function useElectionStatus({
     } finally {
       setIsLoading(false);
     }
-  }, [enabled, getTracker]);
+  }, [enabled, hasAddressOverrides, fetchWithOverrides, fetchDefault]);
 
   const refresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);

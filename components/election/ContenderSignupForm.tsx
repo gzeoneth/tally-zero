@@ -19,11 +19,8 @@ import {
 } from "@gzeoneth/gov-tracker";
 
 import { Button } from "@/components/ui/Button";
-import { SC_CONTRACTS } from "@/config/security-council";
+import { useElectionContracts } from "@/hooks/use-election-contracts";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
-
-const NOMINEE_GOVERNOR_ADDRESS =
-  SC_CONTRACTS.NOMINEE_ELECTION_GOVERNOR as `0x${string}`;
 
 interface ContenderSignupFormProps {
   proposalId: string;
@@ -33,9 +30,11 @@ export function ContenderSignupForm({
   proposalId,
 }: ContenderSignupFormProps): React.ReactElement {
   const { address, isConnected } = useAccount();
+  const { nomineeGovernor, chainId } = useElectionContracts();
+  const governorAddress = nomineeGovernor as `0x${string}`;
 
   const { data: governorName } = useReadContract({
-    address: NOMINEE_GOVERNOR_ADDRESS,
+    address: governorAddress,
     abi: nomineeElectionGovernorReadAbi,
     functionName: "name",
     query: { staleTime: Infinity },
@@ -43,7 +42,7 @@ export function ContenderSignupForm({
 
   const { data: isAlreadyContender, refetch: refetchContender } =
     useReadContract({
-      address: NOMINEE_GOVERNOR_ADDRESS,
+      address: governorAddress,
       abi: nomineeElectionGovernorReadAbi,
       functionName: "isContender",
       args: address ? [BigInt(proposalId), address] : undefined,
@@ -52,8 +51,13 @@ export function ContenderSignupForm({
 
   const registration = useMemo(() => {
     if (!governorName) return undefined;
-    return prepareContenderRegistration(governorName, proposalId);
-  }, [governorName, proposalId]);
+    return prepareContenderRegistration(
+      governorName,
+      proposalId,
+      governorAddress,
+      chainId
+    );
+  }, [governorName, proposalId, governorAddress, chainId]);
 
   const {
     data: signature,
