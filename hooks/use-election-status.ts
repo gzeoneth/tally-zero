@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   checkElectionStatus,
   createTracker,
+  getAllElectionStatuses,
   getElectionCount,
-  getElectionStatus,
   getMemberElectionDetails,
   getNomineeElectionDetails,
   serializeMemberDetails,
@@ -190,11 +190,10 @@ export function useElectionStatus({
 
     debug.app("Fetching election data with address overrides...");
 
-    const count = await getElectionCount(
-      l2Provider,
-      electionConfig.nomineeGovernorAddress
-    );
-    debug.app("Election count (override): %d", count);
+    const elections = await getAllElectionStatuses(l2Provider, electionConfig);
+    debug.app("Fetched %d elections via override config", elections.length);
+
+    setAllElections(elections);
 
     try {
       const electionStatus = await checkElectionStatus(
@@ -210,30 +209,11 @@ export function useElectionStatus({
       );
     }
 
-    const elections: ElectionProposalStatus[] = [];
     const nDetails: Record<number, NomineeElectionDetails> = {};
     const mDetails: Record<number, MemberElectionDetails> = {};
 
-    for (let i = 0; i < count; i++) {
-      try {
-        const result = await getElectionStatus(
-          l2Provider,
-          l1Provider,
-          i,
-          electionConfig
-        );
-        elections.push({
-          electionIndex: i,
-          phase: result.phase,
-          nomineeProposalId: result.nomineeProposalId,
-          memberProposalId: result.memberProposalId,
-          nomineeProposalState: result.nomineeProposalState,
-          memberProposalState: result.memberProposalState,
-        } as ElectionProposalStatus);
-      } catch (err) {
-        debug.app("Failed to get status for election %d: %O", i, err);
-      }
-
+    for (const election of elections) {
+      const i = election.electionIndex;
       try {
         const nd = await getNomineeElectionDetails(
           i,
@@ -256,7 +236,6 @@ export function useElectionStatus({
       }
     }
 
-    setAllElections(elections);
     setNomineeDetailsMap(nDetails);
     setMemberDetailsMap(mDetails);
     initialLoadDoneRef.current = true;

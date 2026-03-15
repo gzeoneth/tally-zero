@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { TimelockOperationInfo } from "@/hooks/use-timelock-operation";
-import { toHex } from "@/lib/address-utils";
 import {
   hashOperation,
   prepareTimelockExecuteCalldata,
@@ -101,8 +100,8 @@ export function ExecuteTimelockButton({
     isError: isEstimateError,
     isLoading: isEstimating,
   } = useEstimateGas({
-    to: toHex(prepared?.to ?? ""),
-    data: toHex(prepared?.data ?? ""),
+    to: prepared?.to,
+    data: prepared?.data,
     value: BigInt(prepared?.value ?? "0"),
     query: { enabled: !!prepared && isConnected },
   });
@@ -135,8 +134,8 @@ export function ExecuteTimelockButton({
   const handleExecute = () => {
     if (!prepared || isEstimateError) return;
     sendTransaction({
-      to: toHex(prepared.to),
-      data: toHex(prepared.data),
+      to: prepared.to,
+      data: prepared.data,
       value: BigInt(prepared.value),
     });
   };

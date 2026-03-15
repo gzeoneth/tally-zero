@@ -26,7 +26,7 @@ export function useElectionVotingPower({
   governorReadAbi,
 }: UseElectionVotingPowerOptions): UseElectionVotingPowerResult {
   const { address, isConnected } = useAccount();
-  const { arbToken } = useElectionContracts();
+  const { tokenAddress } = useElectionContracts();
 
   const { data: snapshotBlock } = useReadContract({
     address: governorAddress,
@@ -36,7 +36,7 @@ export function useElectionVotingPower({
   });
 
   const { data: totalVotingPower } = useReadContract({
-    address: arbToken as `0x${string}`,
+    address: tokenAddress,
     abi: erc20VotesAbi,
     functionName: "getPastVotes",
     args:

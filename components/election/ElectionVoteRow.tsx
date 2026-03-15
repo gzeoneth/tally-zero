@@ -13,7 +13,6 @@ import { utils as ethersUtils } from "ethers";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { toHex } from "@/lib/address-utils";
 import { getDelegateLabel } from "@/lib/delegate-cache";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
 import { getAddressExplorerUrl } from "@/lib/explorer-utils";
@@ -67,8 +66,8 @@ export function ElectionVoteRow({
   }, [proposalId, targetAddress, voteAmountWei, governorAddress, chainId]);
 
   const { error: estimateError, isError: isEstimateError } = useEstimateGas({
-    to: toHex(prepared?.to ?? ""),
-    data: toHex(prepared?.data ?? ""),
+    to: prepared?.to,
+    data: prepared?.data,
     query: { enabled: !!prepared },
   });
 
@@ -95,8 +94,8 @@ export function ElectionVoteRow({
     if (!prepared) return;
     if (!isEstimateError || bypassSimulation) {
       sendTransaction({
-        to: toHex(prepared.to),
-        data: toHex(prepared.data),
+        to: prepared.to,
+        data: prepared.data,
       });
     }
   }, [prepared, isEstimateError, bypassSimulation, sendTransaction]);

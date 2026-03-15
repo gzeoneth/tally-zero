@@ -14,7 +14,7 @@ const EMPTY_OVERRIDES: Overrides = {};
 const FIELDS: { key: keyof Overrides; label: string }[] = [
   { key: "nomineeGovernor", label: "Nominee Election Governor" },
   { key: "memberGovernor", label: "Member Election Governor" },
-  { key: "arbToken", label: "ARB Token" },
+  { key: "tokenAddress", label: "Token Address" },
 ];
 
 export function ElectionContractOverrides(): React.ReactElement {

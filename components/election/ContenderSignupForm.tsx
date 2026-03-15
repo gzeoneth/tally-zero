@@ -20,7 +20,6 @@ import {
 
 import { Button } from "@/components/ui/Button";
 import { useElectionContracts } from "@/hooks/use-election-contracts";
-import { toHex } from "@/lib/address-utils";
 import { getSimulationErrorMessage } from "@/lib/error-utils";
 
 interface ContenderSignupFormProps {
@@ -73,8 +72,8 @@ export function ContenderSignupForm({
   }, [signature, registration]);
 
   const { error: estimateError, isError: isEstimateError } = useEstimateGas({
-    to: toHex(prepared?.to ?? ""),
-    data: toHex(prepared?.data ?? ""),
+    to: prepared?.to,
+    data: prepared?.data,
     query: { enabled: !!prepared },
   });
 
@@ -118,8 +117,8 @@ export function ContenderSignupForm({
   function handleSubmit(): void {
     if (!prepared || isEstimateError) return;
     sendTransaction({
-      to: toHex(prepared.to),
-      data: toHex(prepared.data),
+      to: prepared.to,
+      data: prepared.data,
     });
   }
 

@@ -48,13 +48,3 @@ export function isValidTxHash(value: string | undefined | null): boolean {
   if (!value) return false;
   return TX_HASH_REGEX.test(value);
 }
-
-type Hex = `0x${string}`;
-
-/**
- * Cast a string to viem's Hex type.
- * SDK PreparedTransaction uses plain strings; wagmi hooks require `0x${string}`.
- */
-export function toHex(value: string): Hex {
-  return value as Hex;
-}
