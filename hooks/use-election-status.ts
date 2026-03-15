@@ -245,7 +245,7 @@ export function useElectionStatus({
   const fetchDefault = useCallback(async () => {
     const { tracker, l2Provider, l1Provider } = await getTracker();
 
-    debug.app("Fetching SC election status (lightweight)...");
+    debug.app("Fetching SC election status...");
 
     const electionCount = await getElectionCount(l2Provider);
     debug.app("Election count: %d", electionCount);
@@ -256,8 +256,12 @@ export function useElectionStatus({
 
     for (let i = 0; i < electionCount; i++) {
       const checkpoint = await tracker.getElectionCheckpoint(i);
-      if (checkpoint) {
-        debug.cache("Election %d loaded from cache", i);
+      if (checkpoint && checkpoint.status.phase !== "NOT_STARTED") {
+        debug.cache(
+          "Election %d loaded from cache: %s",
+          i,
+          checkpoint.status.phase
+        );
         cachedElections.push(checkpoint.status);
         if (checkpoint.nomineeDetails) {
           cachedNomineeDetails[i] = checkpoint.nomineeDetails;
@@ -265,7 +269,13 @@ export function useElectionStatus({
         if (checkpoint.memberDetails) {
           cachedMemberDetails[i] = checkpoint.memberDetails;
         }
-      } else {
+      }
+    }
+
+    // Fetch live status for elections without cached checkpoints
+    const cachedIndices = new Set(cachedElections.map((e) => e.electionIndex));
+    for (let i = 0; i < electionCount; i++) {
+      if (!cachedIndices.has(i)) {
         try {
           const liveStatus = await getElectionStatus(l2Provider, i);
           debug.app("Election %d fetched live: %s", i, liveStatus.phase);
@@ -276,21 +286,26 @@ export function useElectionStatus({
       }
     }
 
-    setAllElections(cachedElections);
+    cachedElections.sort((a, b) => a.electionIndex - b.electionIndex);
+
+    const elections = cachedElections;
+
+    setAllElections(elections);
     setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
     setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
-
     initialLoadDoneRef.current = true;
 
-    const electionStatus = await checkElectionStatus(l2Provider, l1Provider);
-    setStatus(electionStatus);
-
-    debug.app(
-      "Election status: count=%d, canCreate=%s, cached=%d",
-      electionStatus.electionCount,
-      electionStatus.canCreateElection,
-      cachedElections.length
-    );
+    try {
+      const electionStatus = await checkElectionStatus(l2Provider, l1Provider);
+      setStatus(electionStatus);
+      debug.app(
+        "Election status: count=%d, canCreate=%s",
+        electionStatus.electionCount,
+        electionStatus.canCreateElection
+      );
+    } catch (err) {
+      debug.app("checkElectionStatus failed (non-fatal): %O", err);
+    }
   }, [getTracker]);
 
   const fetchElectionData = useCallback(async () => {
@@ -308,7 +323,9 @@ export function useElectionStatus({
     } catch (err) {
       debug.app("Election status error: %O", err);
       const error = err instanceof Error ? err : new Error(String(err));
-      setError(error);
+      if (!initialLoadDoneRef.current) {
+        setError(error);
+      }
 
       if (isCorsOrNetworkError(error) && !shownErrorToastRef.current) {
         shownErrorToastRef.current = true;
