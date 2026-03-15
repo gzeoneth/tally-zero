@@ -13,6 +13,7 @@ import type {
   SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
 
+import type { ElectionContractOverrides } from "@/hooks/use-election-contracts";
 import { useElectionStatus } from "@/hooks/use-election-status";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useRpcSettings } from "@/hooks/use-rpc-settings";
@@ -96,6 +97,10 @@ function getOverrideData({
 export function ElectionContainer(): React.ReactElement {
   const { l2Rpc, l1Rpc, l1ChunkSize, l2ChunkSize } = useRpcSettings();
   const { nerdMode } = useNerdMode();
+  const [contractOverrides] = useLocalStorage<ElectionContractOverrides>(
+    STORAGE_KEYS.ELECTION_CONTRACT_OVERRIDES,
+    {}
+  );
   const [phaseOverride] = useLocalStorage<string>(
     STORAGE_KEYS.ELECTION_PHASE_OVERRIDE,
     ""
@@ -120,6 +125,8 @@ export function ElectionContainer(): React.ReactElement {
     l1ChunkSize,
     l2ChunkSize,
     refreshInterval: 60000,
+    nomineeGovernorAddress: contractOverrides?.nomineeGovernor || undefined,
+    memberGovernorAddress: contractOverrides?.memberGovernor || undefined,
   });
 
   const realPhase: ElectionPhase = selectedElection?.phase ?? "NOT_STARTED";

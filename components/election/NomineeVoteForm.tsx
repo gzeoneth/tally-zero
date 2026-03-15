@@ -11,15 +11,11 @@ import {
 import { AlertCircle, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
-import { ARB_TOKEN } from "@/config/arbitrum-governance";
-import { SC_CONTRACTS } from "@/config/security-council";
+import { useElectionContracts } from "@/hooks/use-election-contracts";
 import { formatVotingPower } from "@/lib/format-utils";
 
 import { ElectionVoteRow } from "./ElectionVoteRow";
 import { VotingPowerSummary } from "./VotingPowerSummary";
-
-const MEMBER_GOVERNOR_ADDRESS =
-  SC_CONTRACTS.MEMBER_ELECTION_GOVERNOR as `0x${string}`;
 
 interface NomineeVoteFormProps {
   proposalId: string;
@@ -33,17 +29,19 @@ export function NomineeVoteForm({
   fullWeightDeadline,
 }: NomineeVoteFormProps): React.ReactElement {
   const { address, isConnected } = useAccount();
+  const { memberGovernor, arbToken, chainId } = useElectionContracts();
+  const governorAddress = memberGovernor as `0x${string}`;
   const { data: currentBlock } = useBlockNumber({ watch: true });
 
   const { data: snapshotBlock } = useReadContract({
-    address: MEMBER_GOVERNOR_ADDRESS,
+    address: governorAddress,
     abi: memberElectionGovernorReadAbi,
     functionName: "proposalSnapshot",
     args: [BigInt(proposalId)],
   });
 
   const { data: totalVotingPower } = useReadContract({
-    address: ARB_TOKEN.address as `0x${string}`,
+    address: arbToken as `0x${string}`,
     abi: erc20VotesAbi,
     functionName: "getPastVotes",
     args: address && snapshotBlock ? [address, snapshotBlock] : undefined,
@@ -51,7 +49,7 @@ export function NomineeVoteForm({
   });
 
   const { data: usedVotes, refetch: refetchUsedVotes } = useReadContract({
-    address: MEMBER_GOVERNOR_ADDRESS,
+    address: governorAddress,
     abi: memberElectionGovernorReadAbi,
     functionName: "votesUsed",
     args: address ? [BigInt(proposalId), address] : undefined,
@@ -114,7 +112,8 @@ export function NomineeVoteForm({
               key={nominee.address}
               proposalId={proposalId}
               targetAddress={nominee.address}
-              governorAddress={MEMBER_GOVERNOR_ADDRESS}
+              governorAddress={governorAddress}
+              chainId={chainId}
               availableVotes={availableVotes}
               onVoteSuccess={refetchUsedVotes}
               infoSlot={<NomineeInfo nominee={nominee} />}

@@ -10,15 +10,11 @@ import {
 } from "@gzeoneth/gov-tracker";
 import { Wallet } from "lucide-react";
 
-import { ARB_TOKEN } from "@/config/arbitrum-governance";
-import { SC_CONTRACTS } from "@/config/security-council";
+import { useElectionContracts } from "@/hooks/use-election-contracts";
 import { formatVotingPower } from "@/lib/format-utils";
 
 import { ElectionVoteRow } from "./ElectionVoteRow";
 import { VotingPowerSummary } from "./VotingPowerSummary";
-
-const NOMINEE_GOVERNOR_ADDRESS =
-  SC_CONTRACTS.NOMINEE_ELECTION_GOVERNOR as `0x${string}`;
 
 interface ContenderVoteFormProps {
   proposalId: string;
@@ -32,16 +28,18 @@ export function ContenderVoteForm({
   quorumThreshold,
 }: ContenderVoteFormProps): React.ReactElement {
   const { address, isConnected } = useAccount();
+  const { nomineeGovernor, arbToken, chainId } = useElectionContracts();
+  const governorAddress = nomineeGovernor as `0x${string}`;
 
   const { data: snapshotBlock } = useReadContract({
-    address: NOMINEE_GOVERNOR_ADDRESS,
+    address: governorAddress,
     abi: nomineeElectionGovernorReadAbi,
     functionName: "proposalSnapshot",
     args: [BigInt(proposalId)],
   });
 
   const { data: totalVotingPower } = useReadContract({
-    address: ARB_TOKEN.address as `0x${string}`,
+    address: arbToken as `0x${string}`,
     abi: erc20VotesAbi,
     functionName: "getPastVotes",
     args: address && snapshotBlock ? [address, snapshotBlock] : undefined,
@@ -49,7 +47,7 @@ export function ContenderVoteForm({
   });
 
   const { data: usedVotes, refetch: refetchUsedVotes } = useReadContract({
-    address: NOMINEE_GOVERNOR_ADDRESS,
+    address: governorAddress,
     abi: nomineeElectionGovernorReadAbi,
     functionName: "votesUsed",
     args: address ? [BigInt(proposalId), address] : undefined,
@@ -95,7 +93,8 @@ export function ContenderVoteForm({
               key={contender.address}
               proposalId={proposalId}
               targetAddress={contender.address}
-              governorAddress={NOMINEE_GOVERNOR_ADDRESS}
+              governorAddress={governorAddress}
+              chainId={chainId}
               availableVotes={availableVotes}
               onVoteSuccess={refetchUsedVotes}
             />
