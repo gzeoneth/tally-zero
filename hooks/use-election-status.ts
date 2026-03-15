@@ -6,6 +6,7 @@ import {
   checkElectionStatus,
   createTracker,
   getAllElectionStatuses,
+  getContenders,
   getElectionCount,
   getElectionStatus,
   getMemberElectionDetails,
@@ -272,7 +273,7 @@ export function useElectionStatus({
       }
     }
 
-    // Fetch live status for elections without cached checkpoints
+    // Fetch live status + details for elections without cached checkpoints
     const cachedIndices = new Set(cachedElections.map((e) => e.electionIndex));
     for (let i = 0; i < electionCount; i++) {
       if (!cachedIndices.has(i)) {
@@ -280,6 +281,37 @@ export function useElectionStatus({
           const liveStatus = await getElectionStatus(l2Provider, i);
           debug.app("Election %d fetched live: %s", i, liveStatus.phase);
           cachedElections.push(liveStatus);
+
+          let nd = await getNomineeElectionDetails(i, l2Provider).catch(
+            () => null
+          );
+          if (nd) {
+            cachedNomineeDetails[i] = serializeNomineeDetails(nd);
+          } else if (liveStatus.nomineeProposalId) {
+            const contenders = await getContenders(
+              liveStatus.nomineeProposalId,
+              l2Provider
+            ).catch(() => []);
+            if (contenders.length > 0) {
+              cachedNomineeDetails[i] = {
+                proposalId: liveStatus.nomineeProposalId,
+                electionIndex: i,
+                contenders: contenders.map((c) => ({
+                  address: c.address,
+                  registeredAtBlock: c.registeredAtBlock,
+                  registrationTxHash: c.registrationTxHash,
+                })),
+                nominees: [],
+                compliantNominees: [],
+                excludedNominees: [],
+                quorumThreshold: "0",
+                targetNomineeCount: liveStatus.targetNomineeCount,
+              };
+            }
+          }
+
+          const md = await getMemberElectionDetails(i, l2Provider);
+          if (md) cachedMemberDetails[i] = serializeMemberDetails(md);
         } catch (err) {
           debug.app("Election %d live fetch failed: %O", i, err);
         }
