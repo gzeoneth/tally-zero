@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useAccount, useReadContract } from "wagmi";
 
-import { erc20VotesAbi } from "@gzeoneth/gov-tracker";
+import { readVotingPower } from "@gzeoneth/gov-tracker";
 
 import { useElectionContracts } from "@/hooks/use-election-contracts";
 
@@ -36,11 +36,11 @@ export function useElectionVotingPower({
   });
 
   const { data: totalVotingPower } = useReadContract({
-    address: tokenAddress,
-    abi: erc20VotesAbi,
-    functionName: "getPastVotes",
-    args:
-      address && snapshotBlock ? [address, snapshotBlock as bigint] : undefined,
+    ...readVotingPower(
+      address ?? "0x0000000000000000000000000000000000000000",
+      (snapshotBlock as bigint) ?? BigInt(0),
+      tokenAddress
+    ),
     query: { enabled: isConnected && !!address && !!snapshotBlock },
   });
 

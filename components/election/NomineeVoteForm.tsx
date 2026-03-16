@@ -3,7 +3,10 @@
 import { useAccount, useBlockNumber } from "wagmi";
 
 import type { SerializableMemberNominee } from "@gzeoneth/gov-tracker";
-import { memberElectionGovernorReadAbi } from "@gzeoneth/gov-tracker";
+import {
+  memberElectionGovernorReadAbi,
+  prepareMemberElectionVote,
+} from "@gzeoneth/gov-tracker";
 import { AlertCircle, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
@@ -94,6 +97,7 @@ export function NomineeVoteForm({
               onVoteSuccess={refetchUsedVotes}
               infoSlot={<NomineeInfo nominee={nominee} />}
               bypassSimulation={bypassSimulation}
+              prepareVote={prepareMemberElectionVote}
             />
           ))}
         </div>

@@ -29,8 +29,8 @@ import { ReloadIcon } from "@radix-ui/react-icons";
 import type { VoteSupport } from "@gzeoneth/gov-tracker";
 import {
   VOTE_SUPPORT,
-  erc20VotesAbi,
   prepareCastVote,
+  readVotingPower,
 } from "@gzeoneth/gov-tracker";
 
 import { ARB_TOKEN } from "@config/arbitrum-governance";
@@ -56,16 +56,18 @@ export default function VoteForm({
   const startBlock = proposal.startBlock
     ? BigInt(proposal.startBlock)
     : undefined;
-  const { data: votingPower, isLoading: isLoadingVotingPower } =
+  const { data: rawVotingPower, isLoading: isLoadingVotingPower } =
     useReadContract({
-      address: ARB_TOKEN.address as `0x${string}`,
-      abi: erc20VotesAbi,
-      functionName: "getPastVotes",
-      args: address && startBlock ? [address, startBlock] : undefined,
+      ...readVotingPower(
+        address ?? "0x0000000000000000000000000000000000000000",
+        startBlock ?? BigInt(0),
+        ARB_TOKEN.address
+      ),
       query: {
         enabled: isConnected && !!address && !!startBlock,
       },
     });
+  const votingPower = rawVotingPower as bigint | undefined;
 
   const prepared = useMemo(() => {
     if (!voteValue) return undefined;

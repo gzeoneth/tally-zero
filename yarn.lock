@@ -776,10 +776,10 @@
     "@metamask/rpc-errors" "7.0.2"
     eventemitter3 "5.0.1"
 
-"@gzeoneth/gov-tracker@0.4.0-alpha.feat-election-config-overrides.d887994":
-  version "0.4.0-alpha.feat-election-config-overrides.d887994"
-  resolved "https://registry.yarnpkg.com/@gzeoneth/gov-tracker/-/gov-tracker-0.4.0-alpha.feat-election-config-overrides.d887994.tgz#ade1aea669ae2d554c8a560f738d5f65f3cc42c2"
-  integrity sha512-sd6jsHkR86aENSWjvjg4VKqV93bC/yc2j8pKsPm23e9LL0Tfb8E6XTax1xWYdTbABWDFSuXs3QeAM/wN4uvb/A==
+"@gzeoneth/gov-tracker@0.4.0-alpha.feat-election-write-actions.132b852":
+  version "0.4.0-alpha.feat-election-write-actions.132b852"
+  resolved "https://registry.yarnpkg.com/@gzeoneth/gov-tracker/-/gov-tracker-0.4.0-alpha.feat-election-write-actions.132b852.tgz#7faabc523628e0b8c284296d9ba82ae0cd06cf76"
+  integrity sha512-sIysXfVxgenygdncTN7r0Klt+9oPiFCPAKpCuerEVU5HngkPejDxEpign52rQ4+v2wYv1pNjdpj8hDu2wqWxuA==
   dependencies:
     "@arbitrum/sdk" "^4.0.0"
     debug "^4.4.0"

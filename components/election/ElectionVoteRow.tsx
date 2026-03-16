@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEstimateGas, useSendTransaction } from "wagmi";
 
+import type { PreparedTransaction } from "@gzeoneth/gov-tracker";
 import { prepareNomineeElectionVote } from "@gzeoneth/gov-tracker";
 
 import { ReloadIcon } from "@radix-ui/react-icons";
@@ -18,6 +19,15 @@ import { getSimulationErrorMessage } from "@/lib/error-utils";
 import { getAddressExplorerUrl } from "@/lib/explorer-utils";
 import { shortenAddress } from "@/lib/format-utils";
 
+type PrepareVoteFn = (
+  proposalId: string,
+  target: string,
+  votes: string,
+  reason: string,
+  governorAddress: string,
+  chainId?: number
+) => PreparedTransaction;
+
 interface ElectionVoteRowProps {
   proposalId: string;
   targetAddress: string;
@@ -27,6 +37,7 @@ interface ElectionVoteRowProps {
   onVoteSuccess: () => void;
   infoSlot?: React.ReactNode;
   bypassSimulation?: boolean;
+  prepareVote?: PrepareVoteFn;
 }
 
 export function ElectionVoteRow({
@@ -38,6 +49,7 @@ export function ElectionVoteRow({
   onVoteSuccess,
   infoSlot,
   bypassSimulation = false,
+  prepareVote = prepareNomineeElectionVote,
 }: ElectionVoteRowProps): React.ReactElement {
   const [amount, setAmount] = useState("");
   const label = getDelegateLabel(targetAddress);
@@ -55,7 +67,7 @@ export function ElectionVoteRow({
 
   const prepared = useMemo(() => {
     if (!voteAmountWei) return undefined;
-    return prepareNomineeElectionVote(
+    return prepareVote(
       proposalId,
       targetAddress,
       voteAmountWei.toString(),
@@ -63,7 +75,14 @@ export function ElectionVoteRow({
       governorAddress,
       chainId
     );
-  }, [proposalId, targetAddress, voteAmountWei, governorAddress, chainId]);
+  }, [
+    proposalId,
+    targetAddress,
+    voteAmountWei,
+    governorAddress,
+    chainId,
+    prepareVote,
+  ]);
 
   const { error: estimateError, isError: isEstimateError } = useEstimateGas({
     to: prepared?.to,
