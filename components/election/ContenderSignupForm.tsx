@@ -14,8 +14,9 @@ import { CheckCircle2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import {
-  nomineeElectionGovernorReadAbi,
   prepareContenderRegistration,
+  readGovernorName,
+  readIsContender,
 } from "@gzeoneth/gov-tracker";
 
 import { Button } from "@/components/ui/Button";
@@ -34,25 +35,20 @@ export function ContenderSignupForm({
   const governorAddress = nomineeGovernorAddress;
 
   const { data: governorName } = useReadContract({
-    address: governorAddress,
-    abi: nomineeElectionGovernorReadAbi,
-    functionName: "name",
+    ...readGovernorName(governorAddress, chainId),
     query: { staleTime: Infinity },
   });
 
   const { data: isAlreadyContender, refetch: refetchContender } =
     useReadContract({
-      address: governorAddress,
-      abi: nomineeElectionGovernorReadAbi,
-      functionName: "isContender",
-      args: address ? [BigInt(proposalId), address] : undefined,
+      ...readIsContender(proposalId, address ?? "0x", governorAddress, chainId),
       query: { enabled: isConnected && !!address },
     });
 
   const registration = useMemo(() => {
     if (!governorName) return undefined;
     return prepareContenderRegistration(
-      governorName,
+      governorName as string,
       proposalId,
       governorAddress,
       chainId
