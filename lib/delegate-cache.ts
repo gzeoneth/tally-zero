@@ -49,7 +49,7 @@ function getSkipDelegateCacheSetting(): boolean {
 
 let staticCacheData: DelegateCache | null = null;
 try {
-  const raw = require("@data/delegate-cache.json");
+  const raw = require("@gzeoneth/gov-tracker/delegate-cache.json");
   if (validateDelegateCache(raw)) {
     staticCacheData = raw;
   }
