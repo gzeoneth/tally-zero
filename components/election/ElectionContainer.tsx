@@ -100,16 +100,25 @@ function getOverrideData({
 }
 
 export function ElectionContainer(): React.ReactElement {
-  const { l2Rpc, l1Rpc, l1ChunkSize, l2ChunkSize } = useRpcSettings();
+  const {
+    l2Rpc,
+    l1Rpc,
+    l1ChunkSize,
+    l2ChunkSize,
+    isHydrated: rpcHydrated,
+  } = useRpcSettings();
   const { nerdMode } = useNerdMode();
-  const [contractOverrides] = useLocalStorage<ElectionContractOverrides>(
-    STORAGE_KEYS.ELECTION_CONTRACT_OVERRIDES,
-    {}
-  );
+  const [contractOverrides, , overridesHydrated] =
+    useLocalStorage<ElectionContractOverrides>(
+      STORAGE_KEYS.ELECTION_CONTRACT_OVERRIDES,
+      {}
+    );
   const [phaseOverride] = useLocalStorage<string>(
     STORAGE_KEYS.ELECTION_PHASE_OVERRIDE,
     ""
   );
+
+  const isHydrated = rpcHydrated && overridesHydrated;
 
   const {
     status,
@@ -124,7 +133,7 @@ export function ElectionContainer(): React.ReactElement {
     refresh,
     selectElection,
   } = useElectionStatus({
-    enabled: true,
+    enabled: isHydrated,
     l2RpcUrl: l2Rpc || undefined,
     l1RpcUrl: l1Rpc || undefined,
     l1ChunkSize,

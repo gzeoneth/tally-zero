@@ -110,6 +110,7 @@ export function useElectionStatus({
   const initialLoadDoneRef = useRef(false);
   const selectedIndexRef = useRef(selectedIndex);
   const bundledCacheInitializedRef = useRef(false);
+  const fetchInFlightRef = useRef(false);
 
   // Keep selectedIndexRef in sync
   useEffect(() => {
@@ -255,8 +256,15 @@ export function useElectionStatus({
     const cachedNomineeDetails: Record<number, NomineeElectionDetails> = {};
     const cachedMemberDetails: Record<number, MemberElectionDetails> = {};
 
-    for (let i = 0; i < electionCount; i++) {
-      const checkpoint = await tracker.getElectionCheckpoint(i);
+    const checkpointResults = await Promise.all(
+      Array.from({ length: electionCount }, (_, i) =>
+        tracker
+          .getElectionCheckpoint(i)
+          .then((checkpoint) => ({ index: i, checkpoint }))
+      )
+    );
+
+    for (const { index: i, checkpoint } of checkpointResults) {
       if (checkpoint && checkpoint.status.phase !== "NOT_STARTED") {
         debug.cache(
           "Election %d loaded from cache: %s",
@@ -273,82 +281,116 @@ export function useElectionStatus({
       }
     }
 
-    // Fetch live status + details for elections without cached checkpoints
     const cachedIndices = new Set(cachedElections.map((e) => e.electionIndex));
-    for (let i = 0; i < electionCount; i++) {
-      if (!cachedIndices.has(i)) {
-        try {
-          const liveStatus = await getElectionStatus(l2Provider, i);
-          debug.app("Election %d fetched live: %s", i, liveStatus.phase);
-          cachedElections.push(liveStatus);
+    const uncachedIndices = Array.from(
+      { length: electionCount },
+      (_, i) => i
+    ).filter((i) => !cachedIndices.has(i));
 
-          let nd = await getNomineeElectionDetails(i, l2Provider).catch(
-            () => null
-          );
-          if (nd) {
-            cachedNomineeDetails[i] = serializeNomineeDetails(nd);
-          } else if (liveStatus.nomineeProposalId) {
-            const contenders = await getContenders(
-              liveStatus.nomineeProposalId,
-              l2Provider
-            ).catch(() => []);
-            if (contenders.length > 0) {
-              cachedNomineeDetails[i] = {
-                proposalId: liveStatus.nomineeProposalId,
-                electionIndex: i,
-                contenders: contenders.map((c) => ({
-                  address: c.address,
-                  registeredAtBlock: c.registeredAtBlock,
-                  registrationTxHash: c.registrationTxHash,
-                })),
-                nominees: [],
-                compliantNominees: [],
-                excludedNominees: [],
-                quorumThreshold: "0",
-                targetNomineeCount: liveStatus.targetNomineeCount,
-              };
+    const [liveResults] = await Promise.all([
+      Promise.all(
+        uncachedIndices.map(async (i) => {
+          try {
+            const liveStatus = await getElectionStatus(l2Provider, i);
+            debug.app("Election %d fetched live: %s", i, liveStatus.phase);
+
+            let nd: NomineeElectionDetails = null;
+            const raw = await getNomineeElectionDetails(i, l2Provider).catch(
+              () => null
+            );
+            if (raw) {
+              nd = serializeNomineeDetails(raw);
+            } else if (liveStatus.nomineeProposalId) {
+              const contenders = await getContenders(
+                liveStatus.nomineeProposalId,
+                l2Provider
+              ).catch(() => []);
+              if (contenders.length > 0) {
+                nd = {
+                  proposalId: liveStatus.nomineeProposalId,
+                  electionIndex: i,
+                  contenders: contenders.map((c) => ({
+                    address: c.address,
+                    registeredAtBlock: c.registeredAtBlock,
+                    registrationTxHash: c.registrationTxHash,
+                  })),
+                  nominees: [],
+                  compliantNominees: [],
+                  excludedNominees: [],
+                  quorumThreshold: "0",
+                  targetNomineeCount: liveStatus.targetNomineeCount,
+                };
+              }
             }
-          }
 
-          const md = await getMemberElectionDetails(i, l2Provider);
-          if (md) cachedMemberDetails[i] = serializeMemberDetails(md);
-        } catch (err) {
-          debug.app("Election %d live fetch failed: %O", i, err);
-        }
-      }
+            let md: MemberElectionDetails = null;
+            try {
+              const raw = await getMemberElectionDetails(i, l2Provider);
+              if (raw) md = serializeMemberDetails(raw);
+            } catch (err) {
+              debug.app("Member details failed for election %d: %O", i, err);
+            }
+
+            return { index: i, status: liveStatus, nominee: nd, member: md };
+          } catch (err) {
+            debug.app("Election %d live fetch failed: %O", i, err);
+            return null;
+          }
+        })
+      ),
+      checkElectionStatus(l2Provider, l1Provider)
+        .then((electionStatus) => {
+          setStatus(electionStatus);
+          debug.app(
+            "Election status: count=%d, canCreate=%s",
+            electionStatus.electionCount,
+            electionStatus.canCreateElection
+          );
+        })
+        .catch((err) => {
+          debug.app("checkElectionStatus failed (non-fatal): %O", err);
+        }),
+    ]);
+
+    for (const result of liveResults) {
+      if (!result) continue;
+      cachedElections.push(result.status);
+      if (result.nominee) cachedNomineeDetails[result.index] = result.nominee;
+      if (result.member) cachedMemberDetails[result.index] = result.member;
     }
 
     cachedElections.sort((a, b) => a.electionIndex - b.electionIndex);
 
-    const elections = cachedElections;
-
-    setAllElections(elections);
+    setAllElections(cachedElections);
     setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
     setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
     initialLoadDoneRef.current = true;
-
-    try {
-      const electionStatus = await checkElectionStatus(l2Provider, l1Provider);
-      setStatus(electionStatus);
-      debug.app(
-        "Election status: count=%d, canCreate=%s",
-        electionStatus.electionCount,
-        electionStatus.canCreateElection
-      );
-    } catch (err) {
-      debug.app("checkElectionStatus failed (non-fatal): %O", err);
-    }
   }, [getTracker]);
 
   const fetchElectionData = useCallback(async () => {
     if (!enabled) return;
+    if (fetchInFlightRef.current) {
+      debug.app("Skipping duplicate election fetch (already in-flight)");
+      return;
+    }
 
+    fetchInFlightRef.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
       if (hasAddressOverrides) {
-        await fetchWithOverrides();
+        try {
+          await fetchWithOverrides();
+        } catch (overrideErr) {
+          debug.app(
+            "Override fetch failed, falling back to default: %O",
+            overrideErr
+          );
+          setNomineeDetailsMap({});
+          setMemberDetailsMap({});
+          await fetchDefault();
+        }
       } else {
         await fetchDefault();
       }
@@ -376,6 +418,7 @@ export function useElectionStatus({
         });
       }
     } finally {
+      fetchInFlightRef.current = false;
       setIsLoading(false);
     }
   }, [enabled, hasAddressOverrides, fetchWithOverrides, fetchDefault]);
@@ -390,6 +433,9 @@ export function useElectionStatus({
 
   useEffect(() => {
     fetchElectionData();
+    return () => {
+      fetchInFlightRef.current = false;
+    };
   }, [fetchElectionData, refreshTrigger]);
 
   useEffect(() => {
