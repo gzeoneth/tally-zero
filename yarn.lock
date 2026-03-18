@@ -776,10 +776,10 @@
     "@metamask/rpc-errors" "7.0.2"
     eventemitter3 "5.0.1"
 
-"@gzeoneth/gov-tracker@0.4.0-alpha.feat-delegate-indexing.9121604":
-  version "0.4.0-alpha.feat-delegate-indexing.9121604"
-  resolved "https://registry.yarnpkg.com/@gzeoneth/gov-tracker/-/gov-tracker-0.4.0-alpha.feat-delegate-indexing.9121604.tgz#881234d99eb06623bbd910cb4190bb95a869e289"
-  integrity sha512-2tNGqnXp+OYF634fzZm1cbknpPHZG/zXELc+MUyVc+7QFg/G+TnY55LtggjIfo3mOcDxqb1GOFnV9I5CQLkwoA==
+"@gzeoneth/gov-tracker@0.4.0-alpha.feat-delegate-indexing.a78c35a":
+  version "0.4.0-alpha.feat-delegate-indexing.a78c35a"
+  resolved "https://registry.yarnpkg.com/@gzeoneth/gov-tracker/-/gov-tracker-0.4.0-alpha.feat-delegate-indexing.a78c35a.tgz#340bbd5c13f0e7fb7d2b0bdfb9734f9e19536d7a"
+  integrity sha512-E90sOc9k64GE99HE0snPYAhc7pV33zsr7rerk+MuqOfxM8MaMcOSBH7sCiEGhCEUb4P7f6IN7purGqTitbtPzQ==
   dependencies:
     "@arbitrum/sdk" "^4.0.0"
     debug "^4.4.0"
