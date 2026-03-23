@@ -11,6 +11,7 @@ import {
   getElectionStatus,
   getMemberElectionDetails,
   getNomineeElectionDetails,
+  nomineeElectionGovernorReadAbi,
   serializeMemberDetails,
   serializeNomineeDetails,
   type ElectionConfig,
@@ -20,6 +21,7 @@ import {
   type SerializableMemberDetails,
   type SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
+import { Contract } from "ethers";
 import { toast } from "sonner";
 
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
@@ -44,6 +46,56 @@ function isCorsOrNetworkError(error: unknown): boolean {
     msg.includes("access-control-allow-origin") ||
     msg.includes("blocked by cors")
   );
+}
+
+/**
+ * Fetch votesReceived for each contender from the nominee governor contract.
+ * Merges results into the nominees array so the UI can display per-contender vote progress.
+ */
+async function enrichContenderVotes(
+  details: SerializableNomineeDetails,
+  provider: InstanceType<typeof import("ethers").providers.JsonRpcProvider>,
+  governorAddress?: string
+): Promise<SerializableNomineeDetails> {
+  const address =
+    governorAddress ?? "0x8a1cDA8dee421cD06023470608605934c16A05a0";
+  const contract = new Contract(
+    address,
+    nomineeElectionGovernorReadAbi,
+    provider
+  );
+
+  const existingAddresses = new Set(
+    details.nominees.map((n) => n.address.toLowerCase())
+  );
+
+  const missing = details.contenders.filter(
+    (c) => !existingAddresses.has(c.address.toLowerCase())
+  );
+
+  if (missing.length === 0) return details;
+
+  const votes = await Promise.all(
+    missing.map(async (c) => {
+      try {
+        const v = await contract.votesReceived(details.proposalId, c.address);
+        return { address: c.address, votesReceived: v.toString() as string };
+      } catch {
+        return { address: c.address, votesReceived: "0" };
+      }
+    })
+  );
+
+  const enrichedNominees = [
+    ...details.nominees,
+    ...votes.map((v) => ({
+      address: v.address,
+      votesReceived: v.votesReceived,
+      isExcluded: false,
+    })),
+  ];
+
+  return { ...details, nominees: enrichedNominees };
 }
 
 export interface UseElectionStatusOptions {
@@ -223,7 +275,19 @@ export function useElectionStatus({
           l2Provider,
           electionConfig.nomineeGovernorAddress
         );
-        if (nd) nDetails[i] = serializeNomineeDetails(nd);
+        if (nd) {
+          let serialized = serializeNomineeDetails(nd);
+          try {
+            serialized = await enrichContenderVotes(
+              serialized,
+              l2Provider,
+              electionConfig.nomineeGovernorAddress
+            );
+          } catch {
+            // non-fatal
+          }
+          nDetails[i] = serialized;
+        }
       } catch (err) {
         debug.app("Failed to get nominee details for election %d: %O", i, err);
       }
@@ -326,6 +390,19 @@ export function useElectionStatus({
                   quorumThreshold: "0",
                   targetNomineeCount: liveStatus.targetNomineeCount,
                 };
+              }
+            }
+
+            // Enrich with per-contender votes during active nominee selection
+            if (nd && nd.contenders.length > 0) {
+              try {
+                nd = await enrichContenderVotes(nd, l2Provider);
+              } catch (err) {
+                debug.app(
+                  "Failed to enrich contender votes for election %d: %O",
+                  i,
+                  err
+                );
               }
             }
 

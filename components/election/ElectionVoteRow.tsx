@@ -12,6 +12,7 @@ import { prepareNomineeElectionVote } from "@gzeoneth/gov-tracker";
 
 import { ReloadIcon } from "@radix-ui/react-icons";
 import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { utils as ethersUtils } from "ethers";
@@ -42,6 +43,8 @@ interface ElectionVoteRowProps {
   infoSlot?: React.ReactNode;
   bypassSimulation?: boolean;
   prepareVote?: PrepareVoteFn;
+  labelOverride?: string;
+  profileUrl?: string;
 }
 
 export function ElectionVoteRow({
@@ -54,9 +57,12 @@ export function ElectionVoteRow({
   infoSlot,
   bypassSimulation = false,
   prepareVote = prepareNomineeElectionVote,
+  labelOverride,
+  profileUrl,
 }: ElectionVoteRowProps): React.ReactElement {
   const [amount, setAmount] = useState("");
-  const label = getDelegateLabel(targetAddress);
+  const [reason, setReason] = useState("");
+  const label = labelOverride ?? getDelegateLabel(targetAddress);
   const explorerUrl = getAddressExplorerUrl(targetAddress);
 
   const voteAmountWei = useMemo(() => {
@@ -75,7 +81,7 @@ export function ElectionVoteRow({
       proposalId,
       targetAddress,
       voteAmountWei.toString(),
-      "",
+      reason,
       governorAddress,
       chainId
     );
@@ -83,6 +89,7 @@ export function ElectionVoteRow({
     proposalId,
     targetAddress,
     voteAmountWei,
+    reason,
     governorAddress,
     chainId,
     prepareVote,
@@ -115,6 +122,7 @@ export function ElectionVoteRow({
     if (isConfirmed) {
       toast(`Vote confirmed for ${label || shortenAddress(targetAddress)}`);
       setAmount("");
+      setReason("");
       onVoteSuccessRef.current();
     }
   }, [isConfirmed, label, targetAddress]);
@@ -122,10 +130,7 @@ export function ElectionVoteRow({
   const handleVote = useCallback(() => {
     if (!prepared) return;
     if (!isEstimateError || bypassSimulation) {
-      sendTransaction({
-        to: prepared.to,
-        data: prepared.data,
-      });
+      sendTransaction({ to: prepared.to, data: prepared.data });
     }
   }, [prepared, isEstimateError, bypassSimulation, sendTransaction]);
 
@@ -136,15 +141,22 @@ export function ElectionVoteRow({
 
   return (
     <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          {label ? (
-            <span className="text-sm font-medium truncate">{label}</span>
-          ) : (
-            <span className="font-mono text-xs">
-              {shortenAddress(targetAddress)}
-            </span>
-          )}
+      <div className="flex items-center gap-2 min-w-0">
+        {profileUrl ? (
+          <Link
+            href={profileUrl}
+            className="text-sm font-medium truncate text-primary underline underline-offset-2 decoration-primary/30 hover:decoration-primary transition-colors"
+          >
+            {label ?? shortenAddress(targetAddress)}
+          </Link>
+        ) : label ? (
+          <span className="text-sm font-medium truncate">{label}</span>
+        ) : (
+          <span className="font-mono text-xs">
+            {shortenAddress(targetAddress)}
+          </span>
+        )}
+        {!profileUrl && (
           <a
             href={explorerUrl}
             target="_blank"
@@ -153,36 +165,35 @@ export function ElectionVoteRow({
           >
             <ExternalLink className="h-3 w-3" />
           </a>
-        </div>
-        {infoSlot}
+        )}
       </div>
+      {infoSlot}
 
       <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Input
-            type="number"
-            placeholder="Amount (ARB)"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            variant="glass"
-            className="h-8 text-sm pr-12"
-            min="0"
-            step="any"
-          />
-          {availableVotes !== undefined && availableVotes > BigInt(0) && (
-            <button
-              type="button"
-              onClick={() =>
-                setAmount(ethersUtils.formatEther(availableVotes.toString()))
-              }
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-primary hover:text-primary/80 font-medium"
-            >
-              Max
-            </button>
-          )}
-        </div>
+        <Input
+          type="number"
+          placeholder="Amount (ARB)"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          variant="glass"
+          className="h-8 text-sm flex-1"
+          min="0"
+          step="any"
+        />
+        {availableVotes !== undefined && availableVotes > BigInt(0) && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              setAmount(ethersUtils.formatEther(availableVotes.toString()))
+            }
+            className="shrink-0 text-xs h-8"
+          >
+            MAX
+          </Button>
+        )}
         {isWriting || isConfirming ? (
-          <Button size="sm" disabled className="shrink-0">
+          <Button size="sm" disabled className="shrink-0 h-8">
             <ReloadIcon className="h-3 w-3 mr-1 animate-spin" />
             {isConfirming ? "Confirming" : "Voting"}
           </Button>
@@ -195,12 +206,20 @@ export function ElectionVoteRow({
               (isEstimateError && !bypassSimulation) ||
               exceedsAvailable
             }
-            className="shrink-0"
+            className="shrink-0 h-8"
           >
             Vote
           </Button>
         )}
       </div>
+
+      <textarea
+        placeholder="Reason (optional)"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={2}
+        className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+      />
 
       {voteAmountWei !== undefined && !exceedsAvailable && (
         <p className="text-xs text-muted-foreground">

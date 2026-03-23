@@ -80,7 +80,7 @@ export default function Web3ModalProviderInner({
   }, []);
 
   if (!mounted) {
-    return <>{children}</>;
+    return null;
   }
 
   return (

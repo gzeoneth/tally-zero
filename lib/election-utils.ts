@@ -1,4 +1,34 @@
+import candidatesData from "@/data/election-5-candidates.json";
 import type { ElectionPhase } from "@/types/election";
+
+const candidateNames = new Map<string, string>();
+for (const [addr, data] of Object.entries(
+  candidatesData as Record<string, { name: string }>
+)) {
+  candidateNames.set(addr.toLowerCase(), data.name);
+}
+
+export function getCandidateName(address: string): string | undefined {
+  return candidateNames.get(address.toLowerCase());
+}
+
+export function getCandidateProfileUrl(address: string): string | undefined {
+  if (candidateNames.has(address.toLowerCase())) {
+    return `/elections/contender/${address}`;
+  }
+  return undefined;
+}
+
+export function getTallyProfileUrl(
+  electionIndex: number,
+  address: string,
+  round: 1 | 2
+): string {
+  if (round === 1) {
+    return `https://www.tally.xyz/gov/arbitrum/council/security-council/election/${electionIndex}/round-1/candidate/${address}`;
+  }
+  return `https://www.tally.xyz/gov/arbitrum/council/security-council/election/${electionIndex}/round-2/nominee/${address}`;
+}
 
 export function hasNoVotingPower(
   totalVotingPower: bigint | undefined
