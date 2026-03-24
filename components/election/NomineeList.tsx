@@ -2,15 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-import { CheckCircle2, ExternalLink, User, Users, XCircle } from "lucide-react";
-
 import type {
-  SerializableContender,
   SerializableMemberDetails,
   SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
+import { User, Users } from "lucide-react";
 
-import { Badge } from "@/components/ui/Badge";
 import {
   Card,
   CardContent,
@@ -20,36 +17,25 @@ import {
 } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
-import { getDelegateLabel } from "@/lib/delegate-cache";
-import { getAddressExplorerUrl } from "@/lib/explorer-utils";
-import { formatVotingPower } from "@/lib/format-utils";
-import { cn } from "@/lib/utils";
+import {
+  countQualifiedNominees,
+  getContenderDescription,
+} from "@/lib/election-utils";
 import type { ElectionPhase } from "@/types/election";
+
+import { ContenderList } from "./ContenderList";
+import { ContenderVoteList } from "./ContenderVoteList";
+import { MemberElectionResults } from "./MemberElectionResults";
+import { NomineeElectionList } from "./NomineeElectionList";
 
 type ViewMode = "nominees" | "results";
 
-type NomineeDetails = SerializableNomineeDetails | null;
-type MemberDetails = SerializableMemberDetails | null;
-type NomineeElectionDetails = SerializableNomineeDetails;
-type MemberElectionDetails = SerializableMemberDetails;
-
 interface NomineeListProps {
-  nomineeDetails: NomineeDetails;
-  memberDetails: MemberDetails;
+  nomineeDetails: SerializableNomineeDetails | null;
+  memberDetails: SerializableMemberDetails | null;
   isLoading: boolean;
   phase: ElectionPhase;
   electionIndex?: number;
-}
-
-function getTallyProfileUrl(
-  electionIndex: number,
-  address: string,
-  round: 1 | 2
-): string {
-  if (round === 1) {
-    return `https://www.tally.xyz/gov/arbitrum/council/security-council/election/${electionIndex}/round-1/candidate/${address}`;
-  }
-  return `https://www.tally.xyz/gov/arbitrum/council/security-council/election/${electionIndex}/round-2/nominee/${address}`;
 }
 
 export function NomineeList({
@@ -81,9 +67,19 @@ export function NomineeList({
     return null;
   }
 
-  const showContenders = phase === "CONTENDER_SUBMISSION";
+  const showContenders =
+    phase === "CONTENDER_SUBMISSION" || phase === "NOMINEE_SELECTION";
   const canToggle = hasMemberResults && nomineeDetails;
   const showResults = viewMode === "results" && hasMemberResults;
+
+  let title: string;
+  if (showContenders) {
+    title = "Contenders";
+  } else if (showResults) {
+    title = "Election Results";
+  } else {
+    title = "Nominees";
+  }
 
   return (
     <Card variant="glass">
@@ -95,11 +91,7 @@ export function NomineeList({
             ) : (
               <User className="h-5 w-5" />
             )}
-            {showContenders
-              ? "Registered Contenders"
-              : showResults
-                ? "Election Results"
-                : "Nominees"}
+            {title}
           </CardTitle>
           {canToggle && (
             <Tabs
@@ -119,18 +111,33 @@ export function NomineeList({
         </div>
         <CardDescription>
           {showContenders
-            ? `${nomineeDetails.contenders.length} contender${nomineeDetails.contenders.length !== 1 ? "s" : ""} registered`
+            ? getContenderDescription(
+                nomineeDetails.contenders.length,
+                countQualifiedNominees(
+                  nomineeDetails.nominees,
+                  nomineeDetails.quorumThreshold
+                ),
+                phase
+              )
             : showResults
-              ? `Top 6 nominees will be elected to the Security Council`
+              ? "Top 6 nominees will be elected to the Security Council"
               : `${nomineeDetails.compliantNominees.length} compliant nominees of ${nomineeDetails.targetNomineeCount} required`}
         </CardDescription>
       </CardHeader>
 
       <CardContent>
-        {showContenders ? (
+        {phase === "NOMINEE_SELECTION" ? (
+          <ContenderVoteList
+            contenders={nomineeDetails.contenders}
+            nominees={nomineeDetails.nominees}
+            quorumThreshold={nomineeDetails.quorumThreshold}
+          />
+        ) : showContenders ? (
           <ContenderList
             contenders={nomineeDetails.contenders}
             electionIndex={electionIndex}
+            nominees={nomineeDetails.nominees}
+            quorumThreshold={nomineeDetails.quorumThreshold}
           />
         ) : showResults && memberDetails ? (
           <MemberElectionResults
@@ -145,323 +152,6 @@ export function NomineeList({
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function NomineeElectionList({
-  details,
-  electionIndex,
-}: {
-  details: NomineeElectionDetails;
-  electionIndex?: number;
-}): React.ReactElement {
-  const { compliantNominees, excludedNominees, quorumThreshold } = details;
-  const threshold = formatVotingPower(quorumThreshold.toString());
-
-  return (
-    <div className="space-y-4">
-      <div className="text-sm text-muted-foreground">
-        Quorum threshold: {threshold} ARB
-      </div>
-
-      {compliantNominees.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-green-500">
-            Compliant Nominees ({compliantNominees.length})
-          </h4>
-          <div className="space-y-2">
-            {compliantNominees.map((nominee) => (
-              <NomineeRow
-                key={nominee.address}
-                address={nominee.address}
-                votes={formatVotingPower(nominee.votesReceived.toString())}
-                electionIndex={electionIndex}
-                round={1}
-                isCompliant
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {excludedNominees.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-red-500">
-            Excluded Nominees ({excludedNominees.length})
-          </h4>
-          <div className="space-y-2">
-            {excludedNominees.map((nominee) => (
-              <NomineeRow
-                key={nominee.address}
-                address={nominee.address}
-                votes={formatVotingPower(nominee.votesReceived.toString())}
-                electionIndex={electionIndex}
-                round={1}
-                isExcluded
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {compliantNominees.length === 0 && excludedNominees.length === 0 && (
-        <div className="text-center text-muted-foreground py-8">
-          No nominees yet
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MemberElectionResults({
-  details,
-  electionIndex,
-}: {
-  details: MemberElectionDetails;
-  electionIndex?: number;
-}): React.ReactElement {
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-2 text-sm">
-        <div className="flex justify-between text-muted-foreground">
-          <span>Winners</span>
-          <span>{details.winners.length} / 6</span>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        {details.nominees.map((nominee, index: number) => {
-          const label = getDelegateLabel(nominee.address);
-          const explorerUrl = getAddressExplorerUrl(nominee.address);
-          const tallyUrl =
-            electionIndex !== undefined
-              ? getTallyProfileUrl(electionIndex, nominee.address, 2)
-              : null;
-
-          return (
-            <div
-              key={nominee.address}
-              className={cn(
-                "flex items-center justify-between rounded-lg border p-3",
-                nominee.isWinner
-                  ? "border-green-500/30 bg-green-500/10"
-                  : "border-border/50 bg-muted/30"
-              )}
-            >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <span
-                  className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold shrink-0",
-                    nominee.isWinner
-                      ? "bg-green-500 text-white"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {index + 1}
-                </span>
-                <div className="flex items-center gap-2 min-w-0">
-                  {label ? (
-                    <span className="text-sm font-medium truncate">
-                      {label}
-                    </span>
-                  ) : (
-                    <span className="font-mono text-xs break-all">
-                      {nominee.address}
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {tallyUrl && (
-                      <a
-                        href={tallyUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                        title="View on Tally"
-                      >
-                        <User className="h-3 w-3" />
-                      </a>
-                    )}
-                    <a
-                      href={explorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                      title="View on Arbiscan"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0 ml-2">
-                <span className="text-sm text-muted-foreground">
-                  {formatVotingPower(nominee.weightReceived.toString())} ARB
-                </span>
-                {nominee.isWinner && (
-                  <Badge variant="default" className="bg-green-500">
-                    Winner
-                  </Badge>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function NomineeRow({
-  address,
-  votes,
-  electionIndex,
-  round,
-  isCompliant,
-  isExcluded,
-}: {
-  address: string;
-  votes: string;
-  electionIndex?: number;
-  round?: 1 | 2;
-  isCompliant?: boolean;
-  isExcluded?: boolean;
-}): React.ReactElement {
-  const label = getDelegateLabel(address);
-  const explorerUrl = getAddressExplorerUrl(address);
-  const tallyUrl =
-    electionIndex !== undefined && round !== undefined
-      ? getTallyProfileUrl(electionIndex, address, round)
-      : null;
-
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-between rounded-lg border p-3",
-        isCompliant && "border-green-500/30 bg-green-500/10",
-        isExcluded && "border-red-500/30 bg-red-500/10"
-      )}
-    >
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        {isCompliant && (
-          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-        )}
-        {isExcluded && <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
-        <div className="flex items-center gap-2 min-w-0">
-          {label ? (
-            <span className="text-sm font-medium truncate">{label}</span>
-          ) : (
-            <span className="font-mono text-xs break-all">{address}</span>
-          )}
-          <div className="flex items-center gap-1 shrink-0">
-            {tallyUrl && (
-              <a
-                href={tallyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-primary transition-colors"
-                title="View on Tally"
-              >
-                <User className="h-3 w-3" />
-              </a>
-            )}
-            <a
-              href={explorerUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-primary transition-colors"
-              title="View on Arbiscan"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-        </div>
-      </div>
-      <span className="text-sm text-muted-foreground shrink-0 ml-2">
-        {votes} ARB
-      </span>
-    </div>
-  );
-}
-
-function ContenderList({
-  contenders,
-  electionIndex,
-}: {
-  contenders: SerializableContender[];
-  electionIndex?: number;
-}): React.ReactElement {
-  if (contenders.length === 0) {
-    return (
-      <div className="text-center text-muted-foreground py-8">
-        No contenders registered yet
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {contenders.map((contender, index) => {
-        const label = getDelegateLabel(contender.address);
-        const explorerUrl = getAddressExplorerUrl(contender.address);
-        const tallyUrl =
-          electionIndex !== undefined
-            ? getTallyProfileUrl(electionIndex, contender.address, 1)
-            : null;
-
-        return (
-          <div
-            key={contender.address}
-            className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 p-3"
-          >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground shrink-0">
-                {index + 1}
-              </span>
-              <div className="flex items-center gap-2 min-w-0">
-                {label ? (
-                  <span className="text-sm font-medium truncate">{label}</span>
-                ) : (
-                  <span className="font-mono text-xs break-all">
-                    {contender.address}
-                  </span>
-                )}
-                <div className="flex items-center gap-1 shrink-0">
-                  {tallyUrl && (
-                    <a
-                      href={tallyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                      title="View on Tally"
-                    >
-                      <User className="h-3 w-3" />
-                    </a>
-                  )}
-                  <a
-                    href={explorerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-primary transition-colors"
-                    title="View on Arbiscan"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              </div>
-            </div>
-            <a
-              href={`https://arbiscan.io/tx/${contender.registrationTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground hover:text-primary transition-colors shrink-0 ml-2"
-              title="Registration transaction"
-            >
-              Registered
-            </a>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 

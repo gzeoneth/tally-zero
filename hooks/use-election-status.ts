@@ -11,6 +11,8 @@ import {
   getElectionStatus,
   getMemberElectionDetails,
   getNomineeElectionDetails,
+  getNomineesWithVotes,
+  nomineeElectionGovernorReadAbi,
   serializeMemberDetails,
   serializeNomineeDetails,
   type ElectionConfig,
@@ -20,6 +22,7 @@ import {
   type SerializableMemberDetails,
   type SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
+import { Contract } from "ethers";
 import { toast } from "sonner";
 
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
@@ -44,6 +47,56 @@ function isCorsOrNetworkError(error: unknown): boolean {
     msg.includes("access-control-allow-origin") ||
     msg.includes("blocked by cors")
   );
+}
+
+/**
+ * Fetch votesReceived for each contender from the nominee governor contract.
+ * Merges results into the nominees array so the UI can display per-contender vote progress.
+ */
+async function enrichContenderVotes(
+  details: SerializableNomineeDetails,
+  provider: InstanceType<typeof import("ethers").providers.JsonRpcProvider>,
+  governorAddress?: string
+): Promise<SerializableNomineeDetails> {
+  const address =
+    governorAddress ?? "0x8a1cDA8dee421cD06023470608605934c16A05a0";
+  const contract = new Contract(
+    address,
+    nomineeElectionGovernorReadAbi,
+    provider
+  );
+
+  const existingAddresses = new Set(
+    details.nominees.map((n) => n.address.toLowerCase())
+  );
+
+  const missing = details.contenders.filter(
+    (c) => !existingAddresses.has(c.address.toLowerCase())
+  );
+
+  if (missing.length === 0) return details;
+
+  const votes = await Promise.all(
+    missing.map(async (c) => {
+      try {
+        const v = await contract.votesReceived(details.proposalId, c.address);
+        return { address: c.address, votesReceived: v.toString() as string };
+      } catch {
+        return { address: c.address, votesReceived: "0" };
+      }
+    })
+  );
+
+  const enrichedNominees = [
+    ...details.nominees,
+    ...votes.map((v) => ({
+      address: v.address,
+      votesReceived: v.votesReceived,
+      isExcluded: false,
+    })),
+  ];
+
+  return { ...details, nominees: enrichedNominees };
 }
 
 export interface UseElectionStatusOptions {
@@ -223,7 +276,19 @@ export function useElectionStatus({
           l2Provider,
           electionConfig.nomineeGovernorAddress
         );
-        if (nd) nDetails[i] = serializeNomineeDetails(nd);
+        if (nd) {
+          let serialized = serializeNomineeDetails(nd);
+          try {
+            serialized = await enrichContenderVotes(
+              serialized,
+              l2Provider,
+              electionConfig.nomineeGovernorAddress
+            );
+          } catch {
+            // non-fatal
+          }
+          nDetails[i] = serialized;
+        }
       } catch (err) {
         debug.app("Failed to get nominee details for election %d: %O", i, err);
       }
@@ -249,15 +314,15 @@ export function useElectionStatus({
 
     debug.app("Fetching SC election status...");
 
-    const electionCount = await getElectionCount(l2Provider);
-    debug.app("Election count: %d", electionCount);
-
+    // Phase 1: Load from cache first (no RPC needed).
+    // Probe indices 0..MAX to find all cached elections.
+    const MAX_ELECTIONS = 10;
     const cachedElections: ElectionProposalStatus[] = [];
     const cachedNomineeDetails: Record<number, NomineeElectionDetails> = {};
     const cachedMemberDetails: Record<number, MemberElectionDetails> = {};
 
     const checkpointResults = await Promise.all(
-      Array.from({ length: electionCount }, (_, i) =>
+      Array.from({ length: MAX_ELECTIONS }, (_, i) =>
         tracker
           .getElectionCheckpoint(i)
           .then((checkpoint) => ({ index: i, checkpoint }))
@@ -281,11 +346,36 @@ export function useElectionStatus({
       }
     }
 
-    const cachedIndices = new Set(cachedElections.map((e) => e.electionIndex));
+    // Immediately render cached data so the UI shows elections right away.
+    if (cachedElections.length > 0) {
+      const sorted = [...cachedElections].sort(
+        (a, b) => a.electionIndex - b.electionIndex
+      );
+      setAllElections(sorted);
+      setNomineeDetailsMap((prev) => ({ ...prev, ...cachedNomineeDetails }));
+      setMemberDetailsMap((prev) => ({ ...prev, ...cachedMemberDetails }));
+      initialLoadDoneRef.current = true;
+    }
+
+    // Phase 2: Get live election count from RPC and fetch fresh data.
+    const electionCount = await getElectionCount(l2Provider);
+    debug.app("Election count: %d", electionCount);
+
+    // COMPLETED elections are fully cached. Elections past CONTENDER_SUBMISSION
+    // have immutable contender/nominee lists — only vote counts change — so we
+    // can skip the full re-fetch and just enrich votes for those.
+    const cachedPhaseByIndex = new Map(
+      cachedElections.map((e) => [e.electionIndex, e.phase])
+    );
+    const fullyCachedIndices = new Set(
+      cachedElections
+        .filter((e) => e.phase === "COMPLETED")
+        .map((e) => e.electionIndex)
+    );
     const uncachedIndices = Array.from(
       { length: electionCount },
       (_, i) => i
-    ).filter((i) => !cachedIndices.has(i));
+    ).filter((i) => !fullyCachedIndices.has(i));
 
     const [liveResults] = await Promise.all([
       Promise.all(
@@ -294,41 +384,107 @@ export function useElectionStatus({
             const liveStatus = await getElectionStatus(l2Provider, i);
             debug.app("Election %d fetched live: %s", i, liveStatus.phase);
 
+            // Contender/nominee lists are immutable after CONTENDER_SUBMISSION.
+            // If we have cached details, just refresh vote counts.
+            const cachedPhase = cachedPhaseByIndex.get(i);
+            const hasCachedDetails = !!cachedNomineeDetails[i];
+            // Contender list is immutable after submission, but vote counts
+            // and nominee status change during NOMINEE_SELECTION. Only skip
+            // full re-fetch for post-voting phases where everything is settled.
+            const contendersImmutable =
+              cachedPhase === "VETTING_PERIOD" ||
+              cachedPhase === "MEMBER_ELECTION" ||
+              cachedPhase === "PENDING_EXECUTION";
+
             let nd: NomineeElectionDetails = null;
-            const raw = await getNomineeElectionDetails(i, l2Provider).catch(
-              () => null
-            );
-            if (raw) {
-              nd = serializeNomineeDetails(raw);
-            } else if (liveStatus.nomineeProposalId) {
-              const contenders = await getContenders(
-                liveStatus.nomineeProposalId,
-                l2Provider
-              ).catch(() => []);
-              if (contenders.length > 0) {
-                nd = {
-                  proposalId: liveStatus.nomineeProposalId,
-                  electionIndex: i,
-                  contenders: contenders.map((c) => ({
-                    address: c.address,
-                    registeredAtBlock: c.registeredAtBlock,
-                    registrationTxHash: c.registrationTxHash,
-                  })),
-                  nominees: [],
-                  compliantNominees: [],
-                  excludedNominees: [],
-                  quorumThreshold: "0",
-                  targetNomineeCount: liveStatus.targetNomineeCount,
-                };
+            if (hasCachedDetails && contendersImmutable) {
+              nd = cachedNomineeDetails[i];
+              debug.app(
+                "Election %d: reusing cached nominee details (%s), refreshing votes",
+                i,
+                cachedPhase
+              );
+            } else {
+              const raw = await getNomineeElectionDetails(i, l2Provider).catch(
+                () => null
+              );
+              if (raw) {
+                nd = serializeNomineeDetails(raw);
+              } else if (liveStatus.nomineeProposalId) {
+                const [contenders, nominees] = await Promise.all([
+                  getContenders(liveStatus.nomineeProposalId, l2Provider).catch(
+                    () => []
+                  ),
+                  getNomineesWithVotes(
+                    liveStatus.nomineeProposalId,
+                    l2Provider
+                  ).catch(() => []),
+                ]);
+                if (contenders.length > 0 || nominees.length > 0) {
+                  const serializedNominees = nominees.map((n) => ({
+                    address: n.address,
+                    votesReceived: n.votesReceived.toString(),
+                    isExcluded: n.isExcluded,
+                    nominatedAtBlock: n.nominatedAtBlock,
+                    excludedAtBlock: n.excludedAtBlock,
+                    exclusionTxHash: n.exclusionTxHash,
+                  }));
+                  nd = {
+                    proposalId: liveStatus.nomineeProposalId,
+                    electionIndex: i,
+                    contenders: contenders.map((c) => ({
+                      address: c.address,
+                      registeredAtBlock: c.registeredAtBlock,
+                      registrationTxHash: c.registrationTxHash,
+                    })),
+                    nominees: serializedNominees,
+                    compliantNominees: serializedNominees.filter(
+                      (n) => !n.isExcluded
+                    ),
+                    excludedNominees: serializedNominees.filter(
+                      (n) => n.isExcluded
+                    ),
+                    quorumThreshold: "0",
+                    targetNomineeCount: liveStatus.targetNomineeCount,
+                  };
+                }
               }
             }
 
+            // Enrich with per-contender votes (always refresh — votes change)
+            if (nd && nd.contenders.length > 0) {
+              try {
+                nd = await enrichContenderVotes(nd, l2Provider);
+              } catch (err) {
+                debug.app(
+                  "Failed to enrich contender votes for election %d: %O",
+                  i,
+                  err
+                );
+              }
+            }
+
+            // Member nominee list is immutable during MEMBER_ELECTION.
+            // Reuse cached details if available for that phase.
+            const hasCachedMember = !!cachedMemberDetails[i];
+            // Member vote counts change during MEMBER_ELECTION.
+            // Only skip re-fetch once voting is done.
+            const memberImmutable = cachedPhase === "PENDING_EXECUTION";
             let md: MemberElectionDetails = null;
-            try {
-              const raw = await getMemberElectionDetails(i, l2Provider);
-              if (raw) md = serializeMemberDetails(raw);
-            } catch (err) {
-              debug.app("Member details failed for election %d: %O", i, err);
+            if (hasCachedMember && memberImmutable) {
+              md = cachedMemberDetails[i];
+              debug.app(
+                "Election %d: reusing cached member details (%s)",
+                i,
+                cachedPhase
+              );
+            } else {
+              try {
+                const raw = await getMemberElectionDetails(i, l2Provider);
+                if (raw) md = serializeMemberDetails(raw);
+              } catch (err) {
+                debug.app("Member details failed for election %d: %O", i, err);
+              }
             }
 
             return { index: i, status: liveStatus, nominee: nd, member: md };
@@ -354,7 +510,15 @@ export function useElectionStatus({
 
     for (const result of liveResults) {
       if (!result) continue;
-      cachedElections.push(result.status);
+      // Live results for active elections replace stale cached versions
+      const existingIdx = cachedElections.findIndex(
+        (e) => e.electionIndex === result.index
+      );
+      if (existingIdx !== -1) {
+        cachedElections[existingIdx] = result.status;
+      } else {
+        cachedElections.push(result.status);
+      }
       if (result.nominee) cachedNomineeDetails[result.index] = result.nominee;
       if (result.member) cachedMemberDetails[result.index] = result.member;
     }

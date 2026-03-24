@@ -43,14 +43,14 @@ export const PHASE_METADATA: Record<ElectionPhase, PhaseMetadata> = {
   NOMINEE_SELECTION: {
     name: "Nominee Selection",
     description:
-      "Delegates endorse contenders to become nominees. Candidates need 0.2% of votable tokens.",
+      "Delegates vote on contenders. Candidates reaching 0.2% of votable tokens become nominees.",
     durationDays: ELECTION_DURATIONS.NOMINEE_SELECTION,
     colorClass: "text-blue-500",
   },
   VETTING_PERIOD: {
     name: "Compliance Check",
     description:
-      "The Arbitrum Foundation vets nominees for compliance with legal requirements.",
+      "The Arbitrum Foundation vets nominees for compliance before the member election.",
     durationDays: ELECTION_DURATIONS.VETTING_PERIOD,
     colorClass: "text-yellow-500",
   },
