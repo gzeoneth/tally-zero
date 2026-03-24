@@ -192,7 +192,7 @@ function calculatePhaseEtas(
       endTimestamp: nomineeEnd,
     },
     VETTING_PERIOD: { startTimestamp: nomineeEnd, endTimestamp: vettingEnd },
-    MEMBER_ELECTION: { startTimestamp: nomineeEnd, endTimestamp: memberEnd },
+    MEMBER_ELECTION: { startTimestamp: vettingEnd, endTimestamp: memberEnd },
     PENDING_EXECUTION: { startTimestamp: memberEnd, endTimestamp: 0 },
     COMPLETED: null,
   };
