@@ -196,6 +196,7 @@ export function ElectionContainer(): React.ReactElement {
         <ElectionSelector
           allElections={allElections}
           selectedElection={selectedElection}
+          status={status}
           onSelect={selectElection}
         />
       </div>
@@ -211,7 +212,7 @@ export function ElectionContainer(): React.ReactElement {
         <ElectionPhaseTimeline
           currentPhase={currentPhase}
           stages={selectedElection?.stages}
-          status={status}
+          status={selectedElection ? status : null}
         />
 
         <NomineeList
