@@ -7,6 +7,7 @@ import { CheckCircle2, ExternalLink, User, Users, XCircle } from "lucide-react";
 import type {
   SerializableContender,
   SerializableMemberDetails,
+  SerializableNominee,
   SerializableNomineeDetails,
 } from "@gzeoneth/gov-tracker";
 
@@ -28,14 +29,9 @@ import type { ElectionPhase } from "@/types/election";
 
 type ViewMode = "nominees" | "results";
 
-type NomineeDetails = SerializableNomineeDetails | null;
-type MemberDetails = SerializableMemberDetails | null;
-type NomineeElectionDetails = SerializableNomineeDetails;
-type MemberElectionDetails = SerializableMemberDetails;
-
 interface NomineeListProps {
-  nomineeDetails: NomineeDetails;
-  memberDetails: MemberDetails;
+  nomineeDetails: SerializableNomineeDetails | null;
+  memberDetails: SerializableMemberDetails | null;
   isLoading: boolean;
   phase: ElectionPhase;
   electionIndex?: number;
@@ -50,6 +46,15 @@ function getTallyProfileUrl(
     return `https://www.tally.xyz/gov/arbitrum/council/security-council/election/${electionIndex}/round-1/candidate/${address}`;
   }
   return `https://www.tally.xyz/gov/arbitrum/council/security-council/election/${electionIndex}/round-2/nominee/${address}`;
+}
+
+const CONTENDER_PHASES: ElectionPhase[] = [
+  "CONTENDER_SUBMISSION",
+  "NOMINEE_SELECTION",
+];
+
+function isContenderPhase(phase: ElectionPhase): boolean {
+  return CONTENDER_PHASES.includes(phase);
 }
 
 export function NomineeList({
@@ -81,24 +86,30 @@ export function NomineeList({
     return null;
   }
 
-  const showContenders = phase === "CONTENDER_SUBMISSION";
+  const showContenders = isContenderPhase(phase);
   const canToggle = hasMemberResults && nomineeDetails;
   const showResults = viewMode === "results" && hasMemberResults;
 
-  const nomineeCount = nomineeDetails.contenders.length;
+  const contenderCount = nomineeDetails.contenders.length;
+  const nomineeCount = nomineeDetails.nominees.length;
   const excludedCount = nomineeDetails.excludedNominees.length;
-  const title = showContenders
-    ? "Registered Contenders"
-    : showResults
-      ? "Election Results"
-      : "Nominees";
-  const description = showContenders
-    ? `${nomineeCount} contender${nomineeCount !== 1 ? "s" : ""} registered`
-    : showResults
-      ? `Top 6 nominees will be elected to the Security Council`
-      : excludedCount > 0
-        ? `${nomineeCount} nominees (${excludedCount} excluded)`
+
+  let title: string;
+  let description: string;
+
+  if (showContenders) {
+    title = "Contenders";
+    description = `${contenderCount} contender${contenderCount !== 1 ? "s" : ""} registered`;
+  } else if (showResults) {
+    title = "Election Results";
+    description = "Top 6 nominees elected to the Security Council";
+  } else {
+    title = "Nominees";
+    description =
+      excludedCount > 0
+        ? `${nomineeCount - excludedCount} of ${nomineeCount} nominees passed compliance`
         : `${nomineeCount} nominee${nomineeCount !== 1 ? "s" : ""}`;
+  }
 
   return (
     <Card variant="glass">
@@ -144,7 +155,8 @@ export function NomineeList({
           />
         ) : (
           <NomineeElectionList
-            details={nomineeDetails}
+            nominees={nomineeDetails.nominees}
+            excludedNominees={nomineeDetails.excludedNominees}
             electionIndex={electionIndex}
           />
         )}
@@ -153,47 +165,47 @@ export function NomineeList({
   );
 }
 
-function isExcludedNominee(
+function isExcluded(
   address: string,
-  details: NomineeElectionDetails
+  excludedNominees: SerializableNominee[]
 ): boolean {
   const lower = address.toLowerCase();
-  return details.excludedNominees.some(
-    (n) => n.address.toLowerCase() === lower
-  );
+  return excludedNominees.some((n) => n.address.toLowerCase() === lower);
 }
 
 function NomineeElectionList({
-  details,
+  nominees,
+  excludedNominees,
   electionIndex,
 }: {
-  details: NomineeElectionDetails;
+  nominees: SerializableNominee[];
+  excludedNominees: SerializableNominee[];
   electionIndex?: number;
 }): React.ReactElement {
-  const { contenders } = details;
+  if (nominees.length === 0) {
+    return (
+      <div className="text-center text-muted-foreground py-8">
+        No nominees yet
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {contenders.length > 0 ? (
-        <div className="space-y-2">
-          {contenders.map((contender) => {
-            const excluded = isExcludedNominee(contender.address, details);
-            return (
-              <NomineeRow
-                key={contender.address}
-                address={contender.address}
-                electionIndex={electionIndex}
-                round={1}
-                isExcluded={excluded}
-              />
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center text-muted-foreground py-8">
-          No nominees yet
-        </div>
-      )}
+    <div className="space-y-2">
+      {nominees.map((nominee) => {
+        const excluded = isExcluded(nominee.address, excludedNominees);
+        return (
+          <PersonRow
+            key={nominee.address}
+            address={nominee.address}
+            votes={formatVotingPower(nominee.votesReceived.toString())}
+            electionIndex={electionIndex}
+            round={1}
+            isExcluded={excluded}
+            isCompliant={!excluded}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -202,14 +214,14 @@ function MemberElectionResults({
   details,
   electionIndex,
 }: {
-  details: MemberElectionDetails;
+  details: SerializableMemberDetails;
   electionIndex?: number;
 }): React.ReactElement {
   return (
     <div className="space-y-4">
       <div className="grid gap-2 text-sm">
         <div className="flex justify-between text-muted-foreground">
-          <span>Winners</span>
+          <span>Members Elected</span>
           <span>{details.winners.length} / 6</span>
         </div>
       </div>
@@ -284,7 +296,7 @@ function MemberElectionResults({
                 </span>
                 {nominee.isWinner && (
                   <Badge variant="default" className="bg-green-500">
-                    Winner
+                    Member
                   </Badge>
                 )}
               </div>
@@ -296,13 +308,13 @@ function MemberElectionResults({
   );
 }
 
-function NomineeRow({
+function PersonRow({
   address,
   votes,
   electionIndex,
   round,
   isCompliant,
-  isExcluded,
+  isExcluded: excluded,
 }: {
   address: string;
   votes?: string;
@@ -323,11 +335,11 @@ function NomineeRow({
       className={cn(
         "flex items-center justify-between rounded-lg border p-3",
         isCompliant && "border-green-500/30 bg-green-500/10",
-        isExcluded && "border-red-500/30 bg-red-500/10"
+        excluded && "border-red-500/30 bg-red-500/10"
       )}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        {isExcluded && <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
+        {excluded && <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
         {isCompliant && (
           <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
         )}

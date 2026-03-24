@@ -135,7 +135,7 @@ function ActiveElectionStatus({
 
       <div className="grid gap-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Compliant Nominees</span>
+          <span className="text-muted-foreground">Nominees</span>
           <span className="font-medium">
             {election.compliantNomineeCount} / {election.targetNomineeCount}
           </span>
