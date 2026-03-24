@@ -68,9 +68,7 @@ export function NomineeList({
   }
 
   const showContenders =
-    phase === "CONTENDER_SUBMISSION" ||
-    phase === "VETTING_PERIOD" ||
-    phase === "NOMINEE_SELECTION";
+    phase === "CONTENDER_SUBMISSION" || phase === "NOMINEE_SELECTION";
   const canToggle = hasMemberResults && nomineeDetails;
   const showResults = viewMode === "results" && hasMemberResults;
 

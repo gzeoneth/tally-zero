@@ -83,8 +83,8 @@ function getTransactionsForPhase(
 
 const TIMELINE_PHASES: ElectionPhase[] = [
   "CONTENDER_SUBMISSION",
-  "VETTING_PERIOD",
   "NOMINEE_SELECTION",
+  "VETTING_PERIOD",
   "MEMBER_ELECTION",
   "PENDING_EXECUTION",
 ];
@@ -176,10 +176,10 @@ function calculatePhaseEtas(
   const contenderStart = electionStartTimestamp;
   const contenderEnd =
     contenderStart + ELECTION_TIMING.CONTENDER_SUBMISSION_DAYS * 86400;
-  const vettingEnd = contenderEnd + ELECTION_TIMING.VETTING_PERIOD_DAYS * 86400;
   const nomineeEnd =
-    vettingEnd + ELECTION_TIMING.NOMINEE_SELECTION_DAYS * 86400;
-  const memberEnd = nomineeEnd + ELECTION_TIMING.MEMBER_ELECTION_DAYS * 86400;
+    contenderEnd + ELECTION_TIMING.NOMINEE_SELECTION_DAYS * 86400;
+  const vettingEnd = nomineeEnd + ELECTION_TIMING.VETTING_PERIOD_DAYS * 86400;
+  const memberEnd = vettingEnd + ELECTION_TIMING.MEMBER_ELECTION_DAYS * 86400;
 
   return {
     NOT_STARTED: null,
@@ -187,11 +187,11 @@ function calculatePhaseEtas(
       startTimestamp: contenderStart,
       endTimestamp: contenderEnd,
     },
-    VETTING_PERIOD: { startTimestamp: contenderEnd, endTimestamp: vettingEnd },
     NOMINEE_SELECTION: {
-      startTimestamp: vettingEnd,
+      startTimestamp: contenderEnd,
       endTimestamp: nomineeEnd,
     },
+    VETTING_PERIOD: { startTimestamp: nomineeEnd, endTimestamp: vettingEnd },
     MEMBER_ELECTION: { startTimestamp: nomineeEnd, endTimestamp: memberEnd },
     PENDING_EXECUTION: { startTimestamp: memberEnd, endTimestamp: 0 },
     COMPLETED: null,

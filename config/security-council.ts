@@ -40,19 +40,19 @@ export const PHASE_METADATA: Record<ElectionPhase, PhaseMetadata> = {
     durationDays: ELECTION_DURATIONS.CONTENDER_SUBMISSION,
     colorClass: "text-cyan-500",
   },
-  VETTING_PERIOD: {
-    name: "Compliance Check",
-    description:
-      "The Arbitrum Foundation vets contenders for compliance before they can be voted on.",
-    durationDays: ELECTION_DURATIONS.VETTING_PERIOD,
-    colorClass: "text-yellow-500",
-  },
   NOMINEE_SELECTION: {
     name: "Nominee Selection",
     description:
-      "Delegates vote on compliant contenders. Candidates reaching 0.2% of votable tokens become nominees.",
+      "Delegates vote on contenders. Candidates reaching 0.2% of votable tokens become nominees.",
     durationDays: ELECTION_DURATIONS.NOMINEE_SELECTION,
     colorClass: "text-blue-500",
+  },
+  VETTING_PERIOD: {
+    name: "Compliance Check",
+    description:
+      "The Arbitrum Foundation vets nominees for compliance before the member election.",
+    durationDays: ELECTION_DURATIONS.VETTING_PERIOD,
+    colorClass: "text-yellow-500",
   },
   MEMBER_ELECTION: {
     name: "Member Election",
@@ -84,8 +84,8 @@ export const TOTAL_SC_MEMBERS = 12;
 export const PHASE_TO_STAGE_TYPES: Record<ElectionPhase, StageType[]> = {
   NOT_STARTED: [],
   CONTENDER_SUBMISSION: ["CREATE_ELECTION"],
-  VETTING_PERIOD: ["NOMINEE_VETTING"],
   NOMINEE_SELECTION: ["NOMINEE_ELECTION"],
+  VETTING_PERIOD: ["NOMINEE_VETTING"],
   MEMBER_ELECTION: ["MEMBER_ELECTION"],
   PENDING_EXECUTION: [
     "L2_TIMELOCK",
