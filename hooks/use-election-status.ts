@@ -388,10 +388,13 @@ export function useElectionStatus({
             // If we have cached details, just refresh vote counts.
             const cachedPhase = cachedPhaseByIndex.get(i);
             const hasCachedDetails = !!cachedNomineeDetails[i];
+            // Contender list is immutable after submission, but vote counts
+            // and nominee status change during NOMINEE_SELECTION. Only skip
+            // full re-fetch for post-voting phases where everything is settled.
             const contendersImmutable =
-              cachedPhase &&
-              cachedPhase !== "NOT_STARTED" &&
-              cachedPhase !== "CONTENDER_SUBMISSION";
+              cachedPhase === "VETTING_PERIOD" ||
+              cachedPhase === "MEMBER_ELECTION" ||
+              cachedPhase === "PENDING_EXECUTION";
 
             let nd: NomineeElectionDetails = null;
             if (hasCachedDetails && contendersImmutable) {
@@ -464,9 +467,9 @@ export function useElectionStatus({
             // Member nominee list is immutable during MEMBER_ELECTION.
             // Reuse cached details if available for that phase.
             const hasCachedMember = !!cachedMemberDetails[i];
-            const memberImmutable =
-              cachedPhase === "MEMBER_ELECTION" ||
-              cachedPhase === "PENDING_EXECUTION";
+            // Member vote counts change during MEMBER_ELECTION.
+            // Only skip re-fetch once voting is done.
+            const memberImmutable = cachedPhase === "PENDING_EXECUTION";
             let md: MemberElectionDetails = null;
             if (hasCachedMember && memberImmutable) {
               md = cachedMemberDetails[i];
