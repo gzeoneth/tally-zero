@@ -171,9 +171,9 @@ interface PhaseEta {
 }
 
 function calculatePhaseEtas(
-  nextElectionTimestamp: number
+  electionStartTimestamp: number
 ): Record<ElectionPhase, PhaseEta | null> {
-  const contenderStart = nextElectionTimestamp;
+  const contenderStart = electionStartTimestamp;
   const contenderEnd =
     contenderStart + ELECTION_TIMING.CONTENDER_SUBMISSION_DAYS * 86400;
   const nomineeEnd =
@@ -235,7 +235,6 @@ export function ElectionPhaseTimeline({
 
   const fetchedTimestamps = useFetchMissingTimestamps(stages, l2Rpc);
 
-  // Read the on-chain scheduled start timestamp for this election
   const { data: onChainTimestamp } = useReadContract({
     address: nomineeGovernorAddress,
     abi: nomineeElectionGovernorReadAbi,
@@ -321,13 +320,16 @@ export function ElectionPhaseTimeline({
                 </p>
                 {eta && isActive && eta.endTimestamp > 0 && (
                   <p className="mt-1 text-xs font-medium text-primary">
-                    Ends in {getTimeUntil(eta.endTimestamp)}
+                    Ends {formatEtaDate(eta.endTimestamp)} (
+                    {getTimeUntil(eta.endTimestamp)})
                   </p>
                 )}
                 {eta && isFuture && (
                   <p className="mt-1 text-xs text-muted-foreground/70">
-                    Starts in {getTimeUntil(eta.startTimestamp)} (
-                    {formatEtaDate(eta.startTimestamp)})
+                    ETA: {formatEtaDate(eta.startTimestamp)} →{" "}
+                    {eta.endTimestamp > 0
+                      ? formatEtaDate(eta.endTimestamp)
+                      : "completion"}
                   </p>
                 )}
                 <PhaseTransactionLinks

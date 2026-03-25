@@ -196,6 +196,7 @@ export function ElectionContainer(): React.ReactElement {
         <ElectionSelector
           allElections={allElections}
           selectedElection={selectedElection}
+          status={status}
           onSelect={selectElection}
         />
       </div>
@@ -207,30 +208,34 @@ export function ElectionContainer(): React.ReactElement {
         onRefresh={refresh}
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ElectionPhaseTimeline
-          currentPhase={currentPhase}
-          stages={selectedElection?.stages}
-          status={status}
-          electionIndex={selectedElection?.electionIndex}
-        />
+      {(selectedElection || !isLoading) && (
+        <>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ElectionPhaseTimeline
+              currentPhase={currentPhase}
+              stages={selectedElection?.stages}
+              status={selectedElection ? status : null}
+              electionIndex={selectedElection?.electionIndex}
+            />
 
-        <NomineeList
-          nomineeDetails={nomineeDetails}
-          memberDetails={memberDetails}
-          isLoading={isLoading}
-          phase={currentPhase}
-          electionIndex={selectedElection?.electionIndex}
-        />
-      </div>
+            <NomineeList
+              nomineeDetails={nomineeDetails}
+              memberDetails={memberDetails}
+              isLoading={isLoading}
+              phase={currentPhase}
+              electionIndex={selectedElection?.electionIndex}
+            />
+          </div>
 
-      <ElectionActionCard
-        phase={currentPhase}
-        selectedElection={overrideElection}
-        nomineeDetails={overrideNomineeDetails}
-        memberDetails={overrideMemberDetails}
-        bypassSimulation={hasOverride}
-      />
+          <ElectionActionCard
+            phase={currentPhase}
+            selectedElection={overrideElection}
+            nomineeDetails={overrideNomineeDetails}
+            memberDetails={overrideMemberDetails}
+            bypassSimulation={hasOverride}
+          />
+        </>
+      )}
 
       <DeepLinkHandler proposals={[]} />
     </div>

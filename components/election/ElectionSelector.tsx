@@ -11,22 +11,31 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
-import { formatCohort, PHASE_METADATA } from "@/config/security-council";
+import {
+  daysUntil,
+  formatCohort,
+  PHASE_METADATA,
+} from "@/config/security-council";
 import type { ElectionPhase } from "@/types/election";
-import type { ElectionProposalStatus } from "@gzeoneth/gov-tracker";
+import type {
+  ElectionProposalStatus,
+  ElectionStatus,
+} from "@gzeoneth/gov-tracker";
 
 interface ElectionSelectorProps {
   allElections: ElectionProposalStatus[];
   selectedElection: ElectionProposalStatus | null;
+  status: ElectionStatus | null;
   onSelect: (index: number | null) => void;
 }
 
 export function ElectionSelector({
   allElections,
   selectedElection,
+  status,
   onSelect,
 }: ElectionSelectorProps): React.ReactElement | null {
-  if (allElections.length <= 1) {
+  if (allElections.length === 0) {
     return null;
   }
 
@@ -34,6 +43,11 @@ export function ElectionSelector({
   const completedElections = allElections.filter(
     (e) => e.phase === "COMPLETED"
   );
+  const nextElectionIndex = allElections.length;
+  const showNextElection =
+    status?.nextElectionTimestamp &&
+    status.secondsUntilElection > 0 &&
+    !allElections.some((e) => e.electionIndex === nextElectionIndex);
 
   return (
     <DropdownMenu>
@@ -47,6 +61,31 @@ export function ElectionSelector({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
+        {showNextElection && (
+          <>
+            <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              Upcoming
+            </div>
+            <DropdownMenuItem
+              className="flex items-center justify-between gap-2"
+              onSelect={() => onSelect(null)}
+            >
+              <div className="flex flex-col">
+                <span>Election #{nextElectionIndex}</span>
+                <span className="text-xs text-muted-foreground">
+                  Starts in {daysUntil(status.nextElectionTimestamp)}d
+                </span>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                Not Started
+              </Badge>
+            </DropdownMenuItem>
+            {(activeElections.length > 0 || completedElections.length > 0) && (
+              <DropdownMenuSeparator />
+            )}
+          </>
+        )}
+
         {activeElections.length > 0 && (
           <>
             <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">

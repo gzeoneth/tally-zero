@@ -72,6 +72,15 @@ export function NomineeList({
   const canToggle = hasMemberResults && nomineeDetails;
   const showResults = viewMode === "results" && hasMemberResults;
 
+  let title: string;
+  if (showContenders) {
+    title = "Contenders";
+  } else if (showResults) {
+    title = "Election Results";
+  } else {
+    title = "Nominees";
+  }
+
   return (
     <Card variant="glass">
       <CardHeader>
@@ -82,11 +91,7 @@ export function NomineeList({
             ) : (
               <User className="h-5 w-5" />
             )}
-            {showContenders
-              ? "Registered Contenders"
-              : showResults
-                ? "Election Results"
-                : "Nominees"}
+            {title}
           </CardTitle>
           {canToggle && (
             <Tabs
