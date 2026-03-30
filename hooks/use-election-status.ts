@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   checkElectionStatus,
@@ -68,6 +68,9 @@ export const electionKeys = {
     ["elections", "track", l2Url, l1Url, index] as const,
 };
 
+const EMPTY_NOMINEE_MAP: Record<number, NomineeElectionDetails> = {};
+const EMPTY_MEMBER_MAP: Record<number, MemberElectionDetails> = {};
+
 // ---------------------------------------------------------------------------
 // Non-hook helpers
 // ---------------------------------------------------------------------------
@@ -107,6 +110,7 @@ export function useElectionStatus({
   selectedElectionIndex: initialSelectedIndex = null,
   nomineeGovernorAddress,
   memberGovernorAddress,
+  chainId = 42161,
 }: UseElectionStatusOptions = {}): UseElectionStatusResult {
   const queryClient = useQueryClient();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(
@@ -136,16 +140,19 @@ export function useElectionStatus({
     return {
       nomineeGovernorAddress: nomineeGovernorAddress as `0x${string}`,
       memberGovernorAddress: memberGovernorAddress as `0x${string}`,
-      chainId: 42161,
+      chainId,
     };
-  }, [nomineeGovernorAddress, memberGovernorAddress]);
+  }, [nomineeGovernorAddress, memberGovernorAddress, chainId]);
 
   const overridesKey = useMemo(
     () =>
-      hasAddressOverrides
-        ? { nominee: nomineeGovernorAddress!, member: memberGovernorAddress! }
+      electionConfig
+        ? {
+            nominee: electionConfig.nomineeGovernorAddress,
+            member: electionConfig.memberGovernorAddress,
+          }
         : undefined,
-    [hasAddressOverrides, nomineeGovernorAddress, memberGovernorAddress]
+    [electionConfig]
   );
 
   // Reset CORS toast flag when RPC URLs change
@@ -264,7 +271,6 @@ export function useElectionStatus({
   >({
     queryKey: electionKeys.track(l2Url, l1Url, selectedIndex ?? -1),
     queryFn: async () => {
-      if (selectedIndex === null) return null;
       const { tracker } = await createTrackerInstance(
         l2Url,
         l1Url,
@@ -272,7 +278,7 @@ export function useElectionStatus({
         isCustomL2Rpc
       );
       debug.app("On-demand tracking election %d", selectedIndex);
-      return (await tracker.trackElection(selectedIndex)) ?? null;
+      return (await tracker.trackElection(selectedIndex!)) ?? null;
     },
     enabled: shouldTrackElection,
     staleTime: Infinity,
@@ -288,7 +294,7 @@ export function useElectionStatus({
     if (current.elections.some((e) => e.electionIndex === selectedIndex))
       return;
 
-    // Load checkpoint details (fire-and-forget, merge when ready)
+    let cancelled = false;
     (async () => {
       try {
         const { tracker } = await createTrackerInstance(
@@ -298,6 +304,7 @@ export function useElectionStatus({
           isCustomL2Rpc
         );
         const checkpoint = await tracker.getElectionCheckpoint(selectedIndex);
+        if (cancelled) return;
 
         queryClient.setQueryData<ElectionQueryData>(mainKey, (prev) => {
           if (!prev) return prev;
@@ -339,6 +346,9 @@ export function useElectionStatus({
         );
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [
     trackedElection,
     selectedIndex,
@@ -381,8 +391,8 @@ export function useElectionStatus({
   // ---------------------------------
 
   const allElections = useMemo(() => data?.elections ?? [], [data?.elections]);
-  const nomineeDetailsMap = data?.nomineeDetailsMap ?? {};
-  const memberDetailsMap = data?.memberDetailsMap ?? {};
+  const nomineeDetailsMap = data?.nomineeDetailsMap ?? EMPTY_NOMINEE_MAP;
+  const memberDetailsMap = data?.memberDetailsMap ?? EMPTY_MEMBER_MAP;
 
   const activeElections = useMemo(
     () => allElections.filter((e) => e.phase !== "COMPLETED"),
@@ -407,15 +417,7 @@ export function useElectionStatus({
 
   // Error is only exposed when there's no data yet (initial load failure)
   const error = !data && queryError ? queryError : null;
-  const isLoading = isFetching || isTrackingElection;
-
-  const refresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
-
-  const selectElection = useCallback((index: number | null) => {
-    setSelectedIndex(index);
-  }, []);
+  const isLoading = (!data && isFetching) || isTrackingElection;
 
   return {
     status: data?.status ?? null,
@@ -428,8 +430,8 @@ export function useElectionStatus({
     memberDetailsMap,
     isLoading,
     error,
-    refresh,
-    selectElection,
+    refresh: refetch,
+    selectElection: setSelectedIndex,
   };
 }
 
@@ -515,15 +517,6 @@ async function fetchWithOverrides(
 
   const elections = await getAllElectionStatuses(l2Provider, electionConfig);
 
-  for (const election of elections) {
-    if (correctVettingPeriod(election)) {
-      debug.app(
-        "Election %d: corrected phase to VETTING_PERIOD (override path)",
-        election.electionIndex
-      );
-    }
-  }
-
   debug.app("Fetched %d elections via override config", elections.length);
 
   let status = null;
@@ -543,16 +536,31 @@ async function fetchWithOverrides(
   const nDetails: Record<number, NomineeElectionDetails> = {};
   const mDetails: Record<number, MemberElectionDetails> = {};
 
-  for (const election of elections) {
-    const i = election.electionIndex;
-    try {
-      const nd = await getNomineeElectionDetails(
-        i,
-        l2Provider,
-        electionConfig.nomineeGovernorAddress
-      );
-      if (nd) {
-        let serialized = serializeNomineeDetails(nd);
+  await Promise.all(
+    elections.map(async (election) => {
+      if (correctVettingPeriod(election)) {
+        debug.app(
+          "Election %d: corrected phase to VETTING_PERIOD (override path)",
+          election.electionIndex
+        );
+      }
+
+      const i = election.electionIndex;
+      const [nomineeResult, memberResult] = await Promise.allSettled([
+        getNomineeElectionDetails(
+          i,
+          l2Provider,
+          electionConfig.nomineeGovernorAddress
+        ),
+        getMemberElectionDetails(
+          i,
+          l2Provider,
+          electionConfig.memberGovernorAddress
+        ),
+      ]);
+
+      if (nomineeResult.status === "fulfilled" && nomineeResult.value) {
+        let serialized = serializeNomineeDetails(nomineeResult.value);
         try {
           serialized = await enrichContenderVotes(
             serialized,
@@ -563,21 +571,25 @@ async function fetchWithOverrides(
           // non-fatal
         }
         nDetails[i] = serialized;
+      } else if (nomineeResult.status === "rejected") {
+        debug.app(
+          "Failed to get nominee details for election %d: %O",
+          i,
+          nomineeResult.reason
+        );
       }
-    } catch (err) {
-      debug.app("Failed to get nominee details for election %d: %O", i, err);
-    }
-    try {
-      const md = await getMemberElectionDetails(
-        i,
-        l2Provider,
-        electionConfig.memberGovernorAddress
-      );
-      if (md) mDetails[i] = serializeMemberDetails(md);
-    } catch (err) {
-      debug.app("Failed to get member details for election %d: %O", i, err);
-    }
-  }
+
+      if (memberResult.status === "fulfilled" && memberResult.value) {
+        mDetails[i] = serializeMemberDetails(memberResult.value);
+      } else if (memberResult.status === "rejected") {
+        debug.app(
+          "Failed to get member details for election %d: %O",
+          i,
+          memberResult.reason
+        );
+      }
+    })
+  );
 
   return {
     status,

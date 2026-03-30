@@ -73,6 +73,7 @@ export interface UseElectionStatusOptions {
   selectedElectionIndex?: number | null;
   nomineeGovernorAddress?: string;
   memberGovernorAddress?: string;
+  chainId?: number;
 }
 
 export interface UseElectionStatusResult {
