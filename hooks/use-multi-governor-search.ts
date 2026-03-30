@@ -1,10 +1,14 @@
 "use client";
 
 /**
- * Hook for searching proposals across multiple governors
+ * Hook for searching proposals across multiple governors.
+ * Uses TanStack Query for caching so data persists across navigations
+ * and avoids unnecessary refetches.
  */
 
 import { useEffect, useState } from "react";
+
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   extractProposalsFromBundledCache,
@@ -37,10 +41,23 @@ import { useRpcProvider } from "./use-rpc-provider";
 /** Default block range for chunked RPC queries */
 const DEFAULT_BLOCK_RANGE = 10000000;
 
+/** Query key factory for proposal searches */
+export const proposalKeys = {
+  all: ["proposals"] as const,
+  search: (rpcUrl: string, daysToSearch: number, blockRange: number) =>
+    ["proposals", "search", rpcUrl, daysToSearch, blockRange] as const,
+};
+
+/** Shape of data stored in the TanStack Query cache */
+interface ProposalSearchData {
+  proposals: ParsedProposal[];
+  cacheInfo: CacheHitInfo;
+}
+
 /**
- * Hook for searching proposals across Core and Treasury governors
- * @param options - Search options including days to search and RPC URL
- * @returns Proposals, progress, errors, and cache information
+ * Hook for searching proposals across Core and Treasury governors.
+ * Backed by TanStack Query so results are cached across navigations
+ * and only refetched when stale (5 minutes by default).
  */
 export function useMultiGovernorSearch({
   daysToSearch,
@@ -49,160 +66,135 @@ export function useMultiGovernorSearch({
   blockRange = DEFAULT_BLOCK_RANGE,
 }: UseMultiGovernorSearchOptions): UseMultiGovernorSearchResult {
   const [progress, setProgress] = useState(0);
-  const [proposals, setProposals] = useState<ParsedProposal[]>([]);
-  const [error, setError] = useState<Error | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [cacheInfo, setCacheInfo] = useState<CacheHitInfo>();
+  const queryClient = useQueryClient();
 
   const rpcUrl = customRpcUrl || ARBITRUM_RPC_URL;
   const { isReady: providerReady, error: providerError } =
     useRpcProvider(rpcUrl);
 
-  // Propagate provider initialization error
-  useEffect(() => {
-    if (providerError) {
-      setError(providerError);
-    }
-  }, [providerError]);
-
-  // Search for proposals
-  useEffect(() => {
-    if (!enabled || !providerReady) return;
-
-    const abortController = new AbortController();
-    let cancelled = false;
-
-    const search = async () => {
-      setIsSearching(true);
-      setError(null);
+  const {
+    data,
+    error: queryError,
+    isFetching,
+  } = useQuery<ProposalSearchData>({
+    queryKey: proposalKeys.search(rpcUrl, daysToSearch, blockRange),
+    queryFn: async ({ signal }) => {
       setProgress(0);
 
-      try {
-        const provider = await createRpcProvider(rpcUrl);
-        const currentBlock = await provider.getBlockNumber();
+      const provider = await createRpcProvider(rpcUrl);
+      const currentBlock = await provider.getBlockNumber();
 
-        // Calculate search range based on days
-        const blocksToSearch = BLOCKS_PER_DAY.arbitrum * daysToSearch;
-        const userStartBlock = Math.max(currentBlock - blocksToSearch, 0);
+      const blocksToSearch = BLOCKS_PER_DAY.arbitrum * daysToSearch;
+      const userStartBlock = Math.max(currentBlock - blocksToSearch, 0);
 
-        setProgress(5);
-        if (cancelled || abortController.signal.aborted) return;
+      setProgress(5);
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-        // Extract proposals directly from bundled cache (no RPC calls)
-        const [{ proposals: cachedProposals, activeProposalIds }, watermarks] =
-          await Promise.all([
-            extractProposalsFromBundledCache(),
-            getBundledCacheWatermarks(),
-          ]);
+      const [{ proposals: cachedProposals, activeProposalIds }, watermarks] =
+        await Promise.all([
+          extractProposalsFromBundledCache(),
+          getBundledCacheWatermarks(),
+        ]);
 
-        setProgress(10);
-        if (cancelled || abortController.signal.aborted) return;
+      setProgress(10);
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-        const allProposals: ParsedProposal[] = [...cachedProposals];
-        const cachedCount = cachedProposals.length;
-        let cacheWatermarkBlock =
-          watermarks?.watermarks.constitutionalGovernor ?? 0;
+      const allProposals: ParsedProposal[] = [...cachedProposals];
+      const cachedCount = cachedProposals.length;
+      let cacheWatermarkBlock =
+        watermarks?.watermarks.constitutionalGovernor ?? 0;
 
-        debug.search(
-          "extracted %d proposals from cache (%d active)",
-          cachedCount,
-          activeProposalIds.size
+      debug.search(
+        "extracted %d proposals from cache (%d active)",
+        cachedCount,
+        activeProposalIds.size
+      );
+
+      if (activeProposalIds.size > 0) {
+        const activeProposals = allProposals.filter((p) =>
+          activeProposalIds.has(p.id)
+        );
+        debug.search("refreshing %d active proposals", activeProposals.length);
+
+        const refreshed = await refreshProposalStates(
+          provider,
+          activeProposals
         );
 
-        // Refresh state/votes only for active proposals
-        if (activeProposalIds.size > 0) {
-          const activeProposals = allProposals.filter((p) =>
-            activeProposalIds.has(p.id)
-          );
-          debug.search(
-            "refreshing %d active proposals",
-            activeProposals.length
-          );
-
-          const refreshed = await refreshProposalStates(
-            provider,
-            activeProposals
-          );
-
-          // Update the proposals with refreshed data
-          const refreshedMap = buildLookupMap(refreshed, (p) => p.id);
-          for (let i = 0; i < allProposals.length; i++) {
-            const updated = refreshedMap.get(allProposals[i].id);
-            if (updated) {
-              allProposals[i] = updated;
-            }
+        const refreshedMap = buildLookupMap(refreshed, (p) => p.id);
+        for (let i = 0; i < allProposals.length; i++) {
+          const updated = refreshedMap.get(allProposals[i].id);
+          if (updated) {
+            allProposals[i] = updated;
           }
         }
+      }
 
-        setProgress(30);
-        if (cancelled || abortController.signal.aborted) return;
+      setProgress(30);
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-        // Determine the starting block for fresh RPC search
-        if (watermarks) {
-          debug.search(
-            "bundled cache watermark at L2 block %d",
-            cacheWatermarkBlock
-          );
-        }
+      if (watermarks) {
+        debug.search(
+          "bundled cache watermark at L2 block %d",
+          cacheWatermarkBlock
+        );
+      }
 
-        // Only scan blocks after the watermark (or from userStartBlock if no watermark)
-        const rpcStartBlock = watermarks
-          ? Math.max(cacheWatermarkBlock + 1, userStartBlock)
-          : userStartBlock;
+      const rpcStartBlock = watermarks
+        ? Math.max(cacheWatermarkBlock + 1, userStartBlock)
+        : userStartBlock;
 
-        let freshCount = 0;
+      let freshCount = 0;
 
-        // Skip RPC search if watermark covers our search range
-        if (rpcStartBlock < currentBlock) {
-          debug.search(
-            "searching RPC blocks %d to %d",
-            rpcStartBlock,
-            currentBlock
-          );
+      if (rpcStartBlock < currentBlock) {
+        debug.search(
+          "searching RPC blocks %d to %d",
+          rpcStartBlock,
+          currentBlock
+        );
 
-          // Search all governors in parallel for better performance
-          const searchResults = await Promise.all(
-            ARBITRUM_GOVERNORS.map((governor) =>
-              searchGovernor(
-                provider,
-                governor.address,
-                rpcStartBlock,
-                currentBlock,
-                blockRange,
-                () => {}
-              )
+        const searchResults = await Promise.all(
+          ARBITRUM_GOVERNORS.map((governor) =>
+            searchGovernor(
+              provider,
+              governor.address,
+              rpcStartBlock,
+              currentBlock,
+              blockRange,
+              () => {}
             )
-          );
+          )
+        );
 
-          if (cancelled || abortController.signal.aborted) return;
-          setProgress(60);
+        if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        setProgress(60);
 
-          // Parse proposals from each governor in parallel
-          const allRawProposals = searchResults.flat();
-          if (allRawProposals.length > 0) {
-            const parsed = await parseProposals(provider, allRawProposals);
-            // Build existingIds set once, outside the loop
-            const existingIds = new Set(allProposals.map((p) => p.id));
-            for (const p of parsed) {
-              if (!existingIds.has(p.id)) {
-                allProposals.push(p);
-                freshCount++;
-              }
+        const allRawProposals = searchResults.flat();
+        if (allRawProposals.length > 0) {
+          const parsed = await parseProposals(provider, allRawProposals);
+          const existingIds = new Set(allProposals.map((p) => p.id));
+          for (const p of parsed) {
+            if (!existingIds.has(p.id)) {
+              allProposals.push(p);
+              freshCount++;
             }
           }
-        } else {
-          debug.search(
-            "skipping RPC search - watermark %d covers search range",
-            cacheWatermarkBlock
-          );
-          setProgress(80);
         }
+      } else {
+        debug.search(
+          "skipping RPC search - watermark %d covers search range",
+          cacheWatermarkBlock
+        );
+        setProgress(80);
+      }
 
-        if (cancelled || abortController.signal.aborted) return;
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-        // Sort: active first, then by startBlock descending
-        setProposals(sortProposals(allProposals));
-        setCacheInfo({
+      setProgress(100);
+
+      return {
+        proposals: sortProposals(allProposals),
+        cacheInfo: {
           loaded: cachedCount > 0,
           snapshotBlock: cacheWatermarkBlock,
           cacheStartBlock: 0,
@@ -211,77 +203,72 @@ export function useMultiGovernorSearch({
           cacheUsed: cachedCount > 0,
           rangeInfo:
             cachedCount > 0
-              ? `Cache: ${cachedCount} + RPC: ${rpcStartBlock} → ${currentBlock}`
-              : `RPC: ${rpcStartBlock} → ${currentBlock}`,
-        });
-        setProgress(100);
-        setIsSearching(false);
-      } catch (err) {
-        if (!cancelled && !abortController.signal.aborted) {
-          setError(err as Error);
-          setIsSearching(false);
-        }
-      }
-    };
+              ? `Cache: ${cachedCount} + RPC: ${rpcStartBlock} \u2192 ${currentBlock}`
+              : `RPC: ${rpcStartBlock} \u2192 ${currentBlock}`,
+        },
+      };
+    },
+    enabled: enabled && providerReady,
+    staleTime: 5 * 60 * 1000, // 5 min: skip refetch if data is fresh
+    gcTime: 10 * 60 * 1000, // 10 min: keep unused data in cache
+    retry: false,
+  });
 
-    search().catch((err) => {
-      if (!cancelled && !abortController.signal.aborted) {
-        debug.search("unhandled search error: %O", err);
-        setError(err as Error);
-        setIsSearching(false);
-      }
-    });
+  // When cached data is served instantly, make sure progress reflects it
+  useEffect(() => {
+    if (data && !isFetching) {
+      setProgress(100);
+    }
+  }, [data, isFetching]);
 
-    return () => {
-      cancelled = true;
-      abortController.abort();
-    };
-  }, [enabled, providerReady, daysToSearch, rpcUrl, blockRange]);
-
-  // Subscribe to vote updates and update proposals when votes change
+  // Subscribe to live vote updates and patch the query cache
   useEffect(() => {
     return subscribeToVoteUpdates((update: VoteUpdate) => {
-      setProposals((prev) => {
-        // Create composite key for O(1) lookup
-        const updateKey = `${update.proposalId}:${update.governorAddress.toLowerCase()}`;
+      queryClient.setQueryData<ProposalSearchData>(
+        proposalKeys.search(rpcUrl, daysToSearch, blockRange),
+        (prev) => {
+          if (!prev) return prev;
 
-        // Find index of matching proposal (still O(n) but only once)
-        const idx = prev.findIndex(
-          (p) => `${p.id}:${p.contractAddress.toLowerCase()}` === updateKey
-        );
+          const updateKey = `${update.proposalId}:${update.governorAddress.toLowerCase()}`;
+          const idx = prev.proposals.findIndex(
+            (p) => `${p.id}:${p.contractAddress.toLowerCase()}` === updateKey
+          );
 
-        // No matching proposal found - return unchanged array
-        if (idx === -1) return prev;
+          if (idx === -1) return prev;
 
-        debug.search(
-          "updating votes for proposal %s: for=%s, against=%s",
-          update.proposalId,
-          update.forVotes,
-          update.againstVotes
-        );
+          debug.search(
+            "updating votes for proposal %s: for=%s, against=%s",
+            update.proposalId,
+            update.forVotes,
+            update.againstVotes
+          );
 
-        // Create new array with only the updated proposal changed
-        const updated = [...prev];
-        updated[idx] = {
-          ...prev[idx],
-          votes: {
-            forVotes: update.forVotes,
-            againstVotes: update.againstVotes,
-            abstainVotes: update.abstainVotes,
-            quorum: prev[idx].votes?.quorum || "0",
-          },
-        };
-        return updated;
-      });
+          const updatedProposals = [...prev.proposals];
+          updatedProposals[idx] = {
+            ...prev.proposals[idx],
+            votes: {
+              forVotes: update.forVotes,
+              againstVotes: update.againstVotes,
+              abstainVotes: update.abstainVotes,
+              quorum: prev.proposals[idx].votes?.quorum || "0",
+            },
+          };
+
+          return { ...prev, proposals: updatedProposals };
+        }
+      );
     });
-  }, []);
+  }, [queryClient, rpcUrl, daysToSearch, blockRange]);
+
+  // Derive progress: if we already have data and aren't fetching, always 100
+  const effectiveProgress = data && !isFetching ? 100 : progress;
 
   return {
-    proposals,
-    progress,
-    error,
-    isSearching,
+    proposals: data?.proposals ?? [],
+    progress: effectiveProgress,
+    error: providerError ?? queryError ?? null,
+    isSearching: isFetching,
     isProviderReady: providerReady,
-    cacheInfo,
+    cacheInfo: data?.cacheInfo,
   };
 }
