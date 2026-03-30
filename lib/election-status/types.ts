@@ -48,6 +48,14 @@ export const PHASE_RANK: Record<string, number> = {
   COMPLETED: 6,
 };
 
+/** Shape of the data returned by the main election query. */
+export interface ElectionQueryData {
+  status: ElectionStatus | null;
+  elections: ElectionProposalStatus[];
+  nomineeDetailsMap: Record<number, NomineeElectionDetails>;
+  memberDetailsMap: Record<number, MemberElectionDetails>;
+}
+
 export const DEFAULT_NOMINEE_GOVERNOR =
   "0x8a1cDA8dee421cD06023470608605934c16A05a0";
 

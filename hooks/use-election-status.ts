@@ -13,9 +13,13 @@ import {
   serializeNomineeDetails,
   type ElectionConfig,
   type ElectionProposalStatus,
-  type ElectionStatus,
   type ChunkingConfig as GovTrackerChunkingConfig,
 } from "@gzeoneth/gov-tracker";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { initializeBundledCache } from "@/lib/bundled-cache-loader";
@@ -34,6 +38,7 @@ import {
 } from "@/lib/election-status/helpers";
 import type {
   CachedElectionData,
+  ElectionQueryData,
   MemberElectionDetails,
   NomineeElectionDetails,
   UseElectionStatusOptions,
@@ -48,6 +53,50 @@ import {
 
 export type { UseElectionStatusOptions, UseElectionStatusResult };
 
+// ---------------------------------------------------------------------------
+// Query key factory
+// ---------------------------------------------------------------------------
+
+export const electionKeys = {
+  all: ["elections"] as const,
+  data: (
+    l2Url: string,
+    l1Url: string,
+    overrides?: { nominee: string; member: string }
+  ) => ["elections", "data", l2Url, l1Url, overrides ?? "default"] as const,
+  track: (l2Url: string, l1Url: string, index: number) =>
+    ["elections", "track", l2Url, l1Url, index] as const,
+};
+
+// ---------------------------------------------------------------------------
+// Non-hook helpers
+// ---------------------------------------------------------------------------
+
+async function createTrackerInstance(
+  l2Url: string,
+  l1Url: string,
+  chunkingConfig: GovTrackerChunkingConfig | undefined,
+  skipBundledCache: boolean
+) {
+  const cache = getCacheAdapter();
+  if (!skipBundledCache) {
+    await initializeBundledCache(cache);
+  }
+  const l2Provider = getOrCreateProvider(l2Url);
+  const l1Provider = getOrCreateProvider(l1Url);
+  const tracker = createTracker({
+    l2Provider,
+    l1Provider,
+    cache,
+    chunkingConfig,
+  });
+  return { tracker, l2Provider, l1Provider };
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
 export function useElectionStatus({
   enabled = true,
   l2RpcUrl,
@@ -59,50 +108,20 @@ export function useElectionStatus({
   nomineeGovernorAddress,
   memberGovernorAddress,
 }: UseElectionStatusOptions = {}): UseElectionStatusResult {
-  const hasAddressOverrides = !!(
-    nomineeGovernorAddress && memberGovernorAddress
-  );
-  const [status, setStatus] = useState<ElectionStatus | null>(null);
-  const [allElections, setAllElections] = useState<ElectionProposalStatus[]>(
-    []
-  );
+  const queryClient = useQueryClient();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(
     initialSelectedIndex
   );
-  const [nomineeDetailsMap, setNomineeDetailsMap] = useState<
-    Record<number, NomineeElectionDetails>
-  >({});
-  const [memberDetailsMap, setMemberDetailsMap] = useState<
-    Record<number, MemberElectionDetails>
-  >({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  // Refs for tracking state that shouldn't trigger re-renders
-  const trackingIndicesRef = useRef<Set<number>>(new Set());
   const shownErrorToastRef = useRef(false);
-  const initialLoadDoneRef = useRef(false);
-  const selectedIndexRef = useRef(selectedIndex);
-  const bundledCacheInitializedRef = useRef(false);
-  const fetchInFlightRef = useRef(false);
-
-  // Keep selectedIndexRef in sync
-  useEffect(() => {
-    selectedIndexRef.current = selectedIndex;
-  }, [selectedIndex]);
 
   const l2Url = l2RpcUrl || ARBITRUM_RPC_URL;
   const l1Url = l1RpcUrl || ETHEREUM_RPC_URL;
   const isCustomL2Rpc = !!l2RpcUrl && l2RpcUrl !== ARBITRUM_RPC_URL;
 
-  // Reset state when URLs change (e.g. switching to a fork)
-  useEffect(() => {
-    shownErrorToastRef.current = false;
-    bundledCacheInitializedRef.current = false;
-  }, [l2Url, l1Url]);
+  const hasAddressOverrides = !!(
+    nomineeGovernorAddress && memberGovernorAddress
+  );
 
-  // Stable chunking config - only create object when values are truthy
   const chunkingConfig = useMemo<GovTrackerChunkingConfig | undefined>(() => {
     if (!l1ChunkSize && !l2ChunkSize) return undefined;
     return {
@@ -112,29 +131,258 @@ export function useElectionStatus({
     };
   }, [l1ChunkSize, l2ChunkSize]);
 
-  // Create tracker with providers - memoized to avoid recreation
-  const getTracker = useCallback(async () => {
-    const cache = getCacheAdapter();
+  const electionConfig = useMemo<ElectionConfig | undefined>(() => {
+    if (!nomineeGovernorAddress || !memberGovernorAddress) return undefined;
+    return {
+      nomineeGovernorAddress: nomineeGovernorAddress as `0x${string}`,
+      memberGovernorAddress: memberGovernorAddress as `0x${string}`,
+      chainId: 42161,
+    };
+  }, [nomineeGovernorAddress, memberGovernorAddress]);
 
-    // Skip bundled cache when using a custom L2 RPC (e.g. Tenderly fork)
-    // to avoid stale mainnet data overriding the fork's actual state.
-    if (!bundledCacheInitializedRef.current && !isCustomL2Rpc) {
-      await initializeBundledCache(cache);
-      bundledCacheInitializedRef.current = true;
-    }
+  const overridesKey = useMemo(
+    () =>
+      hasAddressOverrides
+        ? { nominee: nomineeGovernorAddress!, member: memberGovernorAddress! }
+        : undefined,
+    [hasAddressOverrides, nomineeGovernorAddress, memberGovernorAddress]
+  );
 
-    const l2Provider = getOrCreateProvider(l2Url);
-    const l1Provider = getOrCreateProvider(l1Url);
+  // Reset CORS toast flag when RPC URLs change
+  useEffect(() => {
+    shownErrorToastRef.current = false;
+  }, [l2Url, l1Url]);
 
-    const tracker = createTracker({
-      l2Provider,
-      l1Provider,
-      cache,
-      chunkingConfig,
+  // ---------------------------------
+  // Seed cache on mount (instant first render from bundled cache)
+  // ---------------------------------
+
+  const queryKey = electionKeys.data(l2Url, l1Url, overridesKey);
+
+  useEffect(() => {
+    if (hasAddressOverrides || isCustomL2Rpc || !enabled) return;
+    if (queryClient.getQueryData(queryKey)) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { tracker } = await createTrackerInstance(
+          l2Url,
+          l1Url,
+          chunkingConfig,
+          false
+        );
+        const cached = await loadCachedElections(tracker);
+        if (cancelled || cached.elections.length === 0) return;
+        // Only seed if the main query hasn't resolved yet
+        if (queryClient.getQueryData(queryKey)) return;
+        const sorted = [...cached.elections].sort(
+          (a, b) => a.electionIndex - b.electionIndex
+        );
+        queryClient.setQueryData<ElectionQueryData>(queryKey, {
+          status: null,
+          elections: preventPhaseRegression(sorted),
+          nomineeDetailsMap: cached.nomineeDetails,
+          memberDetailsMap: cached.memberDetails,
+        });
+      } catch {
+        // Cache seeding is best-effort
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Run once on mount (stable deps)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------------------------------
+  // Main query
+  // ---------------------------------
+
+  const {
+    data,
+    isFetching,
+    error: queryError,
+    refetch,
+  } = useQuery<ElectionQueryData, Error>({
+    queryKey,
+    queryFn: async (): Promise<ElectionQueryData> => {
+      if (hasAddressOverrides && electionConfig) {
+        try {
+          return await fetchWithOverrides(l2Url, l1Url, electionConfig);
+        } catch (overrideErr) {
+          debug.app(
+            "Override fetch failed, falling back to default: %O",
+            overrideErr
+          );
+          // Fall through to default path
+        }
+      }
+      return fetchDefault(l2Url, l1Url, chunkingConfig, isCustomL2Rpc);
+    },
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+    refetchInterval: (query) => {
+      if (!enabled || refreshInterval <= 0) return false;
+      const currentData = query.state.data;
+      if (!currentData) return refreshInterval;
+
+      // Derive the selected election to check its phase
+      const active = currentData.elections.filter(
+        (e) => e.phase !== "COMPLETED"
+      );
+      const selected =
+        selectedIndex !== null
+          ? currentData.elections.find((e) => e.electionIndex === selectedIndex)
+          : (active[0] ??
+            currentData.elections[currentData.elections.length - 1]);
+
+      // No on-chain state changes during vetting (off-chain compliance review)
+      if (selected?.phase === "VETTING_PERIOD") return false;
+
+      return refreshInterval;
+    },
+  });
+
+  // ---------------------------------
+  // On-demand election tracking
+  // ---------------------------------
+
+  const shouldTrackElection =
+    enabled &&
+    !!data &&
+    selectedIndex !== null &&
+    !data.elections.some((e) => e.electionIndex === selectedIndex);
+
+  const { data: trackedElection, isFetching: isTrackingElection } = useQuery<
+    ElectionProposalStatus | null,
+    Error
+  >({
+    queryKey: electionKeys.track(l2Url, l1Url, selectedIndex ?? -1),
+    queryFn: async () => {
+      if (selectedIndex === null) return null;
+      const { tracker } = await createTrackerInstance(
+        l2Url,
+        l1Url,
+        chunkingConfig,
+        isCustomL2Rpc
+      );
+      debug.app("On-demand tracking election %d", selectedIndex);
+      return (await tracker.trackElection(selectedIndex)) ?? null;
+    },
+    enabled: shouldTrackElection,
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  // Merge tracked election into main query data
+  useEffect(() => {
+    if (!trackedElection || selectedIndex === null) return;
+    const mainKey = electionKeys.data(l2Url, l1Url, overridesKey);
+    const current = queryClient.getQueryData<ElectionQueryData>(mainKey);
+    if (!current) return;
+    if (current.elections.some((e) => e.electionIndex === selectedIndex))
+      return;
+
+    // Load checkpoint details (fire-and-forget, merge when ready)
+    (async () => {
+      try {
+        const { tracker } = await createTrackerInstance(
+          l2Url,
+          l1Url,
+          chunkingConfig,
+          isCustomL2Rpc
+        );
+        const checkpoint = await tracker.getElectionCheckpoint(selectedIndex);
+
+        queryClient.setQueryData<ElectionQueryData>(mainKey, (prev) => {
+          if (!prev) return prev;
+          if (prev.elections.some((e) => e.electionIndex === selectedIndex))
+            return prev;
+          const updated = [...prev.elections, trackedElection];
+          updated.sort((a, b) => a.electionIndex - b.electionIndex);
+
+          debug.app(
+            "Successfully tracked election %d: %s (details cached: nominee=%s, member=%s)",
+            selectedIndex,
+            trackedElection.phase,
+            !!checkpoint?.nomineeDetails,
+            !!checkpoint?.memberDetails
+          );
+
+          return {
+            ...prev,
+            elections: preventPhaseRegression(updated),
+            nomineeDetailsMap: {
+              ...prev.nomineeDetailsMap,
+              ...(checkpoint?.nomineeDetails
+                ? { [selectedIndex]: checkpoint.nomineeDetails }
+                : {}),
+            },
+            memberDetailsMap: {
+              ...prev.memberDetailsMap,
+              ...(checkpoint?.memberDetails
+                ? { [selectedIndex]: checkpoint.memberDetails }
+                : {}),
+            },
+          };
+        });
+      } catch (err) {
+        debug.app(
+          "Failed to load checkpoint for tracked election %d: %O",
+          selectedIndex,
+          err
+        );
+      }
+    })();
+  }, [
+    trackedElection,
+    selectedIndex,
+    l2Url,
+    l1Url,
+    overridesKey,
+    chunkingConfig,
+    isCustomL2Rpc,
+    queryClient,
+  ]);
+
+  // ---------------------------------
+  // CORS error toast
+  // ---------------------------------
+
+  useEffect(() => {
+    if (!queryError || data) return;
+    if (!(queryError instanceof Error)) return;
+    if (!isCorsOrNetworkError(queryError)) return;
+    if (shownErrorToastRef.current) return;
+
+    shownErrorToastRef.current = true;
+    toast.error("Failed to load elections", {
+      description:
+        "The RPC endpoint may have CORS issues. Try configuring a different RPC URL in Settings.",
+      duration: 10000,
+      action: {
+        label: "Settings",
+        onClick: () => {
+          document
+            .querySelector<HTMLButtonElement>('[aria-label="Settings"]')
+            ?.click();
+        },
+      },
     });
+  }, [queryError, data]);
 
-    return { tracker, l2Provider, l1Provider };
-  }, [l2Url, l1Url, chunkingConfig, isCustomL2Rpc]);
+  // ---------------------------------
+  // Derived values
+  // ---------------------------------
+
+  const allElections = useMemo(() => data?.elections ?? [], [data?.elections]);
+  const nomineeDetailsMap = data?.nomineeDetailsMap ?? {};
+  const memberDetailsMap = data?.memberDetailsMap ?? {};
 
   const activeElections = useMemo(
     () => allElections.filter((e) => e.phase !== "COMPLETED"),
@@ -157,349 +405,20 @@ export function useElectionStatus({
     ? (memberDetailsMap[selectedElection.electionIndex] ?? null)
     : null;
 
-  const electionConfig = useMemo<ElectionConfig | undefined>(() => {
-    if (!nomineeGovernorAddress || !memberGovernorAddress) return undefined;
-    return {
-      nomineeGovernorAddress: nomineeGovernorAddress as `0x${string}`,
-      memberGovernorAddress: memberGovernorAddress as `0x${string}`,
-      chainId: 42161,
-    };
-  }, [nomineeGovernorAddress, memberGovernorAddress]);
-
-  // -----------------------------------
-  // Fetch with contract address overrides (Tenderly forks, testing)
-  // -----------------------------------
-
-  const fetchWithOverrides = useCallback(async () => {
-    if (!electionConfig) return;
-
-    const l2Provider = getOrCreateProvider(l2Url);
-    const l1Provider = getOrCreateProvider(l1Url);
-
-    debug.app("Fetching election data with address overrides...");
-
-    const elections = await getAllElectionStatuses(l2Provider, electionConfig);
-
-    for (const election of elections) {
-      if (correctVettingPeriod(election)) {
-        debug.app(
-          "Election %d: corrected phase to VETTING_PERIOD (override path)",
-          election.electionIndex
-        );
-      }
-    }
-
-    debug.app("Fetched %d elections via override config", elections.length);
-
-    setAllElections(preventPhaseRegression(elections));
-
-    try {
-      const electionStatus = await checkElectionStatus(
-        l2Provider,
-        l1Provider,
-        electionConfig.nomineeGovernorAddress
-      );
-      setStatus(electionStatus);
-    } catch (err) {
-      debug.app(
-        "checkElectionStatus failed in override mode (non-fatal): %O",
-        err
-      );
-    }
-
-    const nDetails: Record<number, NomineeElectionDetails> = {};
-    const mDetails: Record<number, MemberElectionDetails> = {};
-
-    for (const election of elections) {
-      const i = election.electionIndex;
-      try {
-        const nd = await getNomineeElectionDetails(
-          i,
-          l2Provider,
-          electionConfig.nomineeGovernorAddress
-        );
-        if (nd) {
-          let serialized = serializeNomineeDetails(nd);
-          try {
-            serialized = await enrichContenderVotes(
-              serialized,
-              l2Provider,
-              electionConfig.nomineeGovernorAddress
-            );
-          } catch {
-            // non-fatal
-          }
-          nDetails[i] = serialized;
-        }
-      } catch (err) {
-        debug.app("Failed to get nominee details for election %d: %O", i, err);
-      }
-      try {
-        const md = await getMemberElectionDetails(
-          i,
-          l2Provider,
-          electionConfig.memberGovernorAddress
-        );
-        if (md) mDetails[i] = serializeMemberDetails(md);
-      } catch (err) {
-        debug.app("Failed to get member details for election %d: %O", i, err);
-      }
-    }
-
-    setNomineeDetailsMap(nDetails);
-    setMemberDetailsMap(mDetails);
-    initialLoadDoneRef.current = true;
-  }, [l2Url, l1Url, electionConfig]);
-
-  // -----------------------------------
-  // Default fetch (cache-first, then live RPC)
-  // -----------------------------------
-
-  const fetchDefault = useCallback(async () => {
-    const { tracker, l2Provider, l1Provider } = await getTracker();
-
-    debug.app("Fetching SC election status... (customRpc=%s)", isCustomL2Rpc);
-
-    // Step 1: Load from cache (no RPC needed).
-    // Skip cache when using a custom L2 RPC (e.g. Tenderly fork)
-    // because cached mainnet state may conflict with the fork's block state.
-    let cached: CachedElectionData = {
-      elections: [],
-      nomineeDetails: {},
-      memberDetails: {},
-    };
-
-    if (!isCustomL2Rpc) {
-      cached = await loadCachedElections(tracker);
-
-      // On first load, render cached data immediately so the UI isn't blank.
-      // On subsequent fetches (refreshes), skip the intermediate cache render
-      // to avoid flashing stale phases before live RPC results arrive.
-      if (cached.elections.length > 0 && !initialLoadDoneRef.current) {
-        const sorted = [...cached.elections].sort(
-          (a, b) => a.electionIndex - b.electionIndex
-        );
-        setAllElections(preventPhaseRegression(sorted));
-        setNomineeDetailsMap((prev) => ({ ...prev, ...cached.nomineeDetails }));
-        setMemberDetailsMap((prev) => ({ ...prev, ...cached.memberDetails }));
-        initialLoadDoneRef.current = true;
-      }
-    }
-
-    // Step 2: Fetch live data for non-completed elections.
-    const electionCount = await getElectionCount(l2Provider);
-    debug.app("Election count: %d", electionCount);
-
-    const cachedPhaseByIndex = new Map(
-      cached.elections.map((e) => [e.electionIndex, e.phase])
-    );
-    const completedIndices = new Set(
-      cached.elections
-        .filter((e) => e.phase === "COMPLETED")
-        .map((e) => e.electionIndex)
-    );
-    const indicesToFetch = Array.from(
-      { length: electionCount },
-      (_, i) => i
-    ).filter((i) => !completedIndices.has(i));
-
-    const [liveResults] = await Promise.all([
-      Promise.all(
-        indicesToFetch.map((i) =>
-          fetchLiveElection(
-            i,
-            l2Provider,
-            cachedPhaseByIndex.get(i),
-            cached.nomineeDetails[i] ?? null,
-            cached.memberDetails[i] ?? null
-          )
-        )
-      ),
-      fetchOverallStatus(l2Provider, l1Provider, setStatus),
-    ]);
-
-    // Step 3: Merge live results into cached data and render.
-    const merged = mergeResults(cached, liveResults);
-
-    setAllElections(preventPhaseRegression(merged.elections));
-    setNomineeDetailsMap((prev) => ({ ...prev, ...merged.nomineeDetails }));
-    setMemberDetailsMap((prev) => ({ ...prev, ...merged.memberDetails }));
-    initialLoadDoneRef.current = true;
-  }, [getTracker, isCustomL2Rpc]);
-
-  // -----------------------------------
-  // Fetch orchestration
-  // -----------------------------------
-
-  const fetchElectionData = useCallback(async () => {
-    if (!enabled) return;
-    if (fetchInFlightRef.current) {
-      debug.app("Skipping duplicate election fetch (already in-flight)");
-      return;
-    }
-
-    fetchInFlightRef.current = true;
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      if (hasAddressOverrides) {
-        try {
-          await fetchWithOverrides();
-        } catch (overrideErr) {
-          debug.app(
-            "Override fetch failed, falling back to default: %O",
-            overrideErr
-          );
-          setNomineeDetailsMap({});
-          setMemberDetailsMap({});
-          await fetchDefault();
-        }
-      } else {
-        await fetchDefault();
-      }
-    } catch (err) {
-      debug.app("Election status error: %O", err);
-      const error = err instanceof Error ? err : new Error(String(err));
-      if (!initialLoadDoneRef.current) {
-        setError(error);
-      }
-
-      if (isCorsOrNetworkError(error) && !shownErrorToastRef.current) {
-        shownErrorToastRef.current = true;
-        toast.error("Failed to load elections", {
-          description:
-            "The RPC endpoint may have CORS issues. Try configuring a different RPC URL in Settings.",
-          duration: 10000,
-          action: {
-            label: "Settings",
-            onClick: () => {
-              document
-                .querySelector<HTMLButtonElement>('[aria-label="Settings"]')
-                ?.click();
-            },
-          },
-        });
-      }
-    } finally {
-      fetchInFlightRef.current = false;
-      setIsLoading(false);
-    }
-  }, [enabled, hasAddressOverrides, fetchWithOverrides, fetchDefault]);
+  // Error is only exposed when there's no data yet (initial load failure)
+  const error = !data && queryError ? queryError : null;
+  const isLoading = isFetching || isTrackingElection;
 
   const refresh = useCallback(() => {
-    setRefreshTrigger((prev) => prev + 1);
-  }, []);
+    refetch();
+  }, [refetch]);
 
   const selectElection = useCallback((index: number | null) => {
     setSelectedIndex(index);
   }, []);
 
-  useEffect(() => {
-    fetchElectionData();
-    return () => {
-      fetchInFlightRef.current = false;
-    };
-  }, [fetchElectionData, refreshTrigger]);
-
-  useEffect(() => {
-    if (!enabled || refreshInterval <= 0) return;
-
-    const interval = setInterval(refresh, refreshInterval);
-    return () => clearInterval(interval);
-  }, [enabled, refreshInterval, refresh]);
-
-  // Track selected election on-demand if not already cached
-  useEffect(() => {
-    if (!enabled || !initialLoadDoneRef.current || selectedIndex === null)
-      return;
-
-    // Use a local variable to capture the index at effect time
-    const indexToTrack = selectedIndex;
-
-    // Check if election already exists
-    const existingElection = allElections.find(
-      (e) => e.electionIndex === indexToTrack
-    );
-    if (existingElection) return;
-
-    // Check if already tracking this index (using ref to avoid dependency)
-    if (trackingIndicesRef.current.has(indexToTrack)) return;
-
-    const trackSelectedElection = async () => {
-      trackingIndicesRef.current.add(indexToTrack);
-      setIsLoading(true);
-
-      try {
-        const { tracker } = await getTracker();
-
-        debug.app("On-demand tracking election %d", indexToTrack);
-
-        const result = await tracker.trackElection(indexToTrack);
-
-        // Verify this is still the selected index (avoid stale updates)
-        if (selectedIndexRef.current !== indexToTrack) {
-          debug.app(
-            "Election %d tracking complete but selection changed, skipping update",
-            indexToTrack
-          );
-          return;
-        }
-
-        if (result) {
-          setAllElections((prev) => {
-            // Check if already added (race condition guard)
-            if (prev.some((e) => e.electionIndex === indexToTrack)) {
-              return prev;
-            }
-            const updated = [...prev, result];
-            updated.sort((a, b) => a.electionIndex - b.electionIndex);
-            return preventPhaseRegression(updated);
-          });
-
-          // Load details from checkpoint (gov-tracker caches them for COMPLETED elections)
-          const checkpoint = await tracker.getElectionCheckpoint(indexToTrack);
-          if (checkpoint?.nomineeDetails) {
-            setNomineeDetailsMap((prev) => ({
-              ...prev,
-              [indexToTrack]: checkpoint.nomineeDetails,
-            }));
-          }
-          if (checkpoint?.memberDetails) {
-            setMemberDetailsMap((prev) => ({
-              ...prev,
-              [indexToTrack]: checkpoint.memberDetails,
-            }));
-          }
-
-          debug.app(
-            "Successfully tracked election %d: %s (details cached: nominee=%s, member=%s)",
-            indexToTrack,
-            result.phase,
-            !!checkpoint?.nomineeDetails,
-            !!checkpoint?.memberDetails
-          );
-        }
-      } catch (err) {
-        debug.app("Failed to track election %d: %O", indexToTrack, err);
-        // Surface error to UI
-        setError(
-          err instanceof Error
-            ? err
-            : new Error(`Failed to track election ${indexToTrack}`)
-        );
-      } finally {
-        trackingIndicesRef.current.delete(indexToTrack);
-        setIsLoading(false);
-      }
-    };
-
-    trackSelectedElection();
-    // Intentionally minimal deps - we use refs for tracking state
-  }, [enabled, selectedIndex, allElections, getTracker]);
-
   return {
-    status,
+    status: data?.status ?? null,
     allElections,
     activeElections,
     selectedElection,
@@ -511,5 +430,159 @@ export function useElectionStatus({
     error,
     refresh,
     selectElection,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fetch functions (extracted from hook for clarity)
+// ---------------------------------------------------------------------------
+
+async function fetchDefault(
+  l2Url: string,
+  l1Url: string,
+  chunkingConfig: GovTrackerChunkingConfig | undefined,
+  isCustomL2Rpc: boolean
+): Promise<ElectionQueryData> {
+  const { tracker, l2Provider, l1Provider } = await createTrackerInstance(
+    l2Url,
+    l1Url,
+    chunkingConfig,
+    isCustomL2Rpc
+  );
+
+  debug.app("Fetching SC election status... (customRpc=%s)", isCustomL2Rpc);
+
+  let cached: CachedElectionData = {
+    elections: [],
+    nomineeDetails: {},
+    memberDetails: {},
+  };
+
+  if (!isCustomL2Rpc) {
+    cached = await loadCachedElections(tracker);
+  }
+
+  const electionCount = await getElectionCount(l2Provider);
+  debug.app("Election count: %d", electionCount);
+
+  const cachedPhaseByIndex = new Map(
+    cached.elections.map((e) => [e.electionIndex, e.phase])
+  );
+  const completedIndices = new Set(
+    cached.elections
+      .filter((e) => e.phase === "COMPLETED")
+      .map((e) => e.electionIndex)
+  );
+  const indicesToFetch = Array.from(
+    { length: electionCount },
+    (_, i) => i
+  ).filter((i) => !completedIndices.has(i));
+
+  const [liveResults, status] = await Promise.all([
+    Promise.all(
+      indicesToFetch.map((i) =>
+        fetchLiveElection(
+          i,
+          l2Provider,
+          cachedPhaseByIndex.get(i),
+          cached.nomineeDetails[i] ?? null,
+          cached.memberDetails[i] ?? null
+        )
+      )
+    ),
+    fetchOverallStatus(l2Provider, l1Provider),
+  ]);
+
+  const merged = mergeResults(cached, liveResults);
+
+  return {
+    status,
+    elections: preventPhaseRegression(merged.elections),
+    nomineeDetailsMap: merged.nomineeDetails,
+    memberDetailsMap: merged.memberDetails,
+  };
+}
+
+async function fetchWithOverrides(
+  l2Url: string,
+  l1Url: string,
+  electionConfig: ElectionConfig
+): Promise<ElectionQueryData> {
+  const l2Provider = getOrCreateProvider(l2Url);
+  const l1Provider = getOrCreateProvider(l1Url);
+
+  debug.app("Fetching election data with address overrides...");
+
+  const elections = await getAllElectionStatuses(l2Provider, electionConfig);
+
+  for (const election of elections) {
+    if (correctVettingPeriod(election)) {
+      debug.app(
+        "Election %d: corrected phase to VETTING_PERIOD (override path)",
+        election.electionIndex
+      );
+    }
+  }
+
+  debug.app("Fetched %d elections via override config", elections.length);
+
+  let status = null;
+  try {
+    status = await checkElectionStatus(
+      l2Provider,
+      l1Provider,
+      electionConfig.nomineeGovernorAddress
+    );
+  } catch (err) {
+    debug.app(
+      "checkElectionStatus failed in override mode (non-fatal): %O",
+      err
+    );
+  }
+
+  const nDetails: Record<number, NomineeElectionDetails> = {};
+  const mDetails: Record<number, MemberElectionDetails> = {};
+
+  for (const election of elections) {
+    const i = election.electionIndex;
+    try {
+      const nd = await getNomineeElectionDetails(
+        i,
+        l2Provider,
+        electionConfig.nomineeGovernorAddress
+      );
+      if (nd) {
+        let serialized = serializeNomineeDetails(nd);
+        try {
+          serialized = await enrichContenderVotes(
+            serialized,
+            l2Provider,
+            electionConfig.nomineeGovernorAddress
+          );
+        } catch {
+          // non-fatal
+        }
+        nDetails[i] = serialized;
+      }
+    } catch (err) {
+      debug.app("Failed to get nominee details for election %d: %O", i, err);
+    }
+    try {
+      const md = await getMemberElectionDetails(
+        i,
+        l2Provider,
+        electionConfig.memberGovernorAddress
+      );
+      if (md) mDetails[i] = serializeMemberDetails(md);
+    } catch (err) {
+      debug.app("Failed to get member details for election %d: %O", i, err);
+    }
+  }
+
+  return {
+    status,
+    elections: preventPhaseRegression(elections),
+    nomineeDetailsMap: nDetails,
+    memberDetailsMap: mDetails,
   };
 }

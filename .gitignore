@@ -52,3 +52,5 @@ plans/
 .vscode/
 
 delegate-cache.json
+
+.mcp.json

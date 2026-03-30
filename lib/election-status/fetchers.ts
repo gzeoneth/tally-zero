@@ -306,22 +306,21 @@ async function resolveMemberDetails(
  */
 export async function fetchOverallStatus(
   l2Provider: L2Provider,
-  l1Provider: L2Provider,
-  setStatus: (s: ElectionStatus) => void
-): Promise<void> {
+  l1Provider: L2Provider
+): Promise<ElectionStatus | null> {
   try {
     const electionStatus = await checkElectionStatus(l2Provider, l1Provider);
-    setStatus(electionStatus);
     debug.app(
       "Election status: count=%d, canCreate=%s",
       electionStatus.electionCount,
       electionStatus.canCreateElection
     );
+    return electionStatus;
   } catch (err) {
     debug.app("checkElectionStatus failed (non-fatal): %O", err);
     try {
       const count = await getElectionCount(l2Provider);
-      setStatus({
+      const synthesized: ElectionStatus = {
         electionCount: count,
         cohort: (count % 2) as 0 | 1,
         nextElectionTimestamp: 0,
@@ -329,10 +328,12 @@ export async function fetchOverallStatus(
         canCreateElection: false,
         secondsUntilElection: 0,
         timeUntilElection: "Unknown",
-      });
+      };
       debug.app("Synthesized partial election status (count=%d)", count);
+      return synthesized;
     } catch {
       debug.app("Failed to synthesize election status");
+      return null;
     }
   }
 }
