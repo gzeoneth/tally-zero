@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   SerializableMemberDetails,
@@ -23,9 +23,10 @@ import {
   SelectValue,
 } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import {
+  buildShuffleMap,
   countQualifiedNominees,
+  getAddressKey,
   getContenderDescription,
 } from "@/lib/election-utils";
 import type { ElectionPhase, NomineeSortOrder } from "@/types/election";
@@ -34,8 +35,6 @@ import { ContenderList } from "./ContenderList";
 import { ContenderVoteList } from "./ContenderVoteList";
 import { MemberElectionResults } from "./MemberElectionResults";
 import { NomineeElectionList } from "./NomineeElectionList";
-
-type ViewMode = "nominees" | "results";
 
 interface NomineeListProps {
   nomineeDetails: SerializableNomineeDetails | null;
@@ -55,22 +54,48 @@ export function NomineeList({
   const hasMemberResults =
     memberDetails && (phase === "PENDING_EXECUTION" || phase === "COMPLETED");
 
-  const [viewMode, setViewMode] = useState<ViewMode>("nominees");
-  const [sortOrder, setSortOrder] = useState<NomineeSortOrder>("votes");
+  const defaultSort: NomineeSortOrder =
+    phase === "PENDING_EXECUTION" ? "votes" : "random";
+  const [sortOrder, setSortOrder] = useState<NomineeSortOrder>(defaultSort);
+
+  const effectiveSort =
+    phase === "VETTING_PERIOD" && sortOrder === "votes" ? "random" : sortOrder;
+
+  // Stable random ordering: only reshuffle when the user switches to "random"
+  // via dropdown. Data refreshes preserve the existing order.
+  const [randomOrder, setRandomOrder] = useState<Map<string, number>>(
+    new Map()
+  );
+  const prevEffectiveSortRef = useRef(effectiveSort);
+  const addressKey = getAddressKey(nomineeDetails);
 
   useEffect(() => {
-    if (hasMemberResults) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- auto-switch view when results available
-      setViewMode("results");
+    if (effectiveSort !== "random" || !addressKey) {
+      prevEffectiveSortRef.current = effectiveSort;
+      return;
     }
-  }, [hasMemberResults]);
 
-  useEffect(() => {
-    if (phase === "VETTING_PERIOD" && sortOrder === "votes") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- enforce valid sort for phase
-      setSortOrder("random");
-    }
-  }, [phase, sortOrder]);
+    const freshShuffle = prevEffectiveSortRef.current !== "random";
+    prevEffectiveSortRef.current = effectiveSort;
+
+    setRandomOrder((prev) => {
+      const addresses = addressKey.split(",");
+
+      // Fresh shuffle when user switches to random or on first data load
+      if (freshShuffle || prev.size === 0) return buildShuffleMap(addresses);
+
+      // No new addresses: keep existing order
+      if (addresses.every((a) => prev.has(a))) return prev;
+
+      // Append new addresses to existing order
+      const map = new Map(prev);
+      let nextIdx = map.size;
+      for (const addr of addresses) {
+        if (!map.has(addr)) map.set(addr, nextIdx++);
+      }
+      return map;
+    });
+  }, [effectiveSort, addressKey]);
 
   if (isLoading && !nomineeDetails) {
     return <NomineeListSkeleton />;
@@ -82,10 +107,8 @@ export function NomineeList({
 
   const showContenders =
     phase === "CONTENDER_SUBMISSION" || phase === "NOMINEE_SELECTION";
-  const canToggle = hasMemberResults && nomineeDetails;
-  const showResults = viewMode === "results" && hasMemberResults;
-  const showNomineeList =
-    phase !== "NOMINEE_SELECTION" && !showContenders && !showResults;
+  const showResults = !!hasMemberResults;
+  const showNomineeList = !showContenders && !showResults;
   const showSortDropdown = showNomineeList || phase === "NOMINEE_SELECTION";
 
   let title: string;
@@ -112,21 +135,6 @@ export function NomineeList({
             {title}
           </CardTitle>
           <div className="flex items-center gap-2">
-            {canToggle && (
-              <Tabs
-                value={viewMode}
-                onValueChange={(v) => setViewMode(v as ViewMode)}
-              >
-                <TabsList className="h-8">
-                  <TabsTrigger value="nominees" className="text-xs px-2 h-6">
-                    Nominees
-                  </TabsTrigger>
-                  <TabsTrigger value="results" className="text-xs px-2 h-6">
-                    Results
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
             {showSortDropdown && (
               <Select
                 value={sortOrder}
@@ -137,11 +145,11 @@ export function NomineeList({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="random">Random</SelectItem>
+                  <SelectItem value="alphabetical">Alphabetical</SelectItem>
                   {phase !== "VETTING_PERIOD" && (
                     <SelectItem value="votes">Most Votes</SelectItem>
                   )}
-                  <SelectItem value="alphabetical">Alphabetical</SelectItem>
-                  <SelectItem value="random">Random</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -170,15 +178,14 @@ export function NomineeList({
           <ContenderList
             contenders={nomineeDetails.contenders}
             electionIndex={electionIndex}
-            nominees={nomineeDetails.nominees}
-            quorumThreshold={nomineeDetails.quorumThreshold}
           />
         ) : phase === "NOMINEE_SELECTION" ? (
           <ContenderVoteList
             contenders={nomineeDetails.contenders}
             nominees={nomineeDetails.nominees}
             quorumThreshold={nomineeDetails.quorumThreshold}
-            sortOrder={sortOrder}
+            sortOrder={effectiveSort}
+            randomOrder={randomOrder}
           />
         ) : showResults && memberDetails ? (
           <MemberElectionResults
@@ -191,7 +198,8 @@ export function NomineeList({
             memberDetails={memberDetails}
             electionIndex={electionIndex}
             phase={phase}
-            sortOrder={sortOrder}
+            sortOrder={effectiveSort}
+            randomOrder={randomOrder}
           />
         )}
       </CardContent>

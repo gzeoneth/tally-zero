@@ -70,10 +70,37 @@ export const electionKeys = {
 
 const EMPTY_NOMINEE_MAP: Record<number, NomineeElectionDetails> = {};
 const EMPTY_MEMBER_MAP: Record<number, MemberElectionDetails> = {};
+const VOTING_PHASE_POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // ---------------------------------------------------------------------------
 // Non-hook helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Get the block number as seen by Solidity's `block.number` on the L2 chain.
+ * On Arbitrum, `block.number` returns the **L1 block number**, which is the
+ * same clock the Governor contract uses for proposalDeadline and
+ * fullWeightVotingDeadline. We call Multicall3's `getBlockNumber()` via
+ * eth_call to get this value, since the JSON-RPC `eth_blockNumber` and
+ * `eth_getBlockByNumber` return the L2 block number instead.
+ */
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
+const GET_BLOCK_NUMBER_SELECTOR = "0x42cbb15c"; // getBlockNumber()
+
+async function getL1BlockFromL2(
+  l2Provider: ReturnType<typeof getOrCreateProvider>
+): Promise<number | undefined> {
+  try {
+    const result = await l2Provider.call({
+      to: MULTICALL3,
+      data: GET_BLOCK_NUMBER_SELECTOR,
+    });
+    const blockNum = Number(BigInt(result));
+    return blockNum > 0 ? blockNum : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 async function createTrackerInstance(
   l2Url: string,
@@ -106,7 +133,7 @@ export function useElectionStatus({
   l1RpcUrl,
   l1ChunkSize,
   l2ChunkSize,
-  refreshInterval = 60000,
+
   selectedElectionIndex: initialSelectedIndex = null,
   nomineeGovernorAddress,
   memberGovernorAddress,
@@ -226,19 +253,25 @@ export function useElectionStatus({
           // Fall through to default path
         }
       }
-      return fetchDefault(l2Url, l1Url, chunkingConfig, isCustomL2Rpc);
+      const prevData = queryClient.getQueryData<ElectionQueryData>(queryKey);
+      return fetchDefault(
+        l2Url,
+        l1Url,
+        chunkingConfig,
+        isCustomL2Rpc,
+        prevData
+      );
     },
     enabled,
     placeholderData: keepPreviousData,
-    staleTime: 0,
+    staleTime: VOTING_PHASE_POLL_INTERVAL,
     gcTime: 5 * 60 * 1000,
     retry: 1,
+    refetchOnWindowFocus: "always",
     refetchInterval: (query) => {
-      if (!enabled || refreshInterval <= 0) return false;
       const currentData = query.state.data;
-      if (!currentData) return refreshInterval;
+      if (!currentData) return false;
 
-      // Derive the selected election to check its phase
       const active = currentData.elections.filter(
         (e) => e.phase !== "COMPLETED"
       );
@@ -248,10 +281,14 @@ export function useElectionStatus({
           : (active[0] ??
             currentData.elections[currentData.elections.length - 1]);
 
-      // No on-chain state changes during vetting (off-chain compliance review)
-      if (selected?.phase === "VETTING_PERIOD") return false;
+      if (
+        selected?.phase === "NOMINEE_SELECTION" ||
+        selected?.phase === "MEMBER_ELECTION"
+      ) {
+        return VOTING_PHASE_POLL_INTERVAL;
+      }
 
-      return refreshInterval;
+      return false;
     },
   });
 
@@ -428,7 +465,9 @@ export function useElectionStatus({
     memberDetails,
     nomineeDetailsMap,
     memberDetailsMap,
+    latestL1Block: data?.latestL1Block,
     isLoading,
+    isRefreshing: !!data && isFetching,
     error,
     refresh: refetch,
     selectElection: setSelectedIndex,
@@ -443,7 +482,8 @@ async function fetchDefault(
   l2Url: string,
   l1Url: string,
   chunkingConfig: GovTrackerChunkingConfig | undefined,
-  isCustomL2Rpc: boolean
+  isCustomL2Rpc: boolean,
+  previousData?: ElectionQueryData
 ): Promise<ElectionQueryData> {
   const { tracker, l2Provider, l1Provider } = await createTrackerInstance(
     l2Url,
@@ -464,6 +504,20 @@ async function fetchDefault(
     cached = await loadCachedElections(tracker);
   }
 
+  // Carry forward completed elections from previous fetch to skip refetching
+  if (previousData) {
+    for (const e of previousData.elections) {
+      if (e.phase !== "COMPLETED") continue;
+      if (cached.elections.some((c) => c.electionIndex === e.electionIndex))
+        continue;
+      cached.elections.push(e);
+      const nd = previousData.nomineeDetailsMap[e.electionIndex];
+      if (nd) cached.nomineeDetails[e.electionIndex] = nd;
+      const md = previousData.memberDetailsMap[e.electionIndex];
+      if (md) cached.memberDetails[e.electionIndex] = md;
+    }
+  }
+
   const electionCount = await getElectionCount(l2Provider);
   debug.app("Election count: %d", electionCount);
 
@@ -480,7 +534,7 @@ async function fetchDefault(
     (_, i) => i
   ).filter((i) => !completedIndices.has(i));
 
-  const [liveResults, status] = await Promise.all([
+  const [liveResults, status, latestL1Block] = await Promise.all([
     Promise.all(
       indicesToFetch.map((i) =>
         fetchLiveElection(
@@ -493,6 +547,7 @@ async function fetchDefault(
       )
     ),
     fetchOverallStatus(l2Provider, l1Provider),
+    getL1BlockFromL2(l2Provider),
   ]);
 
   const merged = mergeResults(cached, liveResults);
@@ -502,6 +557,7 @@ async function fetchDefault(
     elections: preventPhaseRegression(merged.elections),
     nomineeDetailsMap: merged.nomineeDetails,
     memberDetailsMap: merged.memberDetails,
+    latestL1Block,
   };
 }
 
@@ -591,10 +647,13 @@ async function fetchWithOverrides(
     })
   );
 
+  const latestL1Block = await getL1BlockFromL2(l2Provider);
+
   return {
     status,
     elections: preventPhaseRegression(elections),
     nomineeDetailsMap: nDetails,
     memberDetailsMap: mDetails,
+    latestL1Block,
   };
 }

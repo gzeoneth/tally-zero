@@ -54,6 +54,7 @@ export interface ElectionQueryData {
   elections: ElectionProposalStatus[];
   nomineeDetailsMap: Record<number, NomineeElectionDetails>;
   memberDetailsMap: Record<number, MemberElectionDetails>;
+  latestL1Block?: number;
 }
 
 export const DEFAULT_NOMINEE_GOVERNOR =
@@ -69,7 +70,7 @@ export interface UseElectionStatusOptions {
   l1RpcUrl?: string;
   l1ChunkSize?: number;
   l2ChunkSize?: number;
-  refreshInterval?: number;
+
   selectedElectionIndex?: number | null;
   nomineeGovernorAddress?: string;
   memberGovernorAddress?: string;
@@ -85,7 +86,9 @@ export interface UseElectionStatusResult {
   memberDetails: MemberElectionDetails;
   nomineeDetailsMap: Record<number, NomineeElectionDetails>;
   memberDetailsMap: Record<number, MemberElectionDetails>;
+  latestL1Block: number | undefined;
   isLoading: boolean;
+  isRefreshing: boolean;
   error: Error | null;
   refresh: () => void;
   selectElection: (index: number | null) => void;
